@@ -8,10 +8,13 @@ import {
   RubricRequestSchema,
   StudyMaterialSchema,
   StudySetSchema,
+  ExtractionStatusSchema,
+  RUBRIC_CATEGORY_META,
+  ExtractResponseSchema,
 } from "../../src/lib/domain/study-set";
 
 describe("Domain Models and Zod Schemas", () => {
-  describe("RubricCriterionCategorySchema", () => {
+  describe("RubricCriterionCategorySchema and Student Labels", () => {
     it("accepts all five valid criterion categories", () => {
       const categories = [
         "essential_concept",
@@ -28,6 +31,47 @@ describe("Domain Models and Zod Schemas", () => {
     it("rejects unknown category", () => {
       expect(
         RubricCriterionCategorySchema.safeParse("arbitrary_category").success
+      ).toBe(false);
+    });
+
+    it("maps categories strictly to student-friendly vocabulary without developer jargon", () => {
+      expect(RUBRIC_CATEGORY_META.essential_concept.studentLabel).toBe(
+        "Main idea"
+      );
+      expect(RUBRIC_CATEGORY_META.technical_anchor.studentLabel).toBe(
+        "Key term"
+      );
+      expect(RUBRIC_CATEGORY_META.relationship_sequence.studentLabel).toBe(
+        "Steps in order"
+      );
+      expect(RUBRIC_CATEGORY_META.accuracy_constraint.studentLabel).toBe(
+        "Mistakes to avoid"
+      );
+      expect(RUBRIC_CATEGORY_META.optional_detail.studentLabel).toBe(
+        "Helpful extra"
+      );
+
+      // Verify no developer jargon in student labels
+      for (const meta of Object.values(RUBRIC_CATEGORY_META)) {
+        expect(meta.studentLabel.toLowerCase()).not.toContain("rubric");
+        expect(meta.studentLabel.toLowerCase()).not.toContain("anchor");
+        expect(meta.studentLabel.toLowerCase()).not.toContain("constraint");
+      }
+    });
+  });
+
+  describe("ExtractionStatusSchema", () => {
+    it("validates all four source-grounded extraction statuses", () => {
+      expect(ExtractionStatusSchema.safeParse("found_qa").success).toBe(true);
+      expect(ExtractionStatusSchema.safeParse("missing_question").success).toBe(
+        true
+      );
+      expect(ExtractionStatusSchema.safeParse("missing_answer").success).toBe(
+        true
+      );
+      expect(ExtractionStatusSchema.safeParse("unclear").success).toBe(true);
+      expect(
+        ExtractionStatusSchema.safeParse("invented_question").success
       ).toBe(false);
     });
   });
@@ -199,12 +243,13 @@ describe("Domain Models and Zod Schemas", () => {
     });
   });
 
-  describe("API Request Schemas", () => {
-    it("validates ExtractRequestSchema with sufficient length", () => {
+  describe("API Request and Response Schemas", () => {
+    it("validates ExtractRequestSchema with sufficient length and optional studentQuestion", () => {
       const valid = {
         title: "DNS Resolution",
         sourceText:
           "The Domain Name System translates human readable hostnames into IP addresses.",
+        studentQuestion: "How does a client resolve a domain name?",
       };
       expect(ExtractRequestSchema.safeParse(valid).success).toBe(true);
     });
@@ -214,6 +259,17 @@ describe("Domain Models and Zod Schemas", () => {
         sourceText: "Too short",
       };
       expect(ExtractRequestSchema.safeParse(invalid).success).toBe(false);
+    });
+
+    it("validates ExtractResponseSchema with status missing_question", () => {
+      const missingQ = {
+        success: true,
+        status: "missing_question" as const,
+        message:
+          "We found your study notes, but couldn't find your exam questions.",
+        detectedContent: "Notes about cell respiration",
+      };
+      expect(ExtractResponseSchema.safeParse(missingQ).success).toBe(true);
     });
 
     it("validates RubricRequestSchema", () => {

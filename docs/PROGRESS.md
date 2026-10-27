@@ -86,6 +86,32 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean TypeScript (`tsc --noEmit`), ESLint, and Prettier checks.
     - Successful Webpack production build.
 
+- [x] **`TASK-2.6` — Navigation, Student-First UX, Source-Grounded Extraction & Visual Alignment (Task 5)**
+  - **Real Route-Based Navigation & Universal Shell (`src/components/AppShell.tsx`, `src/app/layout.tsx`):**
+    - Built persistent desktop left sidebar (240px) with brand book icon, peach active pill indicator, and tomato icons.
+    - Added desktop search bar and user profile indicator.
+    - Added mobile fixed bottom navigation bar (`Home`, `Study Library`, `Add Material`) with responsive active indicators.
+    - Established dedicated URLs for all key states: `/` (Home), `/materials/new` (Add Material), `/library` (Study Library), `/review/[id]` (Points Review).
+  - **Source-Grounded Extraction Pipeline (`src/app/api/extract/route.ts`, `src/lib/domain/study-set.ts`):**
+    - Eliminated synthetic question invention from plain prose; forced strict ground truth extraction of real questions, exam prompts (Explain, Describe, Compare, Discuss), or explicit Q&A notes.
+    - Added `ExtractionStatusSchema` with explicit handling for `found_qa`, `missing_question`, `missing_answer`, and `unclear`.
+    - Added support for student-provided questions (`studentQuestion`) when notes lack a question header.
+    - Updated sample presets with authentic exam question pairs (Operating Systems, DNS Resolution, React Reconciliation, ATP Synthase).
+  - **Student-First Vocabulary Migration:**
+    - Purged internal developer and assessment jargon ("rubric", "technical anchor", "accuracy constraint", "satisfactory demonstration", internal IDs).
+    - Established friendly, encouraging student terms: "Points to remember", "Main idea", "Key term", "Steps in order", "Mistakes to avoid", and "Helpful extra".
+    - Updated Points Review screen (`SourceReviewView.tsx`) with category tabs, inline editing, and Day 3 Practice Room banner preview.
+  - **Design & Layout Alignment (Matching Visual References):**
+    - Home screen (`src/app/page.tsx`): Hero banner, quick-action navigation, "Continue Practising" section with real IndexedDB card data, real progress stats, and sample study set quick-starts.
+    - Add Material screen (`src/app/materials/new/page.tsx`): Stepper indicator, mode selector (Paste text, Upload notes, Take photo), sample material pills, missing question/answer resolution flows, and character counter.
+    - Study Library screen (`src/app/library/page.tsx`): Search bar, filter tabs (All, Ready to practice, Added this week), card grid with question counts, Review Points & Practise actions, and delete confirmation.
+  - **Testing & Verification:**
+    - 56 passing unit tests across 8 test suites (`domain.test.ts`, `storage.test.ts`, `extract.test.ts`, `rubric.test.ts`, `providers.test.ts`, `sanitization.test.ts`, `schemas.test.ts`, `navigation.test.ts`).
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check with 0 errors and 0 warnings.
+    - Clean Prettier code formatting verified across all files.
+    - Successful Next.js production build (`next build --webpack`) generating all static and dynamic routes.
+
 ---
 
 ## 2. In Progress Tasks

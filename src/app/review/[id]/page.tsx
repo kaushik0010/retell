@@ -6,7 +6,11 @@ import Link from "next/link";
 import { SourceReviewView } from "@/features/source-review/SourceReviewView";
 import { StudySet } from "@/lib/domain/study-set";
 import { getStudySet } from "@/lib/storage/study-store";
-import { ArrowPathIcon, BookOpenIcon } from "@/components/icons";
+import {
+  ArrowPathIcon,
+  BookOpenIcon,
+  PlusCircleIcon,
+} from "@/components/icons";
 
 export default function ReviewByIdPage() {
   const params = useParams();
@@ -39,10 +43,10 @@ export default function ReviewByIdPage() {
 
   if (loading) {
     return (
-      <div className="bg-brand-cream text-brand-ink flex min-h-screen items-center justify-center">
-        <div className="text-brand-secondary flex items-center gap-3 text-sm">
-          <ArrowPathIcon className="text-brand-tomato h-5 w-5 animate-spin" />
-          <span>Loading study set...</span>
+      <div className="flex min-h-[300px] items-center justify-center">
+        <div className="text-brand-secondary flex items-center gap-3 text-xs">
+          <ArrowPathIcon className="text-brand-tomato h-4 w-4 animate-spin" />
+          <span>Loading your study set...</span>
         </div>
       </div>
     );
@@ -50,35 +54,41 @@ export default function ReviewByIdPage() {
 
   if (!studySet) {
     return (
-      <div className="bg-brand-cream text-brand-ink flex min-h-screen flex-col items-center justify-center p-4 text-center">
-        <div className="text-brand-tomato flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-xs">
+      <div className="border-brand-peach flex flex-col items-center justify-center rounded-2xl border border-dashed bg-white/70 p-12 text-center">
+        <div className="bg-brand-cream text-brand-tomato flex h-12 w-12 items-center justify-center rounded-2xl">
           <BookOpenIcon className="h-6 w-6" />
         </div>
-        <h1 className="font-heading mt-4 text-lg font-bold">
+        <h1 className="font-heading text-brand-ink mt-4 text-base font-bold">
           Study Set Not Found
         </h1>
-        <p className="text-brand-secondary mt-1 text-xs">
-          The requested study set could not be located in your local browser
-          storage.
+        <p className="text-brand-secondary mt-1 max-w-sm text-xs">
+          This study set could not be found in your local browser storage. It
+          may have been deleted.
         </p>
-        <Link
-          href="/"
-          className="bg-brand-tomato hover:bg-brand-tomato-hover mt-5 inline-flex rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-xs transition"
-        >
-          Return to Study Sets
-        </Link>
+        <div className="mt-5 flex items-center gap-3">
+          <Link
+            href="/library"
+            className="border-brand-peach bg-brand-cream text-brand-ink hover:bg-brand-peach/40 inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border px-4 text-xs font-bold transition"
+          >
+            <span>Go to Study Library</span>
+          </Link>
+          <Link
+            href="/materials/new"
+            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-2xs transition"
+          >
+            <PlusCircleIcon className="h-4 w-4" />
+            <span>Add Study Material</span>
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-brand-cream min-h-screen p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl">
-        <SourceReviewView
-          initialStudySet={studySet}
-          onBack={() => router.push("/")}
-        />
-      </div>
-    </div>
+    <SourceReviewView
+      initialStudySet={studySet}
+      onBack={() => router.push("/library")}
+      onSaved={(updated) => setStudySet(updated)}
+    />
   );
 }

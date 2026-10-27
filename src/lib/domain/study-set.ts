@@ -2,6 +2,7 @@ import { z } from "zod";
 
 /**
  * Criterion category defining the pedagogical purpose of the rubric item.
+ * Internal enum values remain stable for schemas and storage.
  */
 export const RubricCriterionCategorySchema = z.enum([
   "essential_concept",
@@ -16,55 +17,71 @@ export type RubricCriterionCategory = z.infer<
 >;
 
 /**
- * Human-readable metadata and styling configuration for rubric categories.
+ * Student-friendly metadata and styling configuration for rubric categories.
+ * Translates internal categories into natural learning vocabulary:
+ * - essential_concept  -> "Main idea"
+ * - technical_anchor   -> "Key term"
+ * - relationship_seq   -> "Steps in order"
+ * - accuracy_constraint-> "Mistakes to avoid"
+ * - optional_detail    -> "Helpful extra"
  */
 export const RUBRIC_CATEGORY_META: Record<
   RubricCriterionCategory,
   {
     label: string;
+    studentLabel: string;
     description: string;
     badgeBg: string;
     badgeText: string;
     badgeBorder: string;
+    icon: string;
   }
 > = {
   essential_concept: {
-    label: "Essential Concept",
-    description:
-      "Core ideas the student must explain correctly to receive credit.",
+    label: "Main idea",
+    studentLabel: "Main idea",
+    description: "The central idea that makes the answer correct.",
     badgeBg: "bg-red-50",
     badgeText: "text-red-700",
     badgeBorder: "border-red-200",
+    icon: "target",
   },
   technical_anchor: {
-    label: "Technical Anchor",
-    description: "Crucial technical terms, mechanisms, or named components.",
+    label: "Key term",
+    studentLabel: "Key term",
+    description: "Important terms, formulas, or specific words to remember.",
     badgeBg: "bg-orange-50",
     badgeText: "text-orange-700",
     badgeBorder: "border-orange-200",
+    icon: "tag",
   },
   relationship_sequence: {
-    label: "Relationship / Sequence",
-    description:
-      "Required causal chains, procedural dependencies, or sequential steps.",
+    label: "Steps in order",
+    studentLabel: "Steps in order",
+    description: "The sequence of events or connections between ideas.",
     badgeBg: "bg-amber-50",
     badgeText: "text-amber-800",
     badgeBorder: "border-amber-200",
+    icon: "list-ordered",
   },
   accuracy_constraint: {
-    label: "Accuracy Constraint",
-    description:
-      "Common misconceptions or false statements that must not be made.",
-    badgeBg: "bg-rose-50",
-    badgeText: "text-rose-700",
-    badgeBorder: "border-rose-200",
+    label: "Mistakes to avoid",
+    studentLabel: "Mistakes to avoid",
+    description: "Common misconceptions or incorrect claims to steer clear of.",
+    badgeBg: "bg-purple-50",
+    badgeText: "text-purple-700",
+    badgeBorder: "border-purple-200",
+    icon: "alert-triangle",
   },
   optional_detail: {
-    label: "Supporting Detail",
-    description: "Helpful nuance or context; adds depth but not mandatory.",
+    label: "Helpful extra",
+    studentLabel: "Helpful extra",
+    description:
+      "Extra details that improve an answer but are not strictly required.",
     badgeBg: "bg-stone-100",
     badgeText: "text-stone-700",
     badgeBorder: "border-stone-200",
+    icon: "plus-circle",
   },
 };
 
@@ -146,6 +163,16 @@ export const StudySetSchema = z.object({
 
 export type StudySet = z.infer<typeof StudySetSchema>;
 
+// Status of extraction based on source text grounding
+export const ExtractionStatusSchema = z.enum([
+  "found_qa",
+  "missing_question",
+  "missing_answer",
+  "unclear",
+]);
+
+export type ExtractionStatus = z.infer<typeof ExtractionStatusSchema>;
+
 // Request and LLM schemas for Extraction API
 export const ExtractRequestSchema = z.object({
   title: z.string().max(120).optional(),
@@ -153,6 +180,7 @@ export const ExtractRequestSchema = z.object({
     .string()
     .min(20, "Study material must be at least 20 characters")
     .max(20000, "Study material exceeds 20,000 characters"),
+  studentQuestion: z.string().optional(),
 });
 
 export type ExtractRequest = z.infer<typeof ExtractRequestSchema>;
@@ -166,14 +194,26 @@ export const ExtractedQuestionLLMOutputSchema = z.object({
 });
 
 export const ExtractionLLMOutputSchema = z.object({
+  status: ExtractionStatusSchema.default("found_qa"),
+  guidanceMessage: z.string().optional(),
+  detectedContent: z.string().optional(),
   suggestedTitle: z.string().optional(),
-  questions: z
-    .array(ExtractedQuestionLLMOutputSchema)
-    .min(1, "Must extract at least one question")
-    .max(5, "Maximum 5 questions per extraction"),
+  questions: z.array(ExtractedQuestionLLMOutputSchema).default([]),
 });
 
 export type ExtractionLLMOutput = z.infer<typeof ExtractionLLMOutputSchema>;
+
+export const ExtractResponseSchema = z.object({
+  success: z.boolean(),
+  status: ExtractionStatusSchema,
+  message: z.string().optional(),
+  detectedContent: z.string().optional(),
+  studyMaterial: StudyMaterialSchema.optional(),
+  questions: z.array(ExtractedQuestionSchema).optional(),
+  error: z.string().optional(),
+});
+
+export type ExtractResponse = z.infer<typeof ExtractResponseSchema>;
 
 // Request and LLM schemas for Rubric API
 export const RubricRequestSchema = z.object({
@@ -201,7 +241,7 @@ export const RubricCriterionLLMOutputSchema = z.object({
 export const RubricLLMOutputSchema = z.object({
   criteria: z
     .array(RubricCriterionLLMOutputSchema)
-    .min(2, "Must generate at least 2 rubric criteria"),
+    .min(1, "Must generate at least 1 key point"),
 });
 
 export type RubricLLMOutput = z.infer<typeof RubricLLMOutputSchema>;

@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 // Lightweight smoke test verifying live extraction and rubric generation
 const metaKey = process.env.META_MODEL_API_KEY;
 const basetenKey = process.env.BASETEN_API_KEY;

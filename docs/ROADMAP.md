@@ -64,13 +64,17 @@ Allow students to input study materials (text or structured notes), extract the 
 | `TASK-2.3` | Build Rubric Generation engine producing structured concept objects with Zod schemas      | **Completed** | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
 | `TASK-2.4` | Build Source Review UI (`src/features/source-review`) allowing students to edit concepts  | **Completed** | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
 | `TASK-2.5` | Implement foundational local storage persistence for study items in browser               | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)             |
+| `TASK-2.6` | Route-based navigation, Student-First UX, source-grounded extraction & visual polish      | **Completed** | [Section 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
 
 ### Acceptance Criteria
 
 - [x] Student can input raw study material and receive extracted Q&A within 5 seconds.
-- [x] Generated rubric produces validated structured items across 5 categories (essential, technical anchor, sequence/relationship, accuracy constraint, optional detail).
+- [x] Generated rubric produces validated structured items across 5 student-facing categories (Main idea, Key term, Steps in order, Mistakes to avoid, Helpful extra).
 - [x] Student can add, modify, or remove rubric concepts and regenerate rubrics before starting practice.
 - [x] Study set persists reliably to local browser IndexedDB across page reloads.
+- [x] Real route-based navigation implemented (`/`, `/materials/new`, `/library`, `/review/[id]`) with responsive sidebar & mobile bottom bar.
+- [x] Source-grounded extraction strictly enforces original text fidelity, detects missing questions/answers, and forbids silent question fabrication.
+- [x] Complete purge of developer/rubric jargon in favor of student-first active recall terminology.
 
 ### Dependencies & Risks
 

@@ -54,12 +54,18 @@ This log records all locked and active architectural decisions, their rationales
 - **Rationale:** In Next.js 16 on Windows, Turbopack encounters an IPC child process communication issue when executing CSS/PostCSS loaders. Webpack builds cleanly, reliably, and rapidly (8.4 seconds) without errors.
 - **Status:** **Locked & Implemented.**
 
+### ADR-009: Lightweight Server-Side Provider Adapters with Zod Validation
+
+- **Decision:** Implement provider adapters using native `fetch` and global `WebSocket` guarded by `server-only`, avoiding heavy external SDKs.
+- **Rationale:** Native `fetch` with `AbortSignal.timeout` provides deterministic latency tracking, correlation IDs, and transparent header handling. Every response is parsed and strictly validated with Zod before being consumed by application logic.
+- **Status:** **Locked & Implemented.**
+
 ---
 
 ## Open Decisions Under Evaluation
 
-| ID       | Topic                                          | Options                                                                                       | Trade-offs                                                                                                                                     | Target Milestone               |
-| -------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `OD-001` | Direct Browser vs Proxy WebSocket for Meta ASR | A) Direct browser `WebSocket` to Meta<br>B) Server-side Node/Next.js WebSocket proxy          | Direct connection reduces latency by ~50ms; proxy allows injecting secret authentication headers if browser WebSocket API cannot send headers. | Task 2 (Provider Verification) |
-| `OD-002` | Client Audio Capture Format                    | A) Raw PCM via `AudioWorklet`<br>B) Compressed WebM/Opus via `MediaRecorder`                  | PCM requires no client codec overhead; Opus reduces bandwidth consumption. Depends on Meta endpoint requirement.                               | Day 3 (Practice Room)          |
-| `OD-003` | IndexedDB Client Wrapper Library               | A) `idb` (lightweight promise wrapper)<br>B) `dexie` (fluent query API and schema migrations) | `idb` is ultra-compact (<2KB); `dexie` simplifies multi-index queries and migrations.                                                          | Day 2 (Persistence Foundation) |
+| ID       | Topic                                          | Options                                                                                                                 | Trade-offs / Findings                                                                                                                                                                                       | Target Milestone               |
+| -------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `OD-001` | Direct Browser vs Proxy WebSocket for Meta ASR | **Resolved:** Server-side WebSocket Proxy required to protect credentials; browser speech fallback for unentitled keys. | Empirically verified: Meta ASR requires `api_key` in the first JSON frame. Exposing this frame to browser clients would violate credential isolation rules. In addition, current keys lack ASR entitlement. | Day 3 (Practice Room)          |
+| `OD-002` | Client Audio Capture Format                    | A) Raw PCM via `AudioWorklet`<br>B) Compressed WebM/Opus via `MediaRecorder`                                            | Empirically verified: Meta ASR requires `audioEncoding: "PCM_16KHZ"`. Client pipeline must capture 16kHz mono PCM frames.                                                                                   | Day 3 (Practice Room)          |
+| `OD-003` | IndexedDB Client Wrapper Library               | A) `idb` (lightweight promise wrapper)<br>B) `dexie` (fluent query API and schema migrations)                           | `idb` is ultra-compact (<2KB); `dexie` simplifies multi-index queries and migrations.                                                                                                                       | Day 2 (Persistence Foundation) |

@@ -38,38 +38,41 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
   - Verified local dev and production server HTTP 200 responses.
   - Clean working tree committed with Conventional Commit message.
 
+- [x] **`TASK-1.6` — Provider Verification, Adapters & AI Smoke Tests (Task 2)**
+  - Implemented interchangeable `ReasoningProvider` interface supporting Meta and Baseten (`src/lib/providers/`).
+  - Enforced server-side execution boundaries with `server-only`.
+  - Implemented resilient token-stripping sanitization (`sanitizeMessage`, `sanitizeError`, `categorizeHttpError`).
+  - Added development verification route handler `/api/dev/verify-provider` guarded against production exposure.
+  - Wrote comprehensive unit tests (`tests/unit/`) for schemas, sanitization, and provider adapters using Vitest (20/20 passing).
+  - Executed live smoke tests against Meta Model API (`muse-spark-1.3`) — **Verified** (latency 2.5–3.4s, structured JSON output validated against Zod schema).
+  - Executed live smoke tests against Baseten (`meta-models/muse-spark-open-1026`) — **Verified** (latency 1.2–2.4s, structured JSON output validated against Zod schema).
+  - Executed WebSocket handshake against Meta Voice Transcribe (`wss://api.meta.ai/v1/asr/realtime`) — endpoint and protocol format **Verified**; credential authorization on ASR endpoint documented as **Blocked** (unauthorized for ASR duplex service).
+
 ---
 
 ## 2. In Progress Tasks
 
-- *None (Task 1 completed; awaiting prompt 2 to begin Task 2: Provider Verification)*
+- _None (Task 2 completed; awaiting user approval to begin Task 3 / Day 2 Material Ingestion)_
 
 ---
 
 ## 3. Next Tasks
 
-- [ ] **`TASK-1.6` — Provider Verification & Smoke Testing (Task 2)**
-  - Validate Meta Model API reasoning (`muse-spark-1.3`) connectivity.
-  - Validate Baseten reasoning fallback (`meta-models/muse-spark-open-1026`) connectivity.
-  - Test structured output generation with Zod schemas.
+- [ ] `TASK-2.1` — Build Material Ingestion UI in `src/features/library` (Text and note input).
+- [ ] `TASK-2.2` — Implement server-side Q&A extraction pipeline via reasoning model.
+- [ ] `TASK-2.3` — Build Rubric Generation engine producing structured concept objects with Zod schemas.
+- [ ] `TASK-2.4` — Build Source Review UI in `src/features/source-review`.
+- [ ] `TASK-2.5` — Foundational local storage persistence for study items.
 
 ---
 
 ## 4. Remaining Tasks
 
-### Day 2: Material Ingestion & Rubric Generation
-
-- [ ] `TASK-2.1` — Build Material Ingestion UI in `src/features/library`.
-- [ ] `TASK-2.2` — Server-side Q&A extraction pipeline via reasoning model.
-- [ ] `TASK-2.3` — Rubric Generation engine producing structured concept objects.
-- [ ] `TASK-2.4` — Source Review UI in `src/features/source-review`.
-- [ ] `TASK-2.5` — Foundational local storage persistence for study items.
-
 ### Day 3: Practice Room & Real-Time ASR
 
 - [ ] `TASK-3.1` — Build Practice Room UI in `src/features/practice`.
 - [ ] `TASK-3.2` — Browser microphone capture pipeline (`src/lib/audio`).
-- [ ] `TASK-3.3` — WebSocket client connection to Meta ASR (`muse-voice-transcribe-1.0`).
+- [ ] `TASK-3.3` — Audio streaming / speech transcription integration (with fallback adapter).
 - [ ] `TASK-3.4` — Live streaming transcript UI component.
 - [ ] `TASK-3.5` — Silence detection and contextual pause nudge.
 - [ ] `TASK-3.6` — Session finalization and transcript preservation logic.
@@ -100,38 +103,38 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 5. Blocked or Awaiting External Access
 
-- **Meta Model API Active Key & Billing Activation:**
-  - $150 credit awarded; awaiting confirmation of active API key access for live calls.
-  - _Impact:_ Does not block scaffolding or local UI development. Baseten fallback adapter and local mock fixtures ready as alternative.
+- **Meta Voice Transcribe Real-Time ASR Credential Entitlement:**
+  - `wss://api.meta.ai/v1/asr/realtime` is reachable and protocol handshake is verified.
+  - However, the hackathon credential is unauthorized specifically for the real-time ASR duplex endpoint (`"Unauthorized: the credential presented in the handshake was not accepted"`).
+  - _Impact & Mitigation:_ Meta reasoning completions and Baseten reasoning are 100% verified and operational. The transcription adapter is in place; for Day 3, we will support browser Web Speech API / mock audio fixtures as a resilient parallel pipeline so audio features are not stalled.
 
 ---
 
 ## 6. Verification Results
 
-| Check                    | Command                 | Observed Result                                                          | Status     |
-| ------------------------ | ----------------------- | ------------------------------------------------------------------------ | ---------- |
-| Dependency Installation  | `pnpm install`          | Clean install; lockfile generated                                        | **PASSED** |
-| TypeScript Validation    | `pnpm run type-check`   | Zero errors across all `.ts` and `.tsx` files                            | **PASSED** |
-| ESLint Code Quality      | `pnpm run lint`         | Zero errors, zero warnings                                               | **PASSED** |
-| Prettier Formatting      | `pnpm run format:check` | All files conform to formatting standards                                | **PASSED** |
-| Production Build         | `pnpm run build`        | Webpack build compiled successfully in 8.4s; all static routes generated | **PASSED** |
-| Production Server Probe  | `pnpm run start`        | Responded with HTTP 200 (17,114 bytes)                                   | **PASSED** |
-| Development Server Probe | `pnpm run dev`          | Responded with HTTP 200 (21,303 bytes)                                   | **PASSED** |
+| Check                                | Command                   | Observed Result                                                                                  | Status       |
+| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------ | ------------ |
+| Vitest Unit Test Suite               | `pnpm run test`           | 20 passed across 3 test files (schemas, sanitization, adapters)                                  | **PASSED**   |
+| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                   | **PASSED**   |
+| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                       | **PASSED**   |
+| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                        | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 2.9s; dynamic route `/api/dev/verify-provider` registered | **PASSED**   |
+| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2563ms, valid JSON conforming to Zod schema, reasoning tokens verified                 | **VERIFIED** |
+| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 1282ms, valid JSON conforming to Zod schema, reasoning tokens verified                 | **VERIFIED** |
+| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake parsed, duplex session created (565ms), ASR credential rejected                        | **BLOCKED**  |
 
 ---
 
 ## 7. Latest Git Commit
 
-- **Latest Commit:** `43346c8` — `chore: scaffold Retell Next.js project and development roadmap`
-- **Initial Baseline Commit:** `818ba053de8db440e65b5096e68deb49e7aa9607`
+- **Latest Commit:** `bbfafa6` — `feat: add AI provider verification and smoke tests`
+- **Previous Commit:** `ca63d61e35b97dfdb5df8c251337f494169582d3` — `.gitignore updated`
 
 ---
 
 ## 8. Known Issues and Architectural Decisions
 
-1. **Next.js 16 + Turbopack on Windows:**
-   - Turbopack encounters an IPC child process crash when executing webpack/PostCSS loaders on Windows (`node process exited before we could connect to it with exit code: 0`).
-   - _Resolution:_ Configured `"build": "next build --webpack"` and `"dev": "next dev --webpack"` in `package.json`, which compiles cleanly and reliably in 8.4 seconds.
-2. **Google Fonts in Sandbox / Offline Environments:**
-   - `next/font/google` attempts to fetch font binaries at build time, failing if network access is restricted (`ENOTFOUND fonts.googleapis.com`).
-   - _Resolution:_ Configured fonts via CSS `@import url(...)` in `src/app/globals.css` with comprehensive system font fallbacks, preventing build-time network failures.
+1. **Meta Voice Transcribe Key Scope:**
+   - The hackathon API key is valid for Meta Model API reasoning completions, but the duplex ASR service rejects it as unauthorized. Handshake payload confirmed requires `audioEncoding: "PCM_16KHZ"`.
+2. **Dual Provider Strategy Proven:**
+   - Having Baseten configured alongside Meta proved essential: Baseten's `meta-models/muse-spark-open-1026` provides lightning-fast reasoning (~1.3s) with identical structured output fidelity.

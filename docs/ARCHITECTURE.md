@@ -146,11 +146,11 @@ For the hackathon MVP, Retell deliberately eliminates cloud user accounts, datab
 
 ## 7. Architectural Decisions: Verified Facts vs. Assumptions
 
-| Item                                                       | Status                         | Detail                                                               |
-| ---------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------- |
-| Next.js App Router v16 + React 19 compatibility            | **Verified Fact**              | Successfully builds with webpack; serves HTTP 200                    |
-| Tailwind CSS v4 design token utilities                     | **Verified Fact**              | Brand colors and fonts render properly across all viewports          |
-| Server-side credential isolation via Next.js API           | **Verified Fact**              | Standard server environment variable protection                      |
-| Meta Model API `muse-spark-1.3` endpoint & latency         | _Assumption requiring testing_ | Pending Task 2 provider verification call                            |
-| Meta ASR `muse-voice-transcribe-1.0` WebSocket protocol    | _Assumption requiring testing_ | Frame format, sample rate, and auth headers must be tested in Task 2 |
-| Baseten `meta-models/muse-spark-open-1026` response format | _Assumption requiring testing_ | Structured output adherence must be tested in Task 2                 |
+| Item                                                       | Status            | Detail                                                                                                                                                                             |
+| ---------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Next.js App Router v16 + React 19 compatibility            | **Verified Fact** | Successfully builds with webpack; serves HTTP 200                                                                                                                                  |
+| Tailwind CSS v4 design token utilities                     | **Verified Fact** | Brand colors and fonts render properly across all viewports                                                                                                                        |
+| Server-side credential isolation via Next.js API           | **Verified Fact** | Standard server environment variable protection; `server-only` package enforced                                                                                                    |
+| Meta Model API `muse-spark-1.3` endpoint & latency         | **Verified Fact** | Verified via live completions: latency 2.5–3.4s, strictly conforms to structured JSON output with reasoning tokens                                                                 |
+| Baseten `meta-models/muse-spark-open-1026` response format | **Verified Fact** | Verified via live completions: latency 1.2–2.4s, strictly conforms to structured JSON output                                                                                       |
+| Meta ASR `muse-voice-transcribe-1.0` WebSocket protocol    | **Verified Fact** | `wss://api.meta.ai/v1/asr/realtime` duplex protocol verified; accepts `audioEncoding: "PCM_16KHZ"`; however current hackathon key lacks ASR entitlement (reported as Unauthorized) |

@@ -3,6 +3,8 @@
  * These types establish the shared foundational contracts across the application.
  */
 
+export * from "../lib/domain/study-set";
+
 export type ProviderId = "meta" | "baseten";
 
 export interface ConceptRubricItem {

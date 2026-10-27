@@ -57,19 +57,20 @@ Allow students to input study materials (text or structured notes), extract the 
 
 ### Tasks & Status
 
-| Task ID    | Task Description                                                                          | Status  | Implementation Plan Ref                                                                                              |
-| ---------- | ----------------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
-| `TASK-2.1` | Build Material Ingestion UI (`src/features/library`) supporting text paste and note input | Pending | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
-| `TASK-2.2` | Implement server-side Q&A extraction pipeline using Meta reasoning model                  | Pending | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
-| `TASK-2.3` | Build Rubric Generation engine producing structured concept objects with Zod schemas      | Pending | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
-| `TASK-2.4` | Build Source Review UI (`src/features/source-review`) allowing students to edit concepts  | Pending | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
-| `TASK-2.5` | Implement foundational local storage persistence for study items in browser               | Pending | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)             |
+| Task ID    | Task Description                                                                          | Status        | Implementation Plan Ref                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `TASK-2.1` | Build Material Ingestion UI (`src/features/library`) supporting text paste and note input | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
+| `TASK-2.2` | Implement server-side Q&A extraction pipeline using Meta reasoning model                  | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
+| `TASK-2.3` | Build Rubric Generation engine producing structured concept objects with Zod schemas      | **Completed** | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
+| `TASK-2.4` | Build Source Review UI (`src/features/source-review`) allowing students to edit concepts  | **Completed** | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
+| `TASK-2.5` | Implement foundational local storage persistence for study items in browser               | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)             |
 
 ### Acceptance Criteria
 
-- Student can input raw study material and receive extracted Q&A within 5 seconds.
-- Generated rubric produces validated structured items (name, description, required terminology, order, essential flag).
-- Student can add, modify, or remove rubric concepts before starting practice.
+- [x] Student can input raw study material and receive extracted Q&A within 5 seconds.
+- [x] Generated rubric produces validated structured items across 5 categories (essential, technical anchor, sequence/relationship, accuracy constraint, optional detail).
+- [x] Student can add, modify, or remove rubric concepts and regenerate rubrics before starting practice.
+- [x] Study set persists reliably to local browser IndexedDB across page reloads.
 
 ### Dependencies & Risks
 

@@ -62,21 +62,48 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Close code: `1000` (`"No more transcript segments"`).
   - Updated unit tests in `tests/unit/providers.test.ts` (23/23 tests passing).
 
+- [x] **`TASK-2.1` – `TASK-2.5` — Study Material Ingestion & Source-Grounded Rubric Generation (Task 4)**
+  - **Domain Models & Zod Schemas (`src/lib/domain/study-set.ts`, `src/types/index.ts`):**
+    - Defined schemas for `StudyMaterial`, `ExtractedQuestion`, `RubricCriterion`, `QuestionRubric`, and `StudySet`.
+    - Implemented 5 distinct rubric criterion categories: `essential_concept`, `technical_anchor`, `relationship_sequence`, `accuracy_constraint`, and `optional_detail`.
+    - Added `satisfactoryDemonstration` field to mandate semantic evaluation and explicitly accept paraphrases without keyword penalization.
+  - **Question Extraction API (`POST /api/extract`):**
+    - Defensively isolated user input from system instructions with strict prompt injection defense.
+    - Grounded questions and reference answers strictly in the source material with excerpt citations.
+  - **Rubric Generation API (`POST /api/rubric`):**
+    - Generates multi-dimensional criteria across all 5 categories with stable IDs and mandatory flags.
+    - Tested live with `muse-spark-1.3` (generating 5 verified criteria in 8.5s).
+  - **Browser Persistence Layer (`src/lib/storage/study-store.ts`):**
+    - IndexedDB storage (`retell_db`, store `study_sets`) with safe in-memory fallback for SSR and test runners.
+    - Full CRUD support: save, get, list, update, and delete.
+  - **Interactive User Interfaces:**
+    - `MaterialIngestionForm.tsx`: Text input, character counter, 4 curated sample presets (DNS Resolution, React Reconciliation, ATP Synthase, OAuth PKCE), and multi-step progress indicators.
+    - `SourceReviewView.tsx`: Collapsible source drawer, question selector, inline editing for questions, reference answers, and criteria, "+ Add Criterion", category filter tabs, and "Regenerate Rubric" action.
+    - `StudySetList.tsx`: Local study library browser with question count, criteria summary, timestamps, and delete controls.
+    - Responsive across 390px, 768px, and 1440px viewports.
+  - **Testing & Verification:**
+    - 47 passing unit tests across 7 test suites (`domain.test.ts`, `storage.test.ts`, `extract.test.ts`, `rubric.test.ts`, `providers.test.ts`, `sanitization.test.ts`, `schemas.test.ts`).
+    - Clean TypeScript (`tsc --noEmit`), ESLint, and Prettier checks.
+    - Successful Webpack production build.
+
 ---
 
 ## 2. In Progress Tasks
 
-- _None (Task 3 completed; awaiting user approval to begin Task 4 / Day 2 Material Ingestion)_
+- _None (Task 4 completed; ready for Task 5 / Day 3 Practice Room & Real-Time ASR)_
 
 ---
 
 ## 3. Next Tasks
 
-- [ ] `TASK-2.1` — Build Material Ingestion UI in `src/features/library` (Text and note input).
-- [ ] `TASK-2.2` — Implement server-side Q&A extraction pipeline via reasoning model.
-- [ ] `TASK-2.3` — Build Rubric Generation engine producing structured concept objects with Zod schemas.
-- [ ] `TASK-2.4` — Build Source Review UI in `src/features/source-review`.
-- [ ] `TASK-2.5` — Foundational local storage persistence for study items.
+### Day 3: Practice Room & Real-Time ASR
+
+- [ ] `TASK-3.1` — Build Practice Room UI in `src/features/practice`.
+- [ ] `TASK-3.2` — Browser microphone capture pipeline (`src/lib/audio`).
+- [ ] `TASK-3.3` — Audio streaming / speech transcription integration (with fallback adapter).
+- [ ] `TASK-3.4` — Live streaming transcript UI component.
+- [ ] `TASK-3.5` — Silence detection and contextual pause nudge.
+- [ ] `TASK-3.6` — Session finalization and transcript preservation logic.
 
 ---
 

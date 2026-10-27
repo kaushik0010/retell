@@ -3,6 +3,7 @@ import "server-only";
 import type { z } from "zod";
 import { categorizeHttpError, sanitizeError } from "./errors";
 import type {
+  MetaServerEvent,
   ProviderDiagnostic,
   ReasoningProvider,
   ReasoningRequest,
@@ -328,14 +329,35 @@ export class MetaTranscriptionProvider implements TranscriptionProvider {
     apiKey: string,
     config?: Partial<TranscriptionSessionConfig>
   ): TranscriptionHandshakePayload {
+    const rawKey = apiKey.trim();
+    const token = rawKey.startsWith("Bearer ") ? rawKey : `Bearer ${rawKey}`;
+    const encoding = config?.sampleRate === 16000 ? "PCM_16KHZ" : "PCM_24KHZ";
+
     return {
-      api_key: apiKey,
+      authorization: {
+        accessToken: token,
+      },
+      audioEncoding: encoding,
       model: this.modelId,
-      audioEncoding: "PCM_16KHZ",
       mode: config?.mode || "PUSH_TO_TALK",
-      sample_rate: config?.sampleRate || 16000,
-      ...(config?.languageBias ? { language_bias: config.languageBias } : {}),
-      ...(config?.keywords ? { keywords: config.keywords } : {}),
+      ...(config?.languageBias && config.languageBias.length > 0
+        ? { languageBias: config.languageBias }
+        : {}),
+      ...(config?.keywords && config.keywords.length > 0
+        ? { keywords: config.keywords }
+        : {}),
     };
+  }
+
+  public createEndStreamMessage(): string {
+    return JSON.stringify({ type: "endStream" });
+  }
+
+  public parseServerMessage(raw: string): MetaServerEvent | null {
+    try {
+      return JSON.parse(raw) as MetaServerEvent;
+    } catch {
+      return null;
+    }
   }
 }

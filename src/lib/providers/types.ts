@@ -80,15 +80,44 @@ export interface TranscriptionSessionConfig {
   keywords?: string[];
 }
 
+export interface TranscriptionAuthorization {
+  accessToken: string;
+}
+
 export interface TranscriptionHandshakePayload {
-  api_key: string;
+  authorization: TranscriptionAuthorization;
+  audioEncoding: "PCM_24KHZ" | "PCM_16KHZ";
   model: string;
-  mode: string;
-  audioEncoding: "PCM_16KHZ" | "PCM_24KHZ" | "WAV";
-  sample_rate: number;
-  language_bias?: string[];
+  mode: "PUSH_TO_TALK" | "STREAMING";
+  languageBias?: string[];
   keywords?: string[];
 }
+
+export interface AudioProgressEvent {
+  type: "audioProgress";
+  audioProcessedMs: number;
+}
+
+export interface TranscriptEvent {
+  type: "transcript";
+  transcript: string;
+  final: boolean;
+  audioProcessedMs?: number;
+}
+
+export interface ErrorEvent {
+  type: "error";
+  message: string;
+  code?: number | string;
+  sessionId?: string;
+}
+
+export type MetaServerEvent =
+  | { sessionId: string }
+  | AudioProgressEvent
+  | TranscriptEvent
+  | ErrorEvent
+  | Record<string, unknown>;
 
 export interface TranscriptionProvider {
   readonly id: "meta";
@@ -99,4 +128,6 @@ export interface TranscriptionProvider {
     apiKey: string,
     config?: Partial<TranscriptionSessionConfig>
   ): TranscriptionHandshakePayload;
+  createEndStreamMessage(): string;
+  parseServerMessage(raw: string): MetaServerEvent | null;
 }

@@ -31,7 +31,8 @@ Establish a rock-solid, production-minded development foundation, define all arc
 | `TASK-1.3` | Configure brand palette design tokens, typography, and responsive baseline                                                                                    | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)          |
 | `TASK-1.4` | Establish complete project documentation suite (`README`, `ROADMAP`, `IMPLEMENTATION_PLAN`, `PROGRESS`, `ARCHITECTURE`, `PROVIDER_VERIFICATION`, `DECISIONS`) | **Completed** | [Section 10](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#10-documentation-and-governance)    |
 | `TASK-1.5` | Implement server-side Provider Verification smoke-test suite (Meta & Baseten)                                                                                 | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer)                 |
-| `TASK-1.6` | Verify provider adapters & live AI smoke tests (`muse-spark-1.3`, `muse-spark-open-1026`, `muse-voice-transcribe-1.0`)                                        | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer)                 |
+| `TASK-1.6` | Verify provider adapters & live AI smoke tests (`muse-spark-1.3`, `muse-spark-open-1026`)                                                                     | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer)                 |
+| `TASK-1.7` | Correct Meta ASR Protocol (`authorization.accessToken`, `PCM_24KHZ`) and verify live speech transcription (`muse-voice-transcribe-1.0`)                       | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer)                 |
 
 ### Acceptance Criteria
 
@@ -39,11 +40,12 @@ Establish a rock-solid, production-minded development foundation, define all arc
 - [x] ESLint flat config with Prettier passing without warnings.
 - [x] `.env.example` committed with no actual secrets.
 - [x] Provider smoke tests demonstrate actual API latency and response formats with verified credentials.
+- [x] Live Meta Voice Transcribe speech recognition verified with audio fixture and final transcript.
 
 ### Dependencies & Risks
 
-- **Risk:** Meta Model API billing or credit activation delay.
-- **Mitigation:** Baseten reasoning provider configured as an alternative adapter; mocked offline provider fixtures available if both are delayed.
+- **Risk:** Meta Model API rate limits or transient network drops.
+- **Mitigation:** Baseten reasoning provider configured as verified alternative adapter; 1-shot retry and bounded timeouts in place. All 3 capabilities (Meta reasoning, Baseten reasoning, Meta ASR) are verified and operational.
 
 ---
 

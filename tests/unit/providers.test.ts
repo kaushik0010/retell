@@ -70,22 +70,75 @@ describe("Provider Adapters (Unit & Offline Validation)", () => {
     });
   });
 
-  describe("MetaTranscriptionProvider", () => {
-    it("constructs correct handshake payload with PCM_16KHZ audio encoding", () => {
+  describe("MetaTranscriptionProvider (Official Protocol Handshake)", () => {
+    it("constructs official handshake payload with authorization.accessToken and PCM_24KHZ default", () => {
       const provider = new MetaTranscriptionProvider();
       expect(provider.endpoint).toBe("wss://api.meta.ai/v1/asr/realtime");
       expect(provider.modelId).toBe("muse-voice-transcribe-1.0");
 
-      const payload = provider.createHandshakePayload("mock_test_key", {
-        mode: "PUSH_TO_TALK",
-        sampleRate: 16000,
+      const payload = provider.createHandshakePayload("test_secret_key");
+
+      expect(payload.authorization.accessToken).toBe("Bearer test_secret_key");
+      expect(payload.audioEncoding).toBe("PCM_24KHZ");
+      expect(payload.model).toBe("muse-voice-transcribe-1.0");
+      expect(payload.mode).toBe("PUSH_TO_TALK");
+    });
+
+    it("supports PCM_16KHZ encoding and languageBias when specified", () => {
+      const provider = new MetaTranscriptionProvider();
+      const payload = provider.createHandshakePayload(
+        "Bearer already_prefixed_key",
+        {
+          sampleRate: 16000,
+          mode: "STREAMING",
+          languageBias: ["en"],
+          keywords: ["Meta", "Retell"],
+        }
+      );
+
+      expect(payload.authorization.accessToken).toBe(
+        "Bearer already_prefixed_key"
+      );
+      expect(payload.audioEncoding).toBe("PCM_16KHZ");
+      expect(payload.mode).toBe("STREAMING");
+      expect(payload.languageBias).toEqual(["en"]);
+      expect(payload.keywords).toEqual(["Meta", "Retell"]);
+    });
+
+    it("generates correct endStream JSON message", () => {
+      const provider = new MetaTranscriptionProvider();
+      const endStream = provider.createEndStreamMessage();
+      expect(endStream).toBe('{"type":"endStream"}');
+      const parsed = JSON.parse(endStream);
+      expect(parsed.type).toBe("endStream");
+    });
+
+    it("parses server events accurately", () => {
+      const provider = new MetaTranscriptionProvider();
+
+      const ackRaw = '{"sessionId":"voyager/duplex/TEST12345"}';
+      const ackParsed = provider.parseServerMessage(ackRaw);
+      expect(ackParsed).toEqual({ sessionId: "voyager/duplex/TEST12345" });
+
+      const progressRaw = '{"type":"audioProgress","audioProcessedMs":1200}';
+      const progressParsed = provider.parseServerMessage(progressRaw);
+      expect(progressParsed).toEqual({
+        type: "audioProgress",
+        audioProcessedMs: 1200,
       });
 
-      expect(payload.api_key).toBe("mock_test_key");
-      expect(payload.model).toBe("muse-voice-transcribe-1.0");
-      expect(payload.audioEncoding).toBe("PCM_16KHZ");
-      expect(payload.sample_rate).toBe(16000);
-      expect(payload.mode).toBe("PUSH_TO_TALK");
+      const transcriptRaw =
+        '{"type":"transcript","transcript":"Active recall is explaining aloud","final":true,"audioProcessedMs":4320}';
+      const transcriptParsed = provider.parseServerMessage(transcriptRaw);
+      expect(transcriptParsed).toEqual({
+        type: "transcript",
+        transcript: "Active recall is explaining aloud",
+        final: true,
+        audioProcessedMs: 4320,
+      });
+
+      const invalidRaw = "invalid non json text";
+      expect(provider.parseServerMessage(invalidRaw)).toBeNull();
     });
   });
 });

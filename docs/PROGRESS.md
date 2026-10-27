@@ -43,16 +43,30 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
   - Enforced server-side execution boundaries with `server-only`.
   - Implemented resilient token-stripping sanitization (`sanitizeMessage`, `sanitizeError`, `categorizeHttpError`).
   - Added development verification route handler `/api/dev/verify-provider` guarded against production exposure.
-  - Wrote comprehensive unit tests (`tests/unit/`) for schemas, sanitization, and provider adapters using Vitest (20/20 passing).
-  - Executed live smoke tests against Meta Model API (`muse-spark-1.3`) — **Verified** (latency 2.5–3.4s, structured JSON output validated against Zod schema).
-  - Executed live smoke tests against Baseten (`meta-models/muse-spark-open-1026`) — **Verified** (latency 1.2–2.4s, structured JSON output validated against Zod schema).
-  - Executed WebSocket handshake against Meta Voice Transcribe (`wss://api.meta.ai/v1/asr/realtime`) — endpoint and protocol format **Verified**; credential authorization on ASR endpoint documented as **Blocked** (unauthorized for ASR duplex service).
+  - Wrote comprehensive unit tests (`tests/unit/`) for schemas, sanitization, and provider adapters using Vitest.
+  - Executed live smoke tests against Meta Model API (`muse-spark-1.3`) — **Verified**.
+  - Executed live smoke tests against Baseten (`meta-models/muse-spark-open-1026`) — **Verified**.
+
+- [x] **`TASK-1.7` — Correct Meta ASR Protocol and Verify Live Transcription (Task 3)**
+  - Diagnosed Task 2 handshake format defect (`api_key` top-level vs official `authorization.accessToken`).
+  - Corrected handshake payload structure to match official Meta Voice schema (`authorization: { accessToken: "Bearer <KEY>" }`, `audioEncoding: "PCM_24KHZ"`, `model: "muse-voice-transcribe-1.0"`, `mode: "PUSH_TO_TALK"`).
+  - Created deterministic non-sensitive test audio fixtures: `tests/fixtures/speech-24k.wav` and `speech-24k.pcm` (spoken sentence: _"Active recall is explaining concepts aloud in your own words."_).
+  - Implemented multi-stage smoke test in `scripts/verify-providers.mjs`:
+    - Stage A: Connection & handshake acknowledgement validation (`sessionId`).
+    - Stage B: Real-time paced audio chunk streaming (80ms frames = 3,840 bytes).
+    - Stage C: `{"type": "endStream"}` signal and final transcript reception.
+    - Stage D: Graceful close validation (close code 1000).
+  - Executed live end-to-end transcription smoke test:
+    - **Outcome: 100% Verified**!
+    - Final transcript received: `"Active recall is explaining concepts aloud in your own words."`
+    - Close code: `1000` (`"No more transcript segments"`).
+  - Updated unit tests in `tests/unit/providers.test.ts` (23/23 tests passing).
 
 ---
 
 ## 2. In Progress Tasks
 
-- _None (Task 2 completed; awaiting user approval to begin Task 3 / Day 2 Material Ingestion)_
+- _None (Task 3 completed; awaiting user approval to begin Task 4 / Day 2 Material Ingestion)_
 
 ---
 
@@ -103,38 +117,38 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 5. Blocked or Awaiting External Access
 
-- **Meta Voice Transcribe Real-Time ASR Credential Entitlement:**
-  - `wss://api.meta.ai/v1/asr/realtime` is reachable and protocol handshake is verified.
-  - However, the hackathon credential is unauthorized specifically for the real-time ASR duplex endpoint (`"Unauthorized: the credential presented in the handshake was not accepted"`).
-  - _Impact & Mitigation:_ Meta reasoning completions and Baseten reasoning are 100% verified and operational. The transcription adapter is in place; for Day 3, we will support browser Web Speech API / mock audio fixtures as a resilient parallel pipeline so audio features are not stalled.
+- **None:** All 3 target capabilities are verified and operational:
+  1. Meta Model API reasoning (`muse-spark-1.3`) — **Verified**
+  2. Baseten reasoning (`meta-models/muse-spark-open-1026`) — **Verified**
+  3. Meta Voice Transcribe (`muse-voice-transcribe-1.0`) — **Verified**
 
 ---
 
 ## 6. Verification Results
 
-| Check                                | Command                   | Observed Result                                                                                  | Status       |
-| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------ | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 20 passed across 3 test files (schemas, sanitization, adapters)                                  | **PASSED**   |
-| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                   | **PASSED**   |
-| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                       | **PASSED**   |
-| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                        | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 2.9s; dynamic route `/api/dev/verify-provider` registered | **PASSED**   |
-| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2563ms, valid JSON conforming to Zod schema, reasoning tokens verified                 | **VERIFIED** |
-| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 1282ms, valid JSON conforming to Zod schema, reasoning tokens verified                 | **VERIFIED** |
-| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake parsed, duplex session created (565ms), ASR credential rejected                        | **BLOCKED**  |
+| Check                                | Command                   | Observed Result                                                                                                          | Status       |
+| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| Vitest Unit Test Suite               | `pnpm run test`           | 23 passed across 3 test files (schemas, sanitization, adapters)                                                          | **PASSED**   |
+| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                           | **PASSED**   |
+| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                               | **PASSED**   |
+| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 2.9s; dynamic route `/api/dev/verify-provider` registered                         | **PASSED**   |
+| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                         | **VERIFIED** |
+| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                         | **VERIFIED** |
+| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000 | **VERIFIED** |
 
 ---
 
 ## 7. Latest Git Commit
 
-- **Latest Commit:** `bbfafa6` — `feat: add AI provider verification and smoke tests`
-- **Previous Commit:** `ca63d61e35b97dfdb5df8c251337f494169582d3` — `.gitignore updated`
+- **Latest Commit:** `99b84ae` — `fix: correct Meta realtime ASR handshake and verify live transcription`
+- **Previous Commit:** `fbc70b7994e49188659f7107bd658cc54488f377` — `feat: add AI provider verification and smoke tests`
 
 ---
 
 ## 8. Known Issues and Architectural Decisions
 
-1. **Meta Voice Transcribe Key Scope:**
-   - The hackathon API key is valid for Meta Model API reasoning completions, but the duplex ASR service rejects it as unauthorized. Handshake payload confirmed requires `audioEncoding: "PCM_16KHZ"`.
-2. **Dual Provider Strategy Proven:**
-   - Having Baseten configured alongside Meta proved essential: Baseten's `meta-models/muse-spark-open-1026` provides lightning-fast reasoning (~1.3s) with identical structured output fidelity.
+1. **Meta Voice Transcribe Official Protocol Confirmed:**
+   - The initial handshake failure in Task 2 was caused by an outdated payload schema (`api_key` at root instead of `authorization.accessToken`). Once aligned with `dev.meta.ai/docs/api-reference/voice/schemas`, real-time speech transcription was empirically verified end-to-end.
+2. **Deterministic Test Audio Fixture Created:**
+   - Created `tests/fixtures/speech-24k.wav` and `speech-24k.pcm` locally via Windows speech synthesis, providing an ethical, non-sensitive, 100% reproducible benchmark for speech recognition testing.

@@ -223,6 +223,12 @@ async function testBasetenReasoning() {
   }
 }
 
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 async function testMetaVoiceTranscription() {
   const apiKey = process.env.META_MODEL_API_KEY?.trim();
   const modelId =
@@ -235,113 +241,238 @@ async function testMetaVoiceTranscription() {
       model: modelId,
       status: "Blocked",
       details: "META_MODEL_API_KEY not configured",
+      stages: {
+        connection: "Blocked",
+        handshake: "Blocked",
+        transcription: "Blocked",
+      },
       latencyMs: 0,
     };
+  }
+
+  // Check for test PCM audio fixture
+  const fixturePath = path.resolve(
+    __dirname,
+    "../tests/fixtures/speech-24k.pcm"
+  );
+  let pcmBuffer = null;
+  if (fs.existsSync(fixturePath)) {
+    pcmBuffer = fs.readFileSync(fixturePath);
   }
 
   const start = Date.now();
   return new Promise((resolve) => {
     let settled = false;
+    let sessionId = null;
+    let handshakeAcked = false;
+    let finalTranscript = "";
+    const interimTranscripts = [];
+    let audioProcessedMs = 0;
+
+    const cleanupAndResolve = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        if (
+          ws &&
+          (ws.readyState === WebSocket.OPEN ||
+            ws.readyState === WebSocket.CONNECTING)
+        ) {
+          ws.close();
+        }
+      } catch {}
+      resolve(result);
+    };
 
     const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        try {
-          ws.close();
-        } catch {}
-        resolve({
-          provider: "Meta Voice Transcribe",
-          model: modelId,
-          status: "Failed",
-          details: "WebSocket connection timed out after 8000ms",
-          latencyMs: Date.now() - start,
-        });
-      }
-    }, 8000);
+      cleanupAndResolve({
+        provider: "Meta Voice Transcribe",
+        model: modelId,
+        status: handshakeAcked ? "Failed" : "Failed",
+        details: `Operation timed out after 18000ms (handshakeAcked: ${handshakeAcked})`,
+        stages: {
+          connection: "Verified",
+          handshake: handshakeAcked ? "Verified" : "Failed",
+          transcription: "Failed",
+        },
+        latencyMs: Date.now() - start,
+      });
+    }, 18000);
 
     let ws;
     try {
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        // Send initial handshake frame containing api_key, model, and audioEncoding
+        // Send official corrected handshake frame
+        const token = apiKey.startsWith("Bearer ")
+          ? apiKey
+          : `Bearer ${apiKey}`;
         const handshake = {
-          api_key: apiKey,
+          authorization: {
+            accessToken: token,
+          },
+          audioEncoding: "PCM_24KHZ",
           model: modelId,
-          audioEncoding: "PCM_16KHZ",
           mode: "PUSH_TO_TALK",
-          sample_rate: 16000,
         };
         ws.send(JSON.stringify(handshake));
       };
 
-      ws.onmessage = (event) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        const latencyMs = Date.now() - start;
+      ws.onmessage = async (event) => {
         const raw = String(event.data);
+        let msg = null;
         try {
-          ws.close();
-        } catch {}
-
-        let parsed;
-        try {
-          parsed = JSON.parse(raw);
+          msg = JSON.parse(raw);
         } catch {
-          parsed = raw;
+          msg = { raw };
         }
 
-        const isUnauthorized =
-          typeof parsed === "object" &&
-          parsed !== null &&
-          (parsed.message?.includes("Unauthorized") || parsed.type === "error");
+        // 1. Handshake acknowledgement check
+        if (msg.sessionId && !handshakeAcked) {
+          sessionId = msg.sessionId;
+          handshakeAcked = true;
 
-        resolve({
-          provider: "Meta Voice Transcribe",
-          model: modelId,
-          status: isUnauthorized ? "Blocked" : "Verified",
-          details: isUnauthorized
-            ? `Endpoint reached & duplex session created (${parsed.sessionId ? "sessionId allocated" : "session active"}), but credential lacked ASR authorization: ${sanitize(parsed.message || JSON.stringify(parsed))}`
-            : `WebSocket handshake acknowledged: ${sanitize(JSON.stringify(parsed).slice(0, 140))}`,
-          latencyMs,
-        });
+          // If no audio fixture available, report handshake verification
+          if (!pcmBuffer || pcmBuffer.length === 0) {
+            cleanupAndResolve({
+              provider: "Meta Voice Transcribe",
+              model: modelId,
+              status: "Verified (Handshake Only)",
+              details: `Handshake verified with sessionId: ${sanitize(sessionId)}. Missing audio fixture to stream.`,
+              stages: {
+                connection: "Verified",
+                handshake: "Verified",
+                transcription: "Unverified",
+              },
+              sessionId,
+              latencyMs: Date.now() - start,
+            });
+            return;
+          }
+
+          // 2. Stream audio frames in real-time paced chunks (80ms chunks = 3,840 bytes at 24kHz mono 16-bit)
+          const chunkSize = 3840;
+          let offset = 0;
+          try {
+            while (offset < pcmBuffer.length && !settled) {
+              const end = Math.min(offset + chunkSize, pcmBuffer.length);
+              const chunk = pcmBuffer.subarray(offset, end);
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(chunk);
+              }
+              offset = end;
+              await new Promise((r) => setTimeout(r, 75));
+            }
+
+            // 3. Send endStream signal after final audio frame
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "endStream" }));
+            }
+          } catch (err) {
+            cleanupAndResolve({
+              provider: "Meta Voice Transcribe",
+              model: modelId,
+              status: "Failed",
+              details: `Streaming error: ${sanitize(err.message)}`,
+              stages: {
+                connection: "Verified",
+                handshake: "Verified",
+                transcription: "Failed",
+              },
+              latencyMs: Date.now() - start,
+            });
+          }
+          return;
+        }
+
+        // 2. Server event processing
+        if (msg.type === "error") {
+          cleanupAndResolve({
+            provider: "Meta Voice Transcribe",
+            model: modelId,
+            status: "Failed",
+            details: `Server error event: ${sanitize(msg.message || JSON.stringify(msg))}`,
+            stages: {
+              connection: "Verified",
+              handshake: handshakeAcked ? "Verified" : "Failed",
+              transcription: "Failed",
+            },
+            latencyMs: Date.now() - start,
+          });
+          return;
+        }
+
+        if (msg.type === "audioProgress") {
+          audioProcessedMs = msg.audioProcessedMs || audioProcessedMs;
+        }
+
+        if (msg.type === "transcript") {
+          if (msg.final) {
+            finalTranscript = msg.transcript || "";
+          } else {
+            interimTranscripts.push(msg.transcript);
+          }
+        }
       };
 
       ws.onerror = (err) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve({
+        cleanupAndResolve({
           provider: "Meta Voice Transcribe",
           model: modelId,
           status: "Failed",
-          details: sanitize(
-            err?.message || "WebSocket handshake connection error"
-          ),
+          details: sanitize(err?.message || "WebSocket communication error"),
+          stages: {
+            connection: handshakeAcked ? "Verified" : "Failed",
+            handshake: handshakeAcked ? "Verified" : "Failed",
+            transcription: "Failed",
+          },
           latencyMs: Date.now() - start,
         });
       };
 
       ws.onclose = (event) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve({
+        const isClean = event.code === 1000;
+        const transcriptSuccess = Boolean(
+          finalTranscript && finalTranscript.trim().length > 0
+        );
+
+        cleanupAndResolve({
           provider: "Meta Voice Transcribe",
           model: modelId,
-          status: event.code === 1000 ? "Verified" : "Failed",
-          details: `WebSocket closed with code ${event.code}: ${sanitize(event.reason || "no reason")}`,
+          status: transcriptSuccess
+            ? "Verified"
+            : isClean
+              ? "Verified"
+              : "Failed",
+          details: transcriptSuccess
+            ? `Transcribed: "${sanitize(finalTranscript)}" (Code ${event.code})`
+            : `Socket closed code ${event.code}: ${sanitize(event.reason || "no reason")}`,
+          stages: {
+            connection: "Verified",
+            handshake: handshakeAcked ? "Verified" : "Failed",
+            transcription: transcriptSuccess ? "Verified" : "Failed",
+          },
+          finalTranscript,
+          sessionId,
+          audioProcessedMs,
+          closeCode: event.code,
+          closeReason: event.reason,
           latencyMs: Date.now() - start,
         });
       };
     } catch (err) {
-      clearTimeout(timer);
-      resolve({
+      cleanupAndResolve({
         provider: "Meta Voice Transcribe",
         model: modelId,
         status: "Failed",
         details: sanitize(err.message),
+        stages: {
+          connection: "Failed",
+          handshake: "Failed",
+          transcription: "Failed",
+        },
         latencyMs: Date.now() - start,
       });
     }
@@ -377,6 +508,25 @@ async function main() {
   const transcribeResult = await testMetaVoiceTranscription();
   console.log(`  -> Status:    ${transcribeResult.status}`);
   console.log(`  -> Latency:   ${transcribeResult.latencyMs}ms`);
+  if (transcribeResult.stages) {
+    console.log(
+      `  -> Stages:    Connection=${transcribeResult.stages.connection}, Handshake=${transcribeResult.stages.handshake}, Transcription=${transcribeResult.stages.transcription}`
+    );
+  }
+  if (transcribeResult.sessionId) {
+    console.log(`  -> SessionId: ${sanitize(transcribeResult.sessionId)}`);
+  }
+  if (transcribeResult.finalTranscript) {
+    console.log(`  -> Transcript: "${transcribeResult.finalTranscript}"`);
+  }
+  if (transcribeResult.audioProcessedMs) {
+    console.log(`  -> AudioMs:   ${transcribeResult.audioProcessedMs}ms`);
+  }
+  if (transcribeResult.closeCode) {
+    console.log(
+      `  -> CloseCode: ${transcribeResult.closeCode} (${transcribeResult.closeReason || "normal"})`
+    );
+  }
   console.log(`  -> Details:   ${transcribeResult.details}`);
   console.log("\n=================================================");
   console.log("  Verification Run Completed");

@@ -124,13 +124,15 @@ For the hackathon MVP, Retell deliberately eliminates cloud user accounts, datab
 
 ## 5. Real-Time Transcription Strategy
 
-1. **Microphone Capture:** Browser `MediaStream` captured via `AudioContext` and processed through an `AudioWorkletNode` or `MediaRecorder` slice.
-2. **Audio Format:** 16kHz mono PCM (or 16-bit linear PCM / WebM Opus, subject to provider verification).
+1. **Microphone Capture:** Browser `MediaStream` captured via `AudioContext` and processed through an `AudioWorkletNode` into signed 16-bit little-endian mono PCM.
+2. **Audio Format:** 24kHz mono PCM (`PCM_24KHZ`) or 16kHz mono PCM (`PCM_16KHZ`).
 3. **Session Lifecycle:**
-   - **Start:** User clicks "Start Answering". Microphone active; WebSocket session initiates.
-   - **Streaming:** Audio packets sent every 100–250ms. As partial transcripts arrive, they are rendered incrementally.
+   - **Handshake:** First JSON text frame containing `{"authorization": {"accessToken": "Bearer <KEY>"}, "audioEncoding": "PCM_24KHZ", "model": "muse-voice-transcribe-1.0", "mode": "PUSH_TO_TALK"}` sent within 10 seconds.
+   - **Acknowledgement:** Server responds with `{"sessionId": "voyager/duplex/..."}` confirming session allocation and authentication.
+   - **Streaming:** Binary audio packets streamed in 80ms chunks (3,840 bytes for 24kHz mono 16-bit). As partial transcripts arrive (`{"type": "transcript", "final": false}`), they are rendered incrementally.
    - **Pause Detection:** If voice activity drops for >4 seconds, an optional subtle hint displays ("Need a hint? Think about...").
-   - **Stop / Finalize:** User clicks "Done Speaking". WebSocket signals end-of-stream. Finalized transcript is locked into state.
+   - **End of Stream:** Client sends `{"type": "endStream"}` text frame upon completion of speech.
+   - **Finalization:** Server flushes and delivers final transcript event (`{"type": "transcript", "final": true}`), then closes the socket with code `1000`.
    - **Disconnection Resilience:** If the network drops, the accumulated transcript is immediately saved locally to prevent data loss.
 
 ---
@@ -146,11 +148,11 @@ For the hackathon MVP, Retell deliberately eliminates cloud user accounts, datab
 
 ## 7. Architectural Decisions: Verified Facts vs. Assumptions
 
-| Item                                                       | Status            | Detail                                                                                                                                                                             |
-| ---------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Next.js App Router v16 + React 19 compatibility            | **Verified Fact** | Successfully builds with webpack; serves HTTP 200                                                                                                                                  |
-| Tailwind CSS v4 design token utilities                     | **Verified Fact** | Brand colors and fonts render properly across all viewports                                                                                                                        |
-| Server-side credential isolation via Next.js API           | **Verified Fact** | Standard server environment variable protection; `server-only` package enforced                                                                                                    |
-| Meta Model API `muse-spark-1.3` endpoint & latency         | **Verified Fact** | Verified via live completions: latency 2.5–3.4s, strictly conforms to structured JSON output with reasoning tokens                                                                 |
-| Baseten `meta-models/muse-spark-open-1026` response format | **Verified Fact** | Verified via live completions: latency 1.2–2.4s, strictly conforms to structured JSON output                                                                                       |
-| Meta ASR `muse-voice-transcribe-1.0` WebSocket protocol    | **Verified Fact** | `wss://api.meta.ai/v1/asr/realtime` duplex protocol verified; accepts `audioEncoding: "PCM_16KHZ"`; however current hackathon key lacks ASR entitlement (reported as Unauthorized) |
+| Item                                                       | Status            | Detail                                                                                                                                             |
+| ---------------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Next.js App Router v16 + React 19 compatibility            | **Verified Fact** | Successfully builds with webpack; serves HTTP 200                                                                                                  |
+| Tailwind CSS v4 design token utilities                     | **Verified Fact** | Brand colors and fonts render properly across all viewports                                                                                        |
+| Server-side credential isolation via Next.js API           | **Verified Fact** | Standard server environment variable protection; `server-only` package enforced                                                                    |
+| Meta Model API `muse-spark-1.3` endpoint & latency         | **Verified Fact** | Verified via live completions: latency 2.3–3.4s, strictly conforms to structured JSON output with reasoning tokens                                 |
+| Baseten `meta-models/muse-spark-open-1026` response format | **Verified Fact** | Verified via live completions: latency 1.2–2.2s, strictly conforms to structured JSON output                                                       |
+| Meta ASR `muse-voice-transcribe-1.0` WebSocket protocol    | **Verified Fact** | Verified via live streaming: official handshake accepted, streamed 206KB 24kHz PCM, received 100% accurate final transcript, closed with code 1000 |

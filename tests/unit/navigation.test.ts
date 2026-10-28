@@ -47,7 +47,9 @@ describe("Navigation, Presets and Route Contracts", () => {
 
   it("verifies SEO page metadata definitions", async () => {
     const homeMeta = (await import("../../src/app/page")).metadata;
-    expect(homeMeta.title).toBe("Turn Study into Confidence");
+    expect(homeMeta.title).toEqual({
+      absolute: "Retell | Turn Study into Confidence",
+    });
     expect(homeMeta.description).toContain("Retell");
 
     const libraryMeta = (await import("../../src/app/library/page")).metadata;
@@ -63,5 +65,10 @@ describe("Navigation, Presets and Route Contracts", () => {
     });
     expect(reviewMeta.title).toBe("Review Points to Remember");
     expect(reviewMeta.description).toContain("set_test_123");
+
+    // Verify only homepage overrides layout title template with absolute title
+    expect(typeof libraryMeta.title).toBe("string");
+    expect(typeof addMeta.title).toBe("string");
+    expect(typeof reviewMeta.title).toBe("string");
   });
 });

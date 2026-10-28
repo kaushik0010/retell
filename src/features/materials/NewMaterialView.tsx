@@ -76,8 +76,9 @@ function NewMaterialContent() {
   );
 
   // File Upload / Photo State
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const addMoreFileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const addMoreImagesInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [stagedFiles, setStagedFiles] = useState<StagedFileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -153,60 +154,82 @@ function NewMaterialContent() {
     setError(null);
     setMissingQuestionPrompt(null);
     setMissingAnswerPrompt(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (addMoreFileInputRef.current) addMoreFileInputRef.current.value = "";
+    if (pdfInputRef.current) pdfInputRef.current.value = "";
+    if (imageInputRef.current) imageInputRef.current.value = "";
+    if (addMoreImagesInputRef.current) addMoreImagesInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
-  // Process newly selected files (from upload picker, drag-drop, or camera)
-  const handleFilesChosen = async (
+  // Process single PDF file selection (dedicated to PDF tab)
+  const handlePdfChosen = async (file: File) => {
+    setError(null);
+    if (!file) return;
+
+    try {
+      const isPdf =
+        file.name.toLowerCase().endsWith(".pdf") ||
+        file.type === "application/pdf";
+
+      if (!isPdf) {
+        setError(
+          "Please select a valid PDF file. For images, please use the 'Take Photo / Upload Images' tab."
+        );
+        return;
+      }
+
+      const buffer = new Uint8Array(await file.arrayBuffer());
+      const validation = validateStudyFile(buffer, file.name);
+
+      if (!validation.valid) {
+        setError(validation.error || "Unsupported PDF format.");
+        return;
+      }
+
+      // Clean up previous image URLs
+      stagedFiles.forEach((f) => {
+        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+      });
+
+      const singleItem: StagedFileItem = {
+        id: `file_${crypto.randomUUID()}`,
+        file,
+        name: file.name,
+        size: file.size,
+        sizeFormatted: formatFileSize(file.size),
+        type: "pdf",
+        pageCount: validation.pageCount,
+      };
+
+      setStagedFiles([singleItem]);
+      setDetectedQuestions([]);
+      setCurrentMaterial(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to read the selected PDF."
+      );
+    }
+  };
+
+  // Process image files (from file picker, drag-drop, or camera)
+  const handleImagesChosen = async (
     files: File[],
     mode: "replace" | "append"
   ) => {
     setError(null);
-
     if (!files || files.length === 0) return;
 
     try {
-      // Check if user selected a PDF
-      const pdfFile = files.find(
+      const hasPdf = files.some(
         (f) =>
           f.name.toLowerCase().endsWith(".pdf") || f.type === "application/pdf"
       );
-
-      if (pdfFile) {
-        // If a PDF is provided, it replaces everything as a single document
-        const buffer = new Uint8Array(await pdfFile.arrayBuffer());
-        const validation = validateStudyFile(buffer, pdfFile.name);
-
-        if (!validation.valid) {
-          setError(validation.error || "Unsupported PDF format.");
-          return;
-        }
-
-        // Clean up previous URLs
-        stagedFiles.forEach((f) => {
-          if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
-        });
-
-        const singleItem: StagedFileItem = {
-          id: `file_${crypto.randomUUID()}`,
-          file: pdfFile,
-          name: pdfFile.name,
-          size: pdfFile.size,
-          sizeFormatted: formatFileSize(pdfFile.size),
-          type: "pdf",
-          pageCount: validation.pageCount,
-        };
-
-        setStagedFiles([singleItem]);
-        setDetectedQuestions([]);
-        setCurrentMaterial(null);
-        await executeExtractionWithFiles([pdfFile]);
+      if (hasPdf) {
+        setError(
+          "This tab is for image files only. Please switch to the 'Upload File' tab to upload a PDF."
+        );
         return;
       }
 
-      // Handle Image files
       const newItems: StagedFileItem[] = [];
 
       for (const file of files) {
@@ -229,11 +252,9 @@ function NewMaterialContent() {
 
       let updatedList: StagedFileItem[] = [];
       if (mode === "append") {
-        // Filter out any existing PDF if switching to images
         const existingImages = stagedFiles.filter((f) => f.type === "image");
         updatedList = [...existingImages, ...newItems];
       } else {
-        // Replace
         stagedFiles.forEach((f) => {
           if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
         });
@@ -246,7 +267,6 @@ function NewMaterialContent() {
         return;
       }
 
-      // Check if any item has individual error
       const firstError = updatedList.find((i) => i.error);
       if (firstError) {
         setError(firstError.error || "One or more images could not be loaded.");
@@ -313,12 +333,31 @@ function NewMaterialContent() {
     setIsDragging(false);
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handlePdfDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const dropped = Array.from(e.dataTransfer.files);
-      await handleFilesChosen(dropped, "replace");
+      const pdf = dropped.find(
+        (f) =>
+          f.name.toLowerCase().endsWith(".pdf") || f.type === "application/pdf"
+      );
+      if (!pdf) {
+        setError(
+          "This tab is dedicated to PDF documents. Please drop a PDF file, or switch to 'Take Photo / Upload Images' to upload images."
+        );
+        return;
+      }
+      await handlePdfChosen(pdf);
+    }
+  };
+
+  const handleImageDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const dropped = Array.from(e.dataTransfer.files);
+      await handleImagesChosen(dropped, "replace");
     }
   };
 
@@ -746,6 +785,7 @@ function NewMaterialContent() {
 
   const isPdfStaged =
     stagedFiles.length === 1 && stagedFiles[0]?.type === "pdf";
+  const stagedImages = stagedFiles.filter((f) => f.type === "image");
   const totalStagedBytes = stagedFiles.reduce((acc, f) => acc + f.size, 0);
 
   return (
@@ -823,7 +863,7 @@ function NewMaterialContent() {
           }`}
         >
           <DocumentTextIcon className="h-4 w-4" />
-          <span>Upload Files</span>
+          <span>Upload File (PDF)</span>
         </button>
 
         <button
@@ -839,7 +879,8 @@ function NewMaterialContent() {
           }`}
         >
           <CameraIcon className="h-4 w-4" />
-          <span>Take Photo</span>
+          <span className="hidden sm:inline">Take Photo / Upload Images</span>
+          <span className="sm:hidden">Photo / Images</span>
         </button>
 
         <button
@@ -879,176 +920,115 @@ function NewMaterialContent() {
         </div>
       )}
 
-      {/* STAGED FILES MANAGEMENT VIEW (When 1 PDF or 1+ Images are chosen) */}
-      {stagedFiles.length > 0 && (
+      {/* Hidden File Inputs */}
+      {/* 1. Dedicated PDF file input */}
+      <input
+        ref={pdfInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            handlePdfChosen(e.target.files[0]);
+          }
+        }}
+      />
+
+      {/* 2. Image multi-file input (replace) */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        multiple
+        accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) {
+            handleImagesChosen(Array.from(e.target.files), "replace");
+          }
+        }}
+      />
+
+      {/* 3. Image multi-file input (append) */}
+      <input
+        ref={addMoreImagesInputRef}
+        type="file"
+        multiple
+        accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) {
+            handleImagesChosen(Array.from(e.target.files), "append");
+          }
+        }}
+      />
+
+      {/* 4. Camera capture input */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleImagesChosen([e.target.files[0]], "append");
+          }
+        }}
+      />
+
+      {/* TAB 1: UPLOAD FILE (Dedicated to PDF Uploads) */}
+      {activeTab === "upload" && isPdfStaged && (
         <div className="border-brand-peach/80 w-full min-w-0 space-y-4 rounded-2xl border bg-white p-4 shadow-xs sm:p-5">
-          {/* Header Bar */}
           <div className="border-brand-peach/40 flex items-center justify-between border-b pb-3">
             <div className="flex items-center gap-2.5">
               <span className="font-heading text-brand-ink text-sm font-bold">
-                {isPdfStaged
-                  ? "Selected PDF Document"
-                  : `Selected Pages (${stagedFiles.length} ${
-                      stagedFiles.length === 1 ? "image" : "images"
-                    } · ${formatFileSize(totalStagedBytes)})`}
+                Selected PDF Document
               </span>
               <span className="bg-brand-cream text-brand-tomato border-brand-peach rounded-full border px-2 py-0.5 text-[10px] font-bold">
-                {isPdfStaged
-                  ? `${stagedFiles[0]?.pageCount || 1} pages`
-                  : `${stagedFiles.length} page(s) ordered`}
+                {stagedFiles[0]?.pageCount || 1} pages
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              {!isPdfStaged && activeTab === "upload" && (
-                <button
-                  type="button"
-                  onClick={() => addMoreFileInputRef.current?.click()}
-                  className="border-brand-peach bg-brand-cream/80 text-brand-ink hover:bg-brand-peach/40 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-semibold shadow-2xs transition"
-                >
-                  <PlusIcon className="text-brand-tomato h-3.5 w-3.5" />
-                  <span>Add more images</span>
-                </button>
-              )}
-
-              {!isPdfStaged && activeTab === "photo" && (
-                <button
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold text-white shadow-2xs transition"
-                >
-                  <CameraIcon className="h-3.5 w-3.5" />
-                  <span>Take another photo</span>
-                </button>
-              )}
-
+              <button
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                className="border-brand-peach bg-brand-cream/80 text-brand-ink hover:bg-brand-peach/40 inline-flex h-8 cursor-pointer items-center justify-center rounded-xl border px-3 text-xs font-semibold shadow-2xs transition"
+              >
+                Change PDF
+              </button>
               <button
                 type="button"
                 onClick={handleClearAll}
                 className="text-brand-secondary hover:text-brand-tomato flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl transition hover:bg-red-50"
-                title="Clear all files"
+                title="Clear file"
               >
                 <TrashIcon className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          {/* Single PDF View Card */}
-          {isPdfStaged && (
-            <div className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-3">
-                <div className="bg-brand-peach/50 text-brand-tomato flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
-                  <DocumentTextIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h4 className="font-heading text-brand-ink text-sm font-bold">
-                    {stagedFiles[0]?.name}
-                  </h4>
-                  <p className="text-brand-secondary text-xs">
-                    {stagedFiles[0]?.pageCount} pages ·{" "}
-                    {stagedFiles[0]?.sizeFormatted}
-                  </p>
-                </div>
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-3">
+              <div className="bg-brand-peach/50 text-brand-tomato flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
+                <DocumentTextIcon className="h-6 w-6" />
               </div>
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="border-brand-peach bg-brand-cream/80 text-brand-ink hover:bg-brand-peach/40 hidden h-8 cursor-pointer items-center justify-center rounded-xl border px-3 text-xs font-semibold transition sm:inline-flex"
-              >
-                Change file
-              </button>
-            </div>
-          )}
-
-          {/* Multiple Images List with Ordering Controls & Thumbnails */}
-          {!isPdfStaged && (
-            <div className="space-y-2.5">
-              <p className="text-brand-secondary text-[11px]">
-                Review page order below. Use arrows to reorder pages before
-                extraction so answers spanning pages remain continuous.
-              </p>
-
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {stagedFiles.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    className="border-brand-peach/60 bg-brand-cream/20 flex items-center justify-between rounded-xl border p-2.5 shadow-2xs"
-                  >
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      {item.previewUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={item.previewUrl}
-                          alt={item.name}
-                          className="h-12 w-12 shrink-0 rounded-lg border object-cover"
-                        />
-                      ) : (
-                        <div className="bg-brand-peach/50 text-brand-tomato flex h-12 w-12 shrink-0 items-center justify-center rounded-lg">
-                          <PhotoIcon className="h-6 w-6" />
-                        </div>
-                      )}
-
-                      <div className="min-w-0">
-                        <span className="bg-brand-tomato rounded px-1.5 py-0.5 text-[9px] font-bold text-white">
-                          Page {idx + 1}
-                        </span>
-                        <h5 className="font-heading text-brand-ink mt-0.5 truncate text-xs font-bold">
-                          {item.name}
-                        </h5>
-                        <span className="text-brand-secondary text-[10px]">
-                          {item.sizeFormatted}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Ordering Controls & Remove */}
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        disabled={idx === 0 || isExtracting}
-                        onClick={() => moveFileUp(idx)}
-                        title="Move earlier (Page Up)"
-                        className="text-brand-secondary hover:text-brand-ink cursor-pointer p-1 disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        <ArrowUpIcon className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={
-                          idx === stagedFiles.length - 1 || isExtracting
-                        }
-                        onClick={() => moveFileDown(idx)}
-                        title="Move later (Page Down)"
-                        className="text-brand-secondary hover:text-brand-ink cursor-pointer p-1 disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        <ArrowDownIcon className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={isExtracting}
-                        onClick={() => removeStagedFile(idx)}
-                        title="Remove this image"
-                        className="text-brand-secondary hover:text-brand-tomato cursor-pointer p-1 disabled:cursor-not-allowed"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <div>
+                <h4 className="font-heading text-brand-ink text-sm font-bold">
+                  {stagedFiles[0]?.name}
+                </h4>
+                <p className="text-brand-secondary text-xs">
+                  {stagedFiles[0]?.pageCount} pages ·{" "}
+                  {stagedFiles[0]?.sizeFormatted}
+                </p>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Extract Questions Action Button (if not already extracted) */}
           {detectedQuestions.length === 0 && (
             <div className="border-brand-peach/40 flex flex-col items-center justify-between gap-3 border-t pt-3 sm:flex-row">
               <span className="text-brand-secondary text-xs">
-                {isPdfStaged
-                  ? "Extract all authentic exam questions and answers from this PDF."
-                  : `Extract all questions across all ${stagedFiles.length} page(s) in order.`}
+                Extract all authentic exam questions and answers from this PDF.
               </span>
 
               <button
@@ -1060,7 +1040,7 @@ function NewMaterialContent() {
                 {isExtracting ? (
                   <>
                     <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                    <span>Analyzing Document...</span>
+                    <span>Analyzing PDF Document...</span>
                   </>
                 ) : (
                   <>
@@ -1074,50 +1054,11 @@ function NewMaterialContent() {
         </div>
       )}
 
-      {/* Hidden File Inputs */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept=".pdf,.png,.jpg,.jpeg,.webp"
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files) {
-            handleFilesChosen(Array.from(e.target.files), "replace");
-          }
-        }}
-      />
-      <input
-        ref={addMoreFileInputRef}
-        type="file"
-        multiple
-        accept=".png,.jpg,.jpeg,.webp"
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files) {
-            handleFilesChosen(Array.from(e.target.files), "append");
-          }
-        }}
-      />
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files && e.target.files[0]) {
-            handleFilesChosen([e.target.files[0]], "append");
-          }
-        }}
-      />
-
-      {/* TAB 1: Upload File Drag/Drop Area (when no files staged yet) */}
-      {activeTab === "upload" && stagedFiles.length === 0 && (
+      {activeTab === "upload" && !isPdfStaged && (
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          onDrop={handlePdfDrop}
           className={`border-brand-peach/80 bg-brand-cream/30 rounded-2xl border-2 border-dashed p-6 transition sm:p-10 ${
             isDragging ? "border-brand-tomato bg-brand-peach/20" : ""
           }`}
@@ -1129,19 +1070,20 @@ function NewMaterialContent() {
               </div>
               <h3 className="font-heading text-brand-ink text-sm font-bold sm:text-base">
                 <span className="hidden sm:inline">
-                  Drag and drop files here (multiple images or PDF)
+                  Drag and drop your PDF here
                 </span>
-                <span className="sm:hidden">Tap to choose files</span>
+                <span className="sm:hidden">Tap to choose a PDF</span>
               </h3>
               <p className="text-brand-secondary mt-1 text-xs">
-                Select multiple JPG/PNG photos or a single PDF (Max 20MB)
+                Upload assignment, question bank, or study notes PDF (Max 20MB,
+                up to 50 pages)
               </p>
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => pdfInputRef.current?.click()}
                 className="bg-brand-tomato hover:bg-brand-tomato-hover mt-4 inline-flex h-10 cursor-pointer items-center justify-center rounded-xl px-6 text-xs font-bold text-white shadow-xs transition"
               >
-                Choose Files
+                Choose PDF File
               </button>
             </div>
 
@@ -1151,32 +1093,48 @@ function NewMaterialContent() {
 
             <div className="border-brand-peach/60 rounded-xl border bg-white/70 p-4 md:col-span-5">
               <h4 className="font-heading text-brand-ink text-xs font-bold tracking-wider uppercase">
-                Supported formats
+                Dedicated PDF Ingestion
               </h4>
               <ul className="mt-3 space-y-2.5 text-xs">
                 <li className="text-brand-secondary flex items-start gap-2.5">
                   <DocumentTextIcon className="text-brand-tomato mt-0.5 h-4 w-4 shrink-0" />
                   <span>
                     <strong className="text-brand-ink">PDF files</strong>{" "}
-                    (notes, assignments, question banks)
+                    (notes, assignments, question banks up to 20MB)
                   </span>
                 </li>
                 <li className="text-brand-secondary flex items-start gap-2.5">
                   <PhotoIcon className="text-brand-tomato mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    <strong className="text-brand-ink">Multiple images</strong>{" "}
-                    (select multiple page photos at once)
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("photo");
+                      setError(null);
+                    }}
+                    className="cursor-pointer text-left hover:underline"
+                  >
+                    <span>
+                      Have photos of notes? Switch to{" "}
+                      <strong className="text-brand-ink">
+                        Take Photo / Upload Images
+                      </strong>
+                    </span>
+                  </button>
                 </li>
                 <li className="text-brand-secondary flex items-start gap-2.5">
                   <PencilSquareIcon className="text-brand-tomato mt-0.5 h-4 w-4 shrink-0" />
                   <button
                     type="button"
-                    onClick={() => setActiveTab("paste")}
+                    onClick={() => {
+                      setActiveTab("paste");
+                      setError(null);
+                    }}
                     className="cursor-pointer text-left hover:underline"
                   >
-                    <strong className="text-brand-ink">Paste text</strong>{" "}
-                    directly from your notes
+                    <span>
+                      Have text? Switch to{" "}
+                      <strong className="text-brand-ink">Paste Text</strong>
+                    </span>
                   </button>
                 </li>
               </ul>
@@ -1185,33 +1143,247 @@ function NewMaterialContent() {
         </div>
       )}
 
-      {/* TAB 2: Take Photo Area (when no files staged yet) */}
-      {activeTab === "photo" && stagedFiles.length === 0 && (
-        <div className="border-brand-peach/80 bg-brand-cream/30 rounded-2xl border-2 border-dashed p-6 text-center sm:p-10">
-          <div className="mx-auto flex max-w-md flex-col items-center">
+      {/* TAB 2: TAKE PHOTO / UPLOAD IMAGES */}
+      {activeTab === "photo" && stagedImages.length > 0 && (
+        <div className="border-brand-peach/80 w-full min-w-0 space-y-4 rounded-2xl border bg-white p-4 shadow-xs sm:p-5">
+          {/* Header Bar */}
+          <div className="border-brand-peach/40 flex items-center justify-between border-b pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="font-heading text-brand-ink text-sm font-bold">
+                Selected Pages ({stagedImages.length}{" "}
+                {stagedImages.length === 1 ? "image" : "images"} ·{" "}
+                {formatFileSize(totalStagedBytes)})
+              </span>
+              <span className="bg-brand-cream text-brand-tomato border-brand-peach rounded-full border px-2 py-0.5 text-[10px] font-bold">
+                {stagedImages.length} page(s) ordered
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Laptop & Desktop action: Add more images file picker */}
+              <button
+                type="button"
+                onClick={() => addMoreImagesInputRef.current?.click()}
+                className="border-brand-peach bg-brand-cream/80 text-brand-ink hover:bg-brand-peach/40 hidden h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-semibold shadow-2xs transition lg:inline-flex"
+              >
+                <PlusIcon className="text-brand-tomato h-3.5 w-3.5" />
+                <span>Add more images</span>
+              </button>
+
+              {/* Mobile & Tablet actions: Take another photo (primary) + Add files (secondary) */}
+              <div className="inline-flex items-center gap-1.5 lg:hidden">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold text-white shadow-2xs transition"
+                >
+                  <CameraIcon className="h-3.5 w-3.5" />
+                  <span>Add another photo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addMoreImagesInputRef.current?.click()}
+                  className="border-brand-peach text-brand-ink hover:bg-brand-cream/80 inline-flex h-8 cursor-pointer items-center justify-center gap-1 rounded-xl border bg-white px-2.5 text-xs font-semibold shadow-2xs transition"
+                  title="Select more images from device"
+                >
+                  <PlusIcon className="text-brand-tomato h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Add files</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="text-brand-secondary hover:text-brand-tomato flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl transition hover:bg-red-50"
+                title="Clear all images"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Multiple Images List with Ordering Controls & Thumbnails */}
+          <div className="space-y-2.5">
+            <p className="text-brand-secondary text-[11px]">
+              Review page order below. Use arrows to reorder pages before
+              extraction so answers spanning pages remain continuous.
+            </p>
+
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {stagedImages.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="border-brand-peach/60 bg-brand-cream/20 flex items-center justify-between rounded-xl border p-2.5 shadow-2xs"
+                >
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    {item.previewUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={item.previewUrl}
+                        alt={item.name}
+                        className="h-12 w-12 shrink-0 rounded-lg border object-cover"
+                      />
+                    ) : (
+                      <div className="bg-brand-peach/50 text-brand-tomato flex h-12 w-12 shrink-0 items-center justify-center rounded-lg">
+                        <PhotoIcon className="h-6 w-6" />
+                      </div>
+                    )}
+
+                    <div className="min-w-0">
+                      <span className="bg-brand-tomato rounded px-1.5 py-0.5 text-[9px] font-bold text-white">
+                        Page {idx + 1}
+                      </span>
+                      <h5 className="font-heading text-brand-ink mt-0.5 truncate text-xs font-bold">
+                        {item.name}
+                      </h5>
+                      <span className="text-brand-secondary text-[10px]">
+                        {item.sizeFormatted}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Ordering Controls & Remove */}
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={idx === 0 || isExtracting}
+                      onClick={() => moveFileUp(idx)}
+                      title="Move earlier (Page Up)"
+                      className="text-brand-secondary hover:text-brand-ink cursor-pointer p-1 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ArrowUpIcon className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={idx === stagedImages.length - 1 || isExtracting}
+                      onClick={() => moveFileDown(idx)}
+                      title="Move later (Page Down)"
+                      className="text-brand-secondary hover:text-brand-ink cursor-pointer p-1 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ArrowDownIcon className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isExtracting}
+                      onClick={() => removeStagedFile(idx)}
+                      title="Remove this image"
+                      className="text-brand-secondary hover:text-brand-tomato cursor-pointer p-1 disabled:cursor-not-allowed"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Extract Questions Action Button */}
+          {detectedQuestions.length === 0 && (
+            <div className="border-brand-peach/40 flex flex-col items-center justify-between gap-3 border-t pt-3 sm:flex-row">
+              <span className="text-brand-secondary text-xs">
+                Extract all questions across all {stagedImages.length} page(s)
+                in order.
+              </span>
+
+              <button
+                type="button"
+                disabled={isExtracting}
+                onClick={() => executeExtractionWithFiles()}
+                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              >
+                {isExtracting ? (
+                  <>
+                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                    <span>Analyzing Consecutive Pages...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Extract questions &amp; answers</span>
+                    <span>&rarr;</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "photo" && stagedImages.length === 0 && (
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleImageDrop}
+          className={`border-brand-peach/80 bg-brand-cream/30 rounded-2xl border-2 border-dashed p-6 transition sm:p-10 ${
+            isDragging ? "border-brand-tomato bg-brand-peach/20" : ""
+          }`}
+        >
+          {/* LAPTOP & DESKTOP (>= lg): Primary action is "Upload images", no camera primary button */}
+          <div className="mx-auto hidden max-w-lg flex-col items-center text-center lg:flex">
             <div className="bg-brand-peach/50 text-brand-tomato mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl">
-              <CameraIcon className="h-7 w-7" />
+              <PhotoIcon className="h-7 w-7" />
             </div>
             <h3 className="font-heading text-brand-ink text-base font-bold">
-              Take photos of your study material
+              Upload photos of your study notes
             </h3>
-            <p className="text-brand-secondary mt-1 text-xs leading-relaxed">
-              Snap clear photos of each page. You can capture multiple photos in
-              sequence to study multi-page answers.
+            <p className="text-brand-secondary mt-1 max-w-md text-xs leading-relaxed">
+              Select multiple JPG, PNG, or WebP photos of your handwritten notes
+              or question sheets. You can select up to 15 images at once.
             </p>
 
             <button
               type="button"
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => imageInputRef.current?.click()}
               className="bg-brand-tomato hover:bg-brand-tomato-hover mt-5 inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition"
             >
-              <CameraIcon className="h-4 w-4" />
-              <span>Open Camera</span>
+              <PhotoIcon className="h-4 w-4" />
+              <span>Upload images</span>
             </button>
 
             <p className="text-brand-secondary/70 mt-3 text-[11px]">
-              On desktop or laptop devices, you can also select existing image
-              files.
+              Or drag and drop multiple image files directly here
+            </p>
+          </div>
+
+          {/* MOBILE & TABLET (< lg): Primary action is "Take photo", with accessible "Select from device" */}
+          <div className="mx-auto flex max-w-md flex-col items-center text-center lg:hidden">
+            <div className="bg-brand-peach/50 text-brand-tomato mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl">
+              <CameraIcon className="h-7 w-7" />
+            </div>
+            <h3 className="font-heading text-brand-ink text-base font-bold">
+              Take photos or upload images
+            </h3>
+            <p className="text-brand-secondary mt-1 text-xs leading-relaxed">
+              Snap clear photos of each page in sequence, or select existing
+              images from your device gallery.
+            </p>
+
+            <div className="mt-5 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
+              {/* Primary camera action for phones & tablets */}
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition sm:w-auto"
+              >
+                <CameraIcon className="h-4 w-4" />
+                <span>Take photo</span>
+              </button>
+
+              {/* Accessible image upload for mobile & tablet */}
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                className="border-brand-peach hover:bg-brand-cream/80 text-brand-ink inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border bg-white px-5 text-xs font-semibold shadow-2xs transition sm:w-auto"
+              >
+                <PhotoIcon className="text-brand-tomato h-4 w-4" />
+                <span>Select from device</span>
+              </button>
+            </div>
+
+            <p className="text-brand-secondary/70 mt-3 text-[11px]">
+              Supports up to 15 images (Max 25MB total). You can capture
+              multiple photos in sequence.
             </p>
           </div>
         </div>

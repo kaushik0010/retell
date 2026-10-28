@@ -191,6 +191,28 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier code formatting verified across all files.
     - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
 
+- [x] **`TASK-2.12` — UI Refinement: Dedicated PDF Tab, Responsive Image Uploads & Homepage Document Title**
+  - **Upload File Tab Dedicated to PDFs (`src/features/materials/NewMaterialView.tsx`):**
+    - Updated Tab 1 label to `Upload File (PDF)`. Dedicated specifically to single-PDF uploads up to 20MB / 50 pages.
+    - Single PDF file input (`accept=".pdf,application/pdf"`), PDF drop validation, and clear error feedback if non-PDF files are dropped.
+    - Preserved PDF page count display, file size formatting, extraction flow, loading states, and master-detail review.
+  - **Take Photo / Upload Images Tab (`src/features/materials/NewMaterialView.tsx`):**
+    - Renamed image tab to `Take Photo / Upload Images` (responsive `Photo / Images` on small mobile viewports).
+    - Consolidated all multiple-image upload, preview, reordering, and removal workflows under this tab.
+    - On laptops and desktops (`lg:` and up): primary action is "Upload images" (opens multi-select image file picker), with drag-and-drop support. Zero camera primary action is displayed on desktop.
+    - On mobile phones and tablets (`< lg`): primary action is "Take photo" (opens camera), with an accessible secondary action "Select from device" (file picker) so mobile and tablet students can easily select existing photos from their library without using the camera.
+    - Preserved batch limits (up to 15 images, 25MB total), magic-byte validation, ordering, page continuity, and double-submit protection.
+  - **Homepage Document Title (`src/app/page.tsx`, `tests/unit/navigation.test.ts`):**
+    - Set homepage document title to exact absolute string `Retell | Turn Study into Confidence` using `title: { absolute: "Retell | Turn Study into Confidence" }`.
+    - Preserved template-based metadata across all other routes (`/library`, `/materials/new`, `/review/[id]`).
+    - Updated and added regression tests in `tests/unit/navigation.test.ts`.
+  - **Testing & Verification:**
+    - 99 passing unit tests across 11 test suites in Vitest.
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check (`pnpm run lint`) with 0 errors and 0 warnings.
+    - Clean Prettier code formatting verified across all files.
+    - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
+
 - [x] **`TASK-2.9` — Home Hero Illustration Desktop & Tablet Positioning Alignment (Task 8)**
   - Fixed CSS Grid auto-placement defect in `src/features/home/HomeView.tsx` where `order-3` on illustration caused auto-placement to skip Row 1 (leaving a blank area beside heading and description) and drop the illustration into Row 2/3.
   - Implemented explicit grid coordinates for desktop/tablet (`md:`):
@@ -237,6 +259,28 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier code formatting verified across all files.
     - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
 
+- [x] **`TASK-2.12` — UI Refinement: Dedicated PDF Tab, Responsive Image Uploads & Homepage Document Title**
+  - **Upload File Tab Dedicated to PDFs (`src/features/materials/NewMaterialView.tsx`):**
+    - Updated Tab 1 label to `Upload File (PDF)`. Dedicated specifically to single-PDF uploads up to 20MB / 50 pages.
+    - Single PDF file input (`accept=".pdf,application/pdf"`), PDF drop validation, and clear error feedback if non-PDF files are dropped.
+    - Preserved PDF page count display, file size formatting, extraction flow, loading states, and master-detail review.
+  - **Take Photo / Upload Images Tab (`src/features/materials/NewMaterialView.tsx`):**
+    - Renamed image tab to `Take Photo / Upload Images` (responsive `Photo / Images` on small mobile viewports).
+    - Consolidated all multiple-image upload, preview, reordering, and removal workflows under this tab.
+    - On laptops and desktops (`lg:` and up): primary action is "Upload images" (opens multi-select image file picker), with drag-and-drop support. Zero camera primary action is displayed on desktop.
+    - On mobile phones and tablets (`< lg`): primary action is "Take photo" (opens camera), with an accessible secondary action "Select from device" (file picker) so mobile and tablet students can easily select existing photos from their library without using the camera.
+    - Preserved batch limits (up to 15 images, 25MB total), magic-byte validation, ordering, page continuity, and double-submit protection.
+  - **Homepage Document Title (`src/app/page.tsx`, `tests/unit/navigation.test.ts`):**
+    - Set homepage document title to exact absolute string `Retell | Turn Study into Confidence` using `title: { absolute: "Retell | Turn Study into Confidence" }`.
+    - Preserved template-based metadata across all other routes (`/library`, `/materials/new`, `/review/[id]`).
+    - Updated and added regression tests in `tests/unit/navigation.test.ts`.
+  - **Testing & Verification:**
+    - 99 passing unit tests across 11 test suites in Vitest.
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check (`pnpm run lint`) with 0 errors and 0 warnings.
+    - Clean Prettier code formatting verified across all files.
+    - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
+
 - [x] **`TASK-2.11` — Follow-up: Multi-Image Ingestion, Import Questions into Existing Sets & Accurate Save-State UX**
   - **Feature A — Multi-Image Ingestion & Batch File Validation (`src/lib/files/index.ts`, `src/features/materials/NewMaterialView.tsx`):**
     - Implemented `validateFileBatch()` enforcing batch limits (max 15 images, 25 MB total batch ceiling, single PDF rule).
@@ -257,6 +301,28 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Pure React 19 state architecture satisfying `react-hooks/refs` rules.
   - **Testing & Verification:**
     - 99 passing unit tests across 11 test suites in Vitest (including new 18-test suite in `tests/unit/followup-features.test.ts`).
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check (`pnpm run lint`) with 0 errors and 0 warnings.
+    - Clean Prettier code formatting verified across all files.
+    - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
+
+- [x] **`TASK-2.12` — UI Refinement: Dedicated PDF Tab, Responsive Image Uploads & Homepage Document Title**
+  - **Upload File Tab Dedicated to PDFs (`src/features/materials/NewMaterialView.tsx`):**
+    - Updated Tab 1 label to `Upload File (PDF)`. Dedicated specifically to single-PDF uploads up to 20MB / 50 pages.
+    - Single PDF file input (`accept=".pdf,application/pdf"`), PDF drop validation, and clear error feedback if non-PDF files are dropped.
+    - Preserved PDF page count display, file size formatting, extraction flow, loading states, and master-detail review.
+  - **Take Photo / Upload Images Tab (`src/features/materials/NewMaterialView.tsx`):**
+    - Renamed image tab to `Take Photo / Upload Images` (responsive `Photo / Images` on small mobile viewports).
+    - Consolidated all multiple-image upload, preview, reordering, and removal workflows under this tab.
+    - On laptops and desktops (`lg:` and up): primary action is "Upload images" (opens multi-select image file picker), with drag-and-drop support. Zero camera primary action is displayed on desktop.
+    - On mobile phones and tablets (`< lg`): primary action is "Take photo" (opens camera), with an accessible secondary action "Select from device" (file picker) so mobile and tablet students can easily select existing photos from their library without using the camera.
+    - Preserved batch limits (up to 15 images, 25MB total), magic-byte validation, ordering, page continuity, and double-submit protection.
+  - **Homepage Document Title (`src/app/page.tsx`, `tests/unit/navigation.test.ts`):**
+    - Set homepage document title to exact absolute string `Retell | Turn Study into Confidence` using `title: { absolute: "Retell | Turn Study into Confidence" }`.
+    - Preserved template-based metadata across all other routes (`/library`, `/materials/new`, `/review/[id]`).
+    - Updated and added regression tests in `tests/unit/navigation.test.ts`.
+  - **Testing & Verification:**
+    - 99 passing unit tests across 11 test suites in Vitest.
     - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
     - Clean ESLint check (`pnpm run lint`) with 0 errors and 0 warnings.
     - Clean Prettier code formatting verified across all files.
@@ -344,8 +410,8 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 7. Latest Git Commit
 
-- **Latest Commit:** `af6f806` — `feat: support multi-image imports and accurate study-set save states`
-- **Previous Commit:** `5e25424` — `feat: add image and PDF study material ingestion with Meta multimodal reasoning`
+- **Latest Commit:** `a4839ec` — `fix: clarify responsive image upload actions and homepage title`
+- **Previous Commit:** `d0b4c61` — `feat: support multi-image imports and accurate study-set save states`
 
 ---
 

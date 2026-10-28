@@ -70,6 +70,7 @@ Allow students to input study materials (text or structured notes), extract the 
 | `TASK-2.9`  | Home Hero Illustration Desktop & Tablet Positioning Alignment                                  | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)          |
 | `TASK-2.10` | Phase 1: Image, Camera and PDF Ingestion with Meta Multimodal Reasoning & Master-Detail Review | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
 | `TASK-2.11` | Follow-up: Multi-Image Ingestion, Import Questions into Existing Sets & Accurate Save-State UX | **Completed** | [Section 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
+| `TASK-2.12` | UI Refinement: Dedicated PDF Tab, Responsive Image Uploads & Homepage Document Title           | **Completed** | [Section 2, 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
 
 ### Acceptance Criteria
 
@@ -98,6 +99,9 @@ Allow students to input study materials (text or structured notes), extract the 
 - [x] Multi-image batch ingestion supports up to 15 images and 25 MB total batch with magic-byte validation, drag-and-drop, camera appends, reordering, and cross-page question continuity.
 - [x] Import questions into existing study sets via dedicated modal without losing existing questions or attempt history, featuring candidate selection checkboxes, inline edits, and sequential rubric generation.
 - [x] Accurate study-set save states in Points Review view with deep serialization comparison, quiet saved state, unsaved changes banner with primary save button, and in-flight save race protection.
+- [x] Upload File tab dedicated specifically to PDF ingestion with single-file validation and drop zone.
+- [x] Take Photo / Upload Images tab consolidates multiple-image ingestion with responsive primary actions (desktop/laptop shows "Upload images" with multi-file picker, mobile/tablet shows "Take photo" + "Select from device", with no camera primary action on desktop).
+- [x] Homepage document title configured as exact absolute title `Retell | Turn Study into Confidence` while preserving template titles across all other routes.
 
 ### Dependencies & Risks
 

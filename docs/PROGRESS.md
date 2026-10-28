@@ -112,11 +112,40 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier code formatting verified across all files.
     - Successful Next.js production build (`next build --webpack`) generating all static and dynamic routes.
 
+- [x] **`TASK-2.7` — UI Polish, Question Review Redesign, Responsive Fixes & Page SEO (Task 6)**
+  - **Home Page Polish (`src/app/page.tsx`, `src/features/home/HomeView.tsx`):**
+    - Integrated authentic student illustration (`public/assets/homepage_illustration.png`) with responsive proportions (`object-contain`, `priority`, desktop side-by-side, mobile stacked beneath CTA).
+    - Purged misleading/developer labels ("Saved locally", "Ready to test", "IndexedDB local", "Q&A + Key Points", "100% Private", "Day 2 Milestone").
+    - Retained truthful metrics with elevated typography: Study Sets, Questions to Rehearse, and Key Points to Remember.
+    - Replaced misleading "Practise" action with an honest disabled affordance explaining that the Voice Practice Room unlocks in Day 3.
+  - **Add Material Single-Row Curated Presets (`src/features/materials/NewMaterialView.tsx`):**
+    - Sized and aligned the 4 sample topic cards into one single, horizontal-scrolling row (`flex-nowrap`, `shrink-0 min-w-[220px] max-w-[260px]`, `overflow-x-auto`) across desktop, tablet, and mobile.
+    - Prevented page-level overflow with `max-w-full overflow-hidden`.
+  - **Question Review Redesign (`src/features/source-review/SourceReviewView.tsx`, `src/features/review/ReviewClient.tsx`):**
+    - Redesigned to match the provided visual reference (`media_1793177929850_39591af6.jpg`).
+    - Implemented `AutoResizeTextarea` ensuring full content readability for questions, original answers, point descriptions, and satisfactory demonstration guidance without nested scrolling or clipped text.
+    - Desktop: Sized two-column grid (5 cols Q&A, 7 cols Points) with generous width and padding.
+    - Mobile: Full single-column flow with `1 of N` question navigator, arrow buttons, active question dropdown selector, horizontal category pill scroll, and collapsible source excerpt.
+    - Added `beforeunload` warning to safeguard students against accidental loss of unsaved edits.
+    - Honest Practice Room affordance banner (`Ready to practise explaining aloud?`) explaining Day 3 speech practice.
+  - **Interaction Affordances Audit (`cursor-pointer`):**
+    - Applied explicit `cursor-pointer` to all buttons, navigation links, sample preset cards, filter tabs, checkboxes, question selectors, and icon triggers.
+    - Applied `cursor-not-allowed` to disabled controls.
+  - **App Router SEO & Page Metadata:**
+    - Established default title and template (`%s | Retell`) in `src/app/layout.tsx`.
+    - Added student-first metadata across all routes: `/` (Home), `/library` (Study Library), `/materials/new` (Add Study Material), and `/review/[id]` (Review Points to Remember).
+  - **Verification:**
+    - 57 passing unit tests across 8 test suites in Vitest.
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check with 0 errors and 0 warnings.
+    - Clean Prettier formatting across all files.
+    - Successful Webpack production build generating all 8 static and dynamic routes.
+
 ---
 
 ## 2. In Progress Tasks
 
-- _None (Task 4 completed; ready for Task 5 / Day 3 Practice Room & Real-Time ASR)_
+- _None (Task 6 completed; ready for Day 3 Practice Room & Real-Time ASR)_
 
 ---
 

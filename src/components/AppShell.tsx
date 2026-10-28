@@ -56,7 +56,7 @@ export function AppShell({ children }: AppShellProps) {
         <nav className="flex-1 space-y-1.5 px-4 py-4">
           <Link
             href="/"
-            className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+            className={`flex cursor-pointer items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
               isHomeActive
                 ? "bg-brand-peach/60 text-brand-tomato font-bold shadow-2xs"
                 : "text-brand-ink/80 hover:bg-brand-cream/80 hover:text-brand-ink"
@@ -72,7 +72,7 @@ export function AppShell({ children }: AppShellProps) {
 
           <Link
             href="/library"
-            className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+            className={`flex cursor-pointer items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
               isLibraryActive
                 ? "bg-brand-peach/60 text-brand-tomato font-bold shadow-2xs"
                 : "text-brand-ink/80 hover:bg-brand-cream/80 hover:text-brand-ink"
@@ -88,7 +88,7 @@ export function AppShell({ children }: AppShellProps) {
 
           <Link
             href="/materials/new"
-            className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+            className={`flex cursor-pointer items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
               isAddActive
                 ? "bg-brand-peach/60 text-brand-tomato font-bold shadow-2xs"
                 : "text-brand-ink/80 hover:bg-brand-cream/80 hover:text-brand-ink"
@@ -132,7 +132,7 @@ export function AppShell({ children }: AppShellProps) {
           <div className="flex items-center gap-4">
             <Link
               href="/materials/new"
-              className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-semibold text-white shadow-2xs transition"
+              className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-semibold text-white shadow-2xs transition"
             >
               <PlusCircleIcon className="h-4 w-4" />
               <span>Add study material</span>
@@ -142,7 +142,7 @@ export function AppShell({ children }: AppShellProps) {
 
         {/* Mobile Top Header Bar */}
         <header className="border-brand-peach/60 sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-white/80 px-4 backdrop-blur-xs lg:hidden">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex cursor-pointer items-center gap-2.5">
             <div className="bg-brand-tomato flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white shadow-2xs">
               R
             </div>
@@ -153,7 +153,7 @@ export function AppShell({ children }: AppShellProps) {
 
           <Link
             href="/materials/new"
-            className="bg-brand-tomato inline-flex h-8 items-center justify-center gap-1 rounded-lg px-3 text-xs font-semibold text-white shadow-2xs"
+            className="bg-brand-tomato inline-flex h-8 cursor-pointer items-center justify-center gap-1 rounded-lg px-3 text-xs font-semibold text-white shadow-2xs"
           >
             <span>+ Add</span>
           </Link>
@@ -161,7 +161,7 @@ export function AppShell({ children }: AppShellProps) {
 
         {/* Page Content */}
         <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-          <div className="mx-auto max-w-5xl">{children}</div>
+          <div className="mx-auto max-w-6xl">{children}</div>
         </main>
       </div>
 
@@ -169,7 +169,7 @@ export function AppShell({ children }: AppShellProps) {
       <nav className="border-brand-peach/80 fixed right-0 bottom-0 left-0 z-30 flex h-16 items-center justify-around border-t bg-white/95 px-2 backdrop-blur-md lg:hidden">
         <Link
           href="/"
-          className={`flex flex-col items-center gap-1 py-1 text-xs font-semibold transition ${
+          className={`flex cursor-pointer flex-col items-center gap-1 py-1 text-xs font-semibold transition ${
             isHomeActive
               ? "text-brand-tomato font-bold"
               : "text-brand-secondary hover:text-brand-ink"
@@ -181,7 +181,7 @@ export function AppShell({ children }: AppShellProps) {
 
         <Link
           href="/library"
-          className={`flex flex-col items-center gap-1 py-1 text-xs font-semibold transition ${
+          className={`flex cursor-pointer flex-col items-center gap-1 py-1 text-xs font-semibold transition ${
             isLibraryActive
               ? "text-brand-tomato font-bold"
               : "text-brand-secondary hover:text-brand-ink"
@@ -193,7 +193,7 @@ export function AppShell({ children }: AppShellProps) {
 
         <Link
           href="/materials/new"
-          className={`flex flex-col items-center gap-1 py-1 text-xs font-semibold transition ${
+          className={`flex cursor-pointer flex-col items-center gap-1 py-1 text-xs font-semibold transition ${
             isAddActive
               ? "text-brand-tomato font-bold"
               : "text-brand-secondary hover:text-brand-ink"

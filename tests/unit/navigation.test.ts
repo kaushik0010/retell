@@ -44,4 +44,24 @@ describe("Navigation, Presets and Route Contracts", () => {
     expect(routes.review("test_123")).toBe("/review/test_123");
     expect(routes.practice("test_123")).toBe("/practice/test_123");
   });
+
+  it("verifies SEO page metadata definitions", async () => {
+    const homeMeta = (await import("../../src/app/page")).metadata;
+    expect(homeMeta.title).toBe("Turn Study into Confidence");
+    expect(homeMeta.description).toContain("Retell");
+
+    const libraryMeta = (await import("../../src/app/library/page")).metadata;
+    expect(libraryMeta.title).toBe("Study Library");
+
+    const addMeta = (await import("../../src/app/materials/new/page")).metadata;
+    expect(addMeta.title).toBe("Add Study Material");
+
+    const generateReviewMeta = (await import("../../src/app/review/[id]/page"))
+      .generateMetadata;
+    const reviewMeta = await generateReviewMeta({
+      params: Promise.resolve({ id: "set_test_123" }),
+    });
+    expect(reviewMeta.title).toBe("Review Points to Remember");
+    expect(reviewMeta.description).toContain("set_test_123");
+  });
 });

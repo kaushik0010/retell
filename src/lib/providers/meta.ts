@@ -17,7 +17,7 @@ const DEFAULT_META_REASONING_MODEL = "muse-spark-1.3";
 const DEFAULT_META_TRANSCRIPTION_MODEL = "muse-voice-transcribe-1.0";
 const META_BASE_URL = "https://api.meta.ai/v1";
 const META_TRANSCRIPTION_WS = "wss://api.meta.ai/v1/asr/realtime";
-const DEFAULT_TIMEOUT_MS = 25000;
+const DEFAULT_TIMEOUT_MS = 45000;
 
 export class MetaReasoningProvider implements ReasoningProvider {
   public readonly id = "meta" as const;

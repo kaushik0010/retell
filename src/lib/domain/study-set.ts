@@ -129,6 +129,8 @@ export const ExtractedQuestionSchema = z.object({
     .string()
     .min(10, "Reference answer must be at least 10 characters"),
   sourceExcerpt: z.string().default(""),
+  pageNumber: z.number().int().optional(),
+  isUncertain: z.boolean().optional(),
 });
 
 export type ExtractedQuestion = z.infer<typeof ExtractedQuestionSchema>;
@@ -139,8 +141,12 @@ export type ExtractedQuestion = z.infer<typeof ExtractedQuestionSchema>;
 export const StudyMaterialSchema = z.object({
   id: z.string().min(1, "Material ID is required"),
   title: z.string().min(1, "Title is required"),
-  sourceText: z.string().min(20, "Source text must be at least 20 characters"),
+  sourceText: z.string().min(1, "Source text must not be empty"),
   characterCount: z.number().int().nonnegative(),
+  sourceType: z.enum(["text", "pdf", "image"]).optional(),
+  fileName: z.string().optional(),
+  fileSize: z.number().int().optional(),
+  pageCount: z.number().int().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -186,11 +192,13 @@ export const ExtractRequestSchema = z.object({
 export type ExtractRequest = z.infer<typeof ExtractRequestSchema>;
 
 export const ExtractedQuestionLLMOutputSchema = z.object({
-  question: z.string().min(5, "Question must be at least 5 characters"),
+  question: z.string().min(3, "Question must be at least 3 characters"),
   referenceAnswer: z
     .string()
-    .min(10, "Reference answer must be at least 10 characters"),
+    .min(5, "Reference answer must be at least 5 characters"),
   sourceExcerpt: z.string().default(""),
+  pageNumber: z.number().int().optional(),
+  isUncertain: z.boolean().default(false),
 });
 
 export const ExtractionLLMOutputSchema = z.object({

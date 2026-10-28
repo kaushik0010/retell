@@ -57,21 +57,29 @@ Allow students to input study materials (text or structured notes), extract the 
 
 ### Tasks & Status
 
-| Task ID    | Task Description                                                                          | Status        | Implementation Plan Ref                                                                                              |
-| ---------- | ----------------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `TASK-2.1` | Build Material Ingestion UI (`src/features/library`) supporting text paste and note input | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
-| `TASK-2.2` | Implement server-side Q&A extraction pipeline using Meta reasoning model                  | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
-| `TASK-2.3` | Build Rubric Generation engine producing structured concept objects with Zod schemas      | **Completed** | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
-| `TASK-2.4` | Build Source Review UI (`src/features/source-review`) allowing students to edit concepts  | **Completed** | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
-| `TASK-2.5` | Implement foundational local storage persistence for study items in browser               | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)             |
-| `TASK-2.6` | Route-based navigation, Student-First UX, source-grounded extraction & visual polish      | **Completed** | [Section 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
-| `TASK-2.7` | UI Polish, Question Review Redesign, Responsive Fixes, Cursor Affordances & Page SEO      | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
-| `TASK-2.8` | Mobile Responsiveness, Hero Order Correction & Section-Level Horizontal Scrolling         | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
-| `TASK-2.9` | Home Hero Illustration Desktop & Tablet Positioning Alignment                             | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)          |
+| Task ID     | Task Description                                                                               | Status        | Implementation Plan Ref                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `TASK-2.1`  | Build Material Ingestion UI (`src/features/library`) supporting text paste and note input      | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
+| `TASK-2.2`  | Implement server-side Q&A extraction pipeline using Meta reasoning model                       | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
+| `TASK-2.3`  | Build Rubric Generation engine producing structured concept objects with Zod schemas           | **Completed** | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
+| `TASK-2.4`  | Build Source Review UI (`src/features/source-review`) allowing students to edit concepts       | **Completed** | [Section 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#5-features-source-review-and-rubric) |
+| `TASK-2.5`  | Implement foundational local storage persistence for study items in browser                    | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)             |
+| `TASK-2.6`  | Route-based navigation, Student-First UX, source-grounded extraction & visual polish           | **Completed** | [Section 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
+| `TASK-2.7`  | UI Polish, Question Review Redesign, Responsive Fixes, Cursor Affordances & Page SEO           | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-2.8`  | Mobile Responsiveness, Hero Order Correction & Section-Level Horizontal Scrolling              | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-2.9`  | Home Hero Illustration Desktop & Tablet Positioning Alignment                                  | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)          |
+| `TASK-2.10` | Phase 1: Image, Camera and PDF Ingestion with Meta Multimodal Reasoning & Master-Detail Review | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
 
 ### Acceptance Criteria
 
 - [x] Student can input raw study material and receive extracted Q&A within 5 seconds.
+- [x] Students can upload assignment PDFs (up to 20MB, 50 pages) and images (JPEG, PNG, WebP) or take a photo with mobile camera.
+- [x] Client and server validate magic bytes (`%PDF-`, `0xFFD8FF`, `0x89504E47`, `RIFF...WEBP`) rather than trusting file extensions.
+- [x] Real-world test fixtures discovered and verified under `public/assets/qa_material/`: `STE_QB_UT1.pdf` (3.77 MB, 10 pages) and `test_qa.jpeg` (108.7 KB).
+- [x] Multimodal reasoning pipeline with Meta `muse-spark-1.3` successfully extracts authentic questions with citations and page numbers.
+- [x] Unified Material Ingestion UI at `/materials/new` matches design reference with `Upload File`, `Take Photo`, and `Paste Text` tabs.
+- [x] Master-detail review interface displays detected questions, editable question/answer cards, and interactive `Split` and `Merge` tools.
+- [x] Sequential rubric generation creates structured points to remember and persists full study set to browser IndexedDB before navigating to review.
 - [x] Generated rubric produces validated structured items across 5 student-facing categories (Main idea, Key term, Steps in order, Mistakes to avoid, Helpful extra).
 - [x] Student can add, modify, or remove rubric concepts and regenerate rubrics before starting practice.
 - [x] Study set persists reliably to local browser IndexedDB across page reloads.

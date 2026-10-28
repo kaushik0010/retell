@@ -14,9 +14,16 @@ export type SanitizedErrorCategory =
   | "SCHEMA_VALIDATION_ERROR"
   | "UNKNOWN_ERROR";
 
+export type MessageContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string; detail?: string } }
+  | { type: "file"; file: { filename?: string; file_data: string } };
+
+export type MessageContent = string | MessageContentPart[];
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: MessageContent;
 }
 
 export interface ReasoningRequest {

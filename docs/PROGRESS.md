@@ -177,6 +177,41 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
   - Zero DOM duplication: exactly one `<Image>` and one `<Link>` CTA in the DOM.
   - Verified static checks and production build.
 
+- [x] **`TASK-2.10` — Phase 1: Image, Camera and PDF Ingestion with Reliable Processing**
+  - **Discovered Test Fixtures:**
+    - Located authentic question bank PDF fixture: `public/assets/qa_material/STE_QB_UT1.pdf` (3,955,195 bytes, 3.77 MB / ~4 MB, 10 pages).
+    - Located handwritten/printed study note image fixture: `public/assets/qa_material/test_qa.jpeg` (111,339 bytes, 108.7 KB, 988 x 748 pixels).
+  - **Multimodal AI Provider Integration & Limits Verification:**
+    - Extended `ChatMessage.content` with `MessageContentPart[]` supporting `{ type: "text" }`, `{ type: "image_url" }`, and `{ type: "file" }` in `src/lib/providers/types.ts` and `src/lib/providers/meta.ts`.
+    - Extended client/server validation limit to 20 MB and 50 pages (safely within Meta's 50 MB / 100-page limits).
+    - Executed empirical live verification against Meta `muse-spark-1.3`:
+      - `test_qa.jpeg`: HTTP 200 in 6,933 ms; extracted exact question and reference answer on Software & Software Engineering.
+      - `STE_QB_UT1.pdf`: HTTP 200 in 39,074 ms; extracted 10+ grounded questions across 10 pages (Waterfall model, Extreme Programming, DFD symbols, Data Object/Attributes) with accurate page numbers and citations.
+  - **File Validation & Inspection (`src/lib/files/index.ts`):**
+    - Implemented magic byte detector for `%PDF-`, `0xFFD8FF` (JPEG), `0x89504E47` (PNG), and `RIFF...WEBP`.
+    - Added fast PDF page counter `getPdfPageCount` compatible with both Node and browser runtimes.
+    - Added human-readable file size formatter `formatFileSize`.
+  - **Server-Side Extraction Endpoint (`src/app/api/extract/route.ts`):**
+    - Updated to seamlessly handle both `multipart/form-data` (PDFs and image uploads) and `application/json` (text paste).
+    - Added 75s timeout ceiling for complex multi-page document reasoning.
+    - Preserved source-grounding rules and missing question/answer detection.
+  - **Unified Material Ingestion UI (`src/features/materials/NewMaterialView.tsx`):**
+    - Redesigned to match visual design reference (`media_1793186812232_936782f6.png`):
+      - 3 Input Tabs: `Upload File`, `Take Photo`, `Paste Text`.
+      - Drag-and-drop file upload zone with format guidance and "PDF, JPG, PNG (Max 20MB)" indicator.
+      - Camera capture tab with `<input type="file" accept="image/*" capture="environment" />`.
+      - Selected file display banner (filename, pages/dimensions, size, change/remove controls).
+      - Detected questions and answers master-detail review view.
+      - Interactive `Split` and `Merge` action controls to refine question boundaries.
+      - Responsive CTA: "Save and prepare ->" on desktop / "Continue to review ->" on mobile.
+      - Sequential rubric generation for each question before saving full study set to browser IndexedDB and routing to `/review/[id]`.
+  - **Testing & Verification:**
+    - 81 passing unit tests across 10 test suites in Vitest (including new `multimodal-extraction.test.ts`).
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check with 0 errors and 0 warnings.
+    - Clean Prettier code formatting verified across all files.
+    - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
+
 ---
 
 ## 2. In Progress Tasks

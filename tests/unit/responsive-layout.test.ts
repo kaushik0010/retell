@@ -20,11 +20,19 @@ describe("Task 7 — Responsive Layout and Section Scrolling Verification", () =
     expect(source).toContain("order-2");
     expect(source).toContain("order-3");
 
-    // Illustration on desktop is md:order-3 md:col-span-5 md:row-span-2
-    expect(source).toContain("md:order-3 md:col-span-5 md:row-span-2");
+    // Illustration on desktop starts at row 1, col 8, spanning rows 1-2
+    expect(source).toContain("md:col-start-8");
+    expect(source).toContain("md:col-span-5");
+    expect(source).toContain("md:row-start-1");
+    expect(source).toContain("md:row-span-2");
 
-    // CTA on desktop is md:order-2 md:col-span-7
-    expect(source).toContain("md:order-2 md:col-span-7");
+    // Heading on desktop is row 1, col 1-7
+    expect(source).toContain("md:col-start-1");
+    expect(source).toContain("md:col-span-7");
+    expect(source).toContain("md:row-start-1");
+
+    // CTA on desktop is row 2, col 1-7 (directly beneath description)
+    expect(source).toContain("md:row-start-2");
 
     // Zero duplication: exactly one hero illustration Image
     const imageMatches = source.match(/<Image[^>]+homepage_illustration/g);

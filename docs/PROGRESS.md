@@ -166,6 +166,17 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier formatting across all files.
     - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
 
+- [x] **`TASK-2.9` — Home Hero Illustration Desktop & Tablet Positioning Alignment (Task 8)**
+  - Fixed CSS Grid auto-placement defect in `src/features/home/HomeView.tsx` where `order-3` on illustration caused auto-placement to skip Row 1 (leaving a blank area beside heading and description) and drop the illustration into Row 2/3.
+  - Implemented explicit grid coordinates for desktop/tablet (`md:`):
+    - Heading & description: `md:col-start-1 md:col-span-7 md:row-start-1`
+    - CTA button: `md:col-start-1 md:col-span-7 md:row-start-2`
+    - Illustration: `md:col-start-8 md:col-span-5 md:row-start-1 md:row-span-2 md:self-center md:justify-end`
+    - Vertical gap between rows adjusted to `md:gap-y-5` (20px) and column gap `md:gap-x-8` (32px).
+  - Preserved mobile (< 768px) ordering: heading & description (`order-1`) -> illustration (`order-2`) -> CTA button (`order-3`).
+  - Zero DOM duplication: exactly one `<Image>` and one `<Link>` CTA in the DOM.
+  - Verified static checks and production build.
+
 ---
 
 ## 2. In Progress Tasks
@@ -233,16 +244,16 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 6. Verification Results
 
-| Check                                | Command                   | Observed Result                                                                                                          | Status       |
-| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| Check                                | Command                   | Observed Result                                                                                                                  | Status       |
+| ------------------------------------ | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | Vitest Unit Test Suite               | `pnpm run test`           | 62 passed across 9 test files (responsive-layout, domain, navigation, schemas, sanitization, storage, rubric, extract, adapters) | **PASSED**   |
-| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                           | **PASSED**   |
-| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                               | **PASSED**   |
-| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 7.1s; 8 routes registered (Home, Not-Found, Library, Add Material, Review, 3 APIs) | **PASSED**   |
-| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                         | **VERIFIED** |
-| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                         | **VERIFIED** |
-| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000 | **VERIFIED** |
+| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                   | **PASSED**   |
+| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                       | **PASSED**   |
+| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                        | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 7.1s; 8 routes registered (Home, Not-Found, Library, Add Material, Review, 3 APIs)        | **PASSED**   |
+| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                 | **VERIFIED** |
+| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                 | **VERIFIED** |
+| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000         | **VERIFIED** |
 
 ---
 

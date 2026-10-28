@@ -66,7 +66,8 @@ Allow students to input study materials (text or structured notes), extract the 
 | `TASK-2.5` | Implement foundational local storage persistence for study items in browser               | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)             |
 | `TASK-2.6` | Route-based navigation, Student-First UX, source-grounded extraction & visual polish      | **Completed** | [Section 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
 | `TASK-2.7` | UI Polish, Question Review Redesign, Responsive Fixes, Cursor Affordances & Page SEO      | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
-| `TASK-2.8` | Mobile Responsiveness, Hero Order Correction & Section-Level Horizontal Scrolling        | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-2.8` | Mobile Responsiveness, Hero Order Correction & Section-Level Horizontal Scrolling         | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-2.9` | Home Hero Illustration Desktop & Tablet Positioning Alignment                             | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)          |
 
 ### Acceptance Criteria
 

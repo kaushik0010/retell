@@ -54,9 +54,9 @@ export function HomeView() {
     <div className="w-full min-w-0 space-y-8">
       {/* Hero Banner matching visual reference */}
       <section className="border-brand-peach/80 via-brand-cream relative w-full min-w-0 overflow-hidden rounded-3xl border bg-gradient-to-br from-[#FFF4DF] to-[#FFE7DC] p-5 shadow-xs sm:p-8 md:p-10">
-        <div className="grid w-full min-w-0 grid-cols-1 items-center gap-5 md:grid-cols-12 md:gap-8">
-          {/* 1. Heading & description (order-1 on mobile & desktop) */}
-          <div className="order-1 w-full min-w-0 space-y-3 text-center sm:text-left md:col-span-7">
+        <div className="grid w-full min-w-0 grid-cols-1 items-center gap-5 md:grid-cols-12 md:gap-x-8 md:gap-y-5">
+          {/* 1. Heading & description: Left column row 1 on desktop, order-1 on mobile */}
+          <div className="order-1 w-full min-w-0 space-y-3 text-center sm:text-left md:col-span-7 md:col-start-1 md:row-start-1">
             <h1 className="font-heading text-brand-ink text-2xl leading-tight font-extrabold tracking-tight sm:text-4xl md:text-5xl">
               Turn what you study <br className="hidden sm:inline" />
               <span className="text-brand-tomato">into confidence.</span>
@@ -67,8 +67,8 @@ export function HomeView() {
             </p>
           </div>
 
-          {/* 2. Hero illustration: Above CTA on mobile (order-2), right column on desktop (order-3, row-span-2) */}
-          <div className="order-2 flex w-full min-w-0 justify-center md:order-3 md:col-span-5 md:row-span-2 md:justify-end">
+          {/* 2. Hero illustration: Right column spanning rows 1-2 on desktop, order-2 (above CTA) on mobile */}
+          <div className="order-2 flex w-full min-w-0 justify-center md:col-span-5 md:col-start-8 md:row-span-2 md:row-start-1 md:justify-end md:self-center">
             <div className="relative flex w-full max-w-[240px] items-center justify-center sm:max-w-[300px] md:max-w-[380px] lg:max-w-[420px]">
               <Image
                 src="/assets/homepage_illustration.png"
@@ -81,8 +81,8 @@ export function HomeView() {
             </div>
           </div>
 
-          {/* 3. Primary CTA button: Below illustration on mobile (order-3), left column beneath text on desktop (order-2) */}
-          <div className="order-3 flex w-full min-w-0 justify-center pt-1 sm:justify-start md:order-2 md:col-span-7 md:pt-0">
+          {/* 3. Primary CTA button: Left column row 2 on desktop, order-3 (below illustration) on mobile */}
+          <div className="order-3 flex w-full min-w-0 justify-center pt-1 sm:justify-start md:col-span-7 md:col-start-1 md:row-start-2 md:pt-0">
             <Link
               href="/materials/new"
               className="bg-brand-tomato hover:bg-brand-tomato-hover focus-visible:outline-brand-tomato inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white shadow-xs transition focus-visible:outline-2 focus-visible:outline-offset-2 sm:w-auto"

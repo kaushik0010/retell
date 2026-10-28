@@ -4,6 +4,8 @@
 
 export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB (safe client & server ceiling)
 export const MAX_PDF_PAGES = 50; // Meta vision limit for per-request page visual understanding
+export const MAX_BATCH_FILES = 15; // Up to 15 pages/images in a single multi-page session
+export const MAX_BATCH_TOTAL_BYTES = 25 * 1024 * 1024; // 25 MB aggregate ceiling
 
 export interface ValidatedFileResult {
   valid: boolean;
@@ -12,6 +14,19 @@ export interface ValidatedFileResult {
   type: "pdf" | "image" | "unknown";
   extension: string;
   pageCount?: number;
+}
+
+export interface BatchItemToValidate {
+  name: string;
+  buffer: Uint8Array | Buffer;
+}
+
+export interface ValidatedBatchResult {
+  valid: boolean;
+  error?: string;
+  totalBytes: number;
+  results: ValidatedFileResult[];
+  isPdf: boolean;
 }
 
 /**
@@ -171,4 +186,99 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Validates a batch of files for multi-image or single-PDF ingestion.
+ */
+export function validateFileBatch(
+  files: BatchItemToValidate[],
+  maxFiles: number = MAX_BATCH_FILES,
+  maxTotalBytes: number = MAX_BATCH_TOTAL_BYTES
+): ValidatedBatchResult {
+  if (!files || files.length === 0) {
+    return {
+      valid: false,
+      error:
+        "No files were selected. Please choose a PDF or at least one image.",
+      totalBytes: 0,
+      results: [],
+      isPdf: false,
+    };
+  }
+
+  if (files.length > maxFiles) {
+    return {
+      valid: false,
+      error: `You selected ${files.length} files. The maximum allowed is ${maxFiles} images at a time.`,
+      totalBytes: 0,
+      results: [],
+      isPdf: false,
+    };
+  }
+
+  let totalBytes = 0;
+  for (const f of files) {
+    totalBytes += f.buffer.length;
+  }
+
+  if (totalBytes > maxTotalBytes) {
+    const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+    const limitMb = (maxTotalBytes / (1024 * 1024)).toFixed(0);
+    return {
+      valid: false,
+      error: `Total upload size (${totalMb} MB) exceeds the ${limitMb} MB limit. Please select fewer or smaller images.`,
+      totalBytes,
+      results: [],
+      isPdf: false,
+    };
+  }
+
+  const results: ValidatedFileResult[] = [];
+  let pdfCount = 0;
+  let imageCount = 0;
+
+  for (const item of files) {
+    const singleValidation = validateStudyFile(item.buffer, item.name);
+    if (!singleValidation.valid) {
+      return {
+        valid: false,
+        error: singleValidation.error,
+        totalBytes,
+        results,
+        isPdf: false,
+      };
+    }
+    if (singleValidation.type === "pdf") pdfCount++;
+    if (singleValidation.type === "image") imageCount++;
+    results.push(singleValidation);
+  }
+
+  if (pdfCount > 0 && imageCount > 0) {
+    return {
+      valid: false,
+      error:
+        "Please upload either a PDF document or a batch of images, not both together.",
+      totalBytes,
+      results,
+      isPdf: false,
+    };
+  }
+
+  if (pdfCount > 1) {
+    return {
+      valid: false,
+      error: "Please upload one PDF document at a time.",
+      totalBytes,
+      results,
+      isPdf: true,
+    };
+  }
+
+  return {
+    valid: true,
+    totalBytes,
+    results,
+    isPdf: pdfCount === 1,
+  };
 }

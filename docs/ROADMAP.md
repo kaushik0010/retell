@@ -69,6 +69,7 @@ Allow students to input study materials (text or structured notes), extract the 
 | `TASK-2.8`  | Mobile Responsiveness, Hero Order Correction & Section-Level Horizontal Scrolling              | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
 | `TASK-2.9`  | Home Hero Illustration Desktop & Tablet Positioning Alignment                                  | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)          |
 | `TASK-2.10` | Phase 1: Image, Camera and PDF Ingestion with Meta Multimodal Reasoning & Master-Detail Review | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
+| `TASK-2.11` | Follow-up: Multi-Image Ingestion, Import Questions into Existing Sets & Accurate Save-State UX | **Completed** | [Section 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
 
 ### Acceptance Criteria
 
@@ -94,6 +95,9 @@ Allow students to input study materials (text or structured notes), extract the 
 - [x] Interactive controls audit completed with explicit `cursor-pointer` and honest disabled practice affordances.
 - [x] Full App Router SEO page metadata and title templates implemented across all user-facing routes.
 - [x] Prohibited global `overflow-x-hidden` hacks on `html` or `body` completely avoided.
+- [x] Multi-image batch ingestion supports up to 15 images and 25 MB total batch with magic-byte validation, drag-and-drop, camera appends, reordering, and cross-page question continuity.
+- [x] Import questions into existing study sets via dedicated modal without losing existing questions or attempt history, featuring candidate selection checkboxes, inline edits, and sequential rubric generation.
+- [x] Accurate study-set save states in Points Review view with deep serialization comparison, quiet saved state, unsaved changes banner with primary save button, and in-flight save race protection.
 
 ### Dependencies & Risks
 

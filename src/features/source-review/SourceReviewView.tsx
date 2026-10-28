@@ -21,12 +21,46 @@ import {
   TrashIcon,
   ArrowPathIcon,
   DocumentTextIcon,
+  AlertCircleIcon,
 } from "@/components/icons";
+
+import { ImportQuestionsModal } from "./ImportQuestionsModal";
 
 interface SourceReviewViewProps {
   initialStudySet: StudySet;
   onBack?: () => void;
   onSaved?: (updatedSet: StudySet) => void;
+}
+
+/**
+ * Deterministic serializer for computing study set dirty state.
+ * Inspects all user-editable fields (title, questions, reference answers, order, pageNumber, and all rubric criteria).
+ */
+export function serializeStudySetForComparison(set: StudySet): string {
+  return JSON.stringify({
+    title: (set.material.title || "").trim(),
+    questions: set.questions.map((q) => ({
+      id: q.id,
+      question: (q.question || "").trim(),
+      referenceAnswer: (q.referenceAnswer || "").trim(),
+      orderIndex: q.orderIndex,
+      pageNumber: q.pageNumber,
+    })),
+    rubrics: Object.fromEntries(
+      Object.entries(set.rubrics).map(([qId, rubric]) => [
+        qId,
+        (rubric?.criteria || []).map((c) => ({
+          id: c.id,
+          category: c.category,
+          name: (c.name || "").trim(),
+          description: (c.description || "").trim(),
+          satisfactoryDemonstration: (c.satisfactoryDemonstration || "").trim(),
+          isMandatory: Boolean(c.isMandatory),
+          orderIndex: c.orderIndex,
+        })),
+      ])
+    ),
+  });
 }
 
 /**
@@ -84,6 +118,10 @@ export function SourceReviewView({
   onSaved,
 }: SourceReviewViewProps) {
   const [studySet, setStudySet] = useState<StudySet>(initialStudySet);
+  const [savedBaseline, setSavedBaseline] = useState<string>(() =>
+    serializeStudySetForComparison(initialStudySet)
+  );
+
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>(
     initialStudySet.questions[0]?.id || ""
   );
@@ -94,10 +132,13 @@ export function SourceReviewView({
     useState<boolean>(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
-  const [saveStatus, setSaveStatus] = useState<"clean" | "dirty" | "saving">(
-    "clean"
-  );
-  const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+
+  // Accurate Save State Management
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Import Modal State
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
 
   // Add new important point state
   const [isAddingPoint, setIsAddingPoint] = useState(false);
@@ -112,17 +153,21 @@ export function SourceReviewView({
   const [isRefreshingPoints, setIsRefreshingPoints] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
+  // Derive dirty status from deep comparison against baseline
+  const currentFingerprint = serializeStudySetForComparison(studySet);
+  const hasUnsavedChanges = currentFingerprint !== savedBaseline;
+
   // Protect against accidental navigation with unsaved edits
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (saveStatus === "dirty") {
+      if (hasUnsavedChanges) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [saveStatus]);
+  }, [hasUnsavedChanges]);
 
   const activeQuestionIndex = studySet.questions.findIndex(
     (q) => q.id === selectedQuestionId
@@ -134,31 +179,78 @@ export function SourceReviewView({
     ? studySet.rubrics[activeQuestion.id]
     : undefined;
 
-  const markDirty = () => {
-    if (saveStatus !== "dirty") {
-      setSaveStatus("dirty");
-    }
-  };
-
   // Save changes to IndexedDB
   const handleSave = async (setToSave: StudySet = studySet) => {
-    setSaveStatus("saving");
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+
+    const snapshotBeingSaved = serializeStudySetForComparison(setToSave);
+    const updated: StudySet = {
+      ...setToSave,
+      updatedAt: new Date().toISOString(),
+    };
+
     try {
-      const updated: StudySet = {
-        ...setToSave,
-        updatedAt: new Date().toISOString(),
-      };
       await saveStudySet(updated);
+      setSavedBaseline(snapshotBeingSaved);
       setStudySet(updated);
-      setSaveStatus("clean");
-      setSaveFeedback("Saved to browser");
-      setTimeout(() => setSaveFeedback(null), 3000);
+      setIsSaving(false);
+      setSaveError(null);
       if (onSaved) {
         onSaved(updated);
       }
     } catch (err) {
       console.error("Save error:", err);
-      setSaveFeedback("Failed to save changes");
+      setIsSaving(false);
+      setSaveError(
+        err instanceof Error
+          ? err.message
+          : "Failed to save changes. Please try again."
+      );
+    }
+  };
+
+  // Handle successful question import from modal
+  const handleImportSuccess = async (
+    importedQuestions: ExtractedQuestion[],
+    importedRubrics: Record<string, QuestionRubric>,
+    appendedSource: string
+  ) => {
+    const updatedQuestions = [...studySet.questions, ...importedQuestions];
+    const updatedRubrics = { ...studySet.rubrics, ...importedRubrics };
+    const updatedSource = studySet.material.sourceText
+      ? `${studySet.material.sourceText}\n\n${appendedSource}`
+      : appendedSource;
+
+    const updatedSet: StudySet = {
+      ...studySet,
+      material: {
+        ...studySet.material,
+        sourceText: updatedSource,
+        characterCount: updatedSource.length,
+      },
+      questions: updatedQuestions,
+      rubrics: updatedRubrics,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await saveStudySet(updatedSet);
+      setSavedBaseline(serializeStudySetForComparison(updatedSet));
+      setStudySet(updatedSet);
+      if (importedQuestions[0]) {
+        setSelectedQuestionId(importedQuestions[0].id);
+      }
+      if (onSaved) {
+        onSaved(updatedSet);
+      }
+    } catch (err) {
+      console.error("Failed to persist imported questions:", err);
+      setStudySet(updatedSet);
+      setSaveError(
+        "Imported questions were added but could not be saved to local storage. Click 'Save study set' to retry."
+      );
     }
   };
 
@@ -172,7 +264,6 @@ export function SourceReviewView({
       },
     };
     setStudySet(updated);
-    markDirty();
   };
 
   // Question and answer edits
@@ -182,7 +273,6 @@ export function SourceReviewView({
       q.id === activeQuestion.id ? { ...q, question: newQuestion } : q
     );
     setStudySet({ ...studySet, questions: updatedQuestions });
-    markDirty();
   };
 
   const handleReferenceAnswerChange = (newAnswer: string) => {
@@ -191,10 +281,9 @@ export function SourceReviewView({
       q.id === activeQuestion.id ? { ...q, referenceAnswer: newAnswer } : q
     );
     setStudySet({ ...studySet, questions: updatedQuestions });
-    markDirty();
   };
 
-  // Add question
+  // Add question manually
   const handleAddQuestion = () => {
     const newId = `q_${crypto.randomUUID()}`;
     const newQ: ExtractedQuestion = {
@@ -237,7 +326,6 @@ export function SourceReviewView({
 
     setStudySet(updated);
     setSelectedQuestionId(newId);
-    markDirty();
   };
 
   // Delete question
@@ -264,7 +352,6 @@ export function SourceReviewView({
     if (updatedQuestions[0]) {
       setSelectedQuestionId(updatedQuestions[0].id);
     }
-    markDirty();
   };
 
   // Update an existing point
@@ -291,7 +378,6 @@ export function SourceReviewView({
         [activeQuestion.id]: updatedRubric,
       },
     });
-    markDirty();
   };
 
   const handleDeletePoint = (pointId: string) => {
@@ -318,7 +404,6 @@ export function SourceReviewView({
         [activeQuestion.id]: updatedRubric,
       },
     });
-    markDirty();
   };
 
   // Add new point submission
@@ -357,7 +442,6 @@ export function SourceReviewView({
     setNewPointDescription("");
     setNewPointGuidance("");
     setIsAddingPoint(false);
-    markDirty();
   };
 
   // Refresh points with AI
@@ -471,43 +555,45 @@ export function SourceReviewView({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
-          {saveFeedback && (
+          {saveError && (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700">
+              <AlertCircleIcon className="h-3.5 w-3.5" />
+              <span>{saveError}</span>
+            </span>
+          )}
+
+          {hasUnsavedChanges && !isSaving && (
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+              Unsaved changes
+            </span>
+          )}
+
+          {!hasUnsavedChanges && !isSaving && !saveError && (
             <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
               <CheckIcon className="h-3.5 w-3.5" />
-              <span>{saveFeedback}</span>
+              <span>Saved</span>
             </span>
           )}
 
-          {saveStatus === "dirty" && !saveFeedback && (
-            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
-              Changes not saved
-            </span>
-          )}
-
-          {saveStatus === "clean" && !saveFeedback && (
-            <span className="border-brand-peach/60 bg-brand-cream/80 text-brand-secondary hidden rounded-full border px-3 py-1 text-xs font-medium sm:inline-block">
-              Saved to browser
-            </span>
-          )}
-
-          <button
-            type="button"
-            onClick={() => handleSave()}
-            disabled={saveStatus === "saving"}
-            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saveStatus === "saving" ? (
-              <>
-                <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <CheckIcon className="h-3.5 w-3.5" />
-                <span>Save study set</span>
-              </>
-            )}
-          </button>
+          {isSaving ? (
+            <button
+              type="button"
+              disabled
+              className="bg-brand-tomato/70 inline-flex h-9 shrink-0 cursor-not-allowed items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-xs"
+            >
+              <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" />
+              <span>Saving...</span>
+            </button>
+          ) : hasUnsavedChanges || saveError ? (
+            <button
+              type="button"
+              onClick={() => handleSave()}
+              className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-xs transition"
+            >
+              <CheckIcon className="h-3.5 w-3.5" />
+              <span>Save study set</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -604,14 +690,27 @@ export function SourceReviewView({
             );
           })}
 
-          <button
-            type="button"
-            onClick={handleAddQuestion}
-            className="border-brand-peach bg-brand-cream/60 text-brand-ink hover:bg-brand-cream inline-flex cursor-pointer items-center gap-1 rounded-xl border border-dashed px-3 py-2 text-xs font-semibold transition"
-          >
-            <PlusIcon className="h-3.5 w-3.5" />
-            <span>Add Question</span>
-          </button>
+          {/* Add Question / Import Options */}
+          <div className="inline-flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleAddQuestion}
+              className="border-brand-peach bg-brand-cream/60 text-brand-ink hover:bg-brand-cream inline-flex cursor-pointer items-center gap-1 rounded-xl border border-dashed px-3 py-2 text-xs font-semibold transition"
+              title="Add a question manually"
+            >
+              <PlusIcon className="text-brand-tomato h-3.5 w-3.5" />
+              <span>Add Manually</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsImportModalOpen(true)}
+              className="border-brand-peach/80 text-brand-tomato hover:bg-brand-cream/70 inline-flex cursor-pointer items-center gap-1.5 rounded-xl border bg-white px-3 py-2 text-xs font-bold shadow-2xs transition"
+              title="Import questions from images or PDF"
+            >
+              <DocumentTextIcon className="text-brand-tomato h-3.5 w-3.5" />
+              <span>Import from File</span>
+            </button>
+          </div>
         </div>
 
         {/* Mobile Question Navigator matching reference */}
@@ -683,17 +782,31 @@ export function SourceReviewView({
                     </span>
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleAddQuestion();
-                    setIsMobileDropdownOpen(false);
-                  }}
-                  className="border-brand-peach/40 text-brand-tomato hover:bg-brand-cream mt-1 flex w-full cursor-pointer items-center gap-1.5 rounded-lg border-t px-3 pt-2 text-left text-xs font-bold"
-                >
-                  <PlusIcon className="h-3.5 w-3.5" />
-                  <span>+ Add Question</span>
-                </button>
+
+                <div className="border-brand-peach/40 mt-1 flex flex-col gap-1 border-t pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleAddQuestion();
+                      setIsMobileDropdownOpen(false);
+                    }}
+                    className="text-brand-ink hover:bg-brand-cream flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-left text-xs font-medium"
+                  >
+                    <PlusIcon className="text-brand-tomato h-3.5 w-3.5" />
+                    <span>+ Add question manually</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsImportModalOpen(true);
+                      setIsMobileDropdownOpen(false);
+                    }}
+                    className="text-brand-tomato hover:bg-brand-cream flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-left text-xs font-bold"
+                  >
+                    <DocumentTextIcon className="h-3.5 w-3.5" />
+                    <span>Import from PDF or images...</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1111,6 +1224,14 @@ export function SourceReviewView({
           </div>
         </div>
       )}
+
+      {/* Import Questions from PDF or Images Modal */}
+      <ImportQuestionsModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        studySet={studySet}
+        onImportSuccess={handleImportSuccess}
+      />
     </div>
   );
 }

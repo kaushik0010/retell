@@ -166,6 +166,31 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier formatting across all files.
     - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
 
+- [x] **`TASK-2.11` — Follow-up: Multi-Image Ingestion, Import Questions into Existing Sets & Accurate Save-State UX**
+  - **Feature A — Multi-Image Ingestion & Batch File Validation (`src/lib/files/index.ts`, `src/features/materials/NewMaterialView.tsx`):**
+    - Implemented `validateFileBatch()` enforcing batch limits (max 15 images, 25 MB total batch ceiling, single PDF rule).
+    - Added multi-file selection (`multiple` on `<input>`), drag-and-drop batch upload, and camera append button ("+ Add another photo" / "Take another photo").
+    - Preview thumbnails with page indicators (`Page 1`, `Page 2`), file sizes, reordering controls (`Move up`, `Move down`), and individual removal triggers.
+    - Updated `POST /api/extract` server prompt with page indexing (`--- PAGE / IMAGE i OF N ---`), cross-page answer continuity, and overlap deduplication instructions.
+    - Added double-click prevention on extraction submission.
+  - **Feature B — Import Questions into Existing Study Sets (`src/features/source-review/ImportQuestionsModal.tsx`, `src/features/source-review/SourceReviewView.tsx`):**
+    - Dual actions on desktop and mobile: "+ Add Manually" and "Import from File" (PDF or images).
+    - Created Butter & Tomato styled modal (`ImportQuestionsModal.tsx`) with 2-step workflow: file staging/validation followed by candidate question preview.
+    - Candidate checkboxes, inline editing, and uncertainty flags (`isUncertain`) before importing.
+    - Appending logic: assigns fresh unique IDs (`q_${crypto.randomUUID()}`), preserves existing questions, sequential rubric generation with fallback, and auto-persists to IndexedDB.
+  - **Feature C — Accurate Save-State UX (`src/features/source-review/SourceReviewView.tsx`):**
+    - Removed confusing "Saved to browser" text; established deep deterministic baseline serialization (`serializeStudySetForComparison()`).
+    - Compares title, question, reference answer, orderIndex, and full rubric criteria details (name, description, guidance, mandatory flag).
+    - Displays quiet "Saved" checkmark when clean; shows "Unsaved changes" + primary "Save study set" button when dirty.
+    - Protects against in-flight save races by establishing baseline strictly from the confirmed saved snapshot.
+    - Pure React 19 state architecture satisfying `react-hooks/refs` rules.
+  - **Testing & Verification:**
+    - 99 passing unit tests across 11 test suites in Vitest (including new 18-test suite in `tests/unit/followup-features.test.ts`).
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check (`pnpm run lint`) with 0 errors and 0 warnings.
+    - Clean Prettier code formatting verified across all files.
+    - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
+
 - [x] **`TASK-2.9` — Home Hero Illustration Desktop & Tablet Positioning Alignment (Task 8)**
   - Fixed CSS Grid auto-placement defect in `src/features/home/HomeView.tsx` where `order-3` on illustration caused auto-placement to skip Row 1 (leaving a blank area beside heading and description) and drop the illustration into Row 2/3.
   - Implemented explicit grid coordinates for desktop/tablet (`md:`):
@@ -209,6 +234,31 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - 81 passing unit tests across 10 test suites in Vitest (including new `multimodal-extraction.test.ts`).
     - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
     - Clean ESLint check with 0 errors and 0 warnings.
+    - Clean Prettier code formatting verified across all files.
+    - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
+
+- [x] **`TASK-2.11` — Follow-up: Multi-Image Ingestion, Import Questions into Existing Sets & Accurate Save-State UX**
+  - **Feature A — Multi-Image Ingestion & Batch File Validation (`src/lib/files/index.ts`, `src/features/materials/NewMaterialView.tsx`):**
+    - Implemented `validateFileBatch()` enforcing batch limits (max 15 images, 25 MB total batch ceiling, single PDF rule).
+    - Added multi-file selection (`multiple` on `<input>`), drag-and-drop batch upload, and camera append button ("+ Add another photo" / "Take another photo").
+    - Preview thumbnails with page indicators (`Page 1`, `Page 2`), file sizes, reordering controls (`Move up`, `Move down`), and individual removal triggers.
+    - Updated `POST /api/extract` server prompt with page indexing (`--- PAGE / IMAGE i OF N ---`), cross-page answer continuity, and overlap deduplication instructions.
+    - Added double-click prevention on extraction submission.
+  - **Feature B — Import Questions into Existing Study Sets (`src/features/source-review/ImportQuestionsModal.tsx`, `src/features/source-review/SourceReviewView.tsx`):**
+    - Dual actions on desktop and mobile: "+ Add Manually" and "Import from File" (PDF or images).
+    - Created Butter & Tomato styled modal (`ImportQuestionsModal.tsx`) with 2-step workflow: file staging/validation followed by candidate question preview.
+    - Candidate checkboxes, inline editing, and uncertainty flags (`isUncertain`) before importing.
+    - Appending logic: assigns fresh unique IDs (`q_${crypto.randomUUID()}`), preserves existing questions, sequential rubric generation with fallback, and auto-persists to IndexedDB.
+  - **Feature C — Accurate Save-State UX (`src/features/source-review/SourceReviewView.tsx`):**
+    - Removed confusing "Saved to browser" text; established deep deterministic baseline serialization (`serializeStudySetForComparison()`).
+    - Compares title, question, reference answer, orderIndex, and full rubric criteria details (name, description, guidance, mandatory flag).
+    - Displays quiet "Saved" checkmark when clean; shows "Unsaved changes" + primary "Save study set" button when dirty.
+    - Protects against in-flight save races by establishing baseline strictly from the confirmed saved snapshot.
+    - Pure React 19 state architecture satisfying `react-hooks/refs` rules.
+  - **Testing & Verification:**
+    - 99 passing unit tests across 11 test suites in Vitest (including new 18-test suite in `tests/unit/followup-features.test.ts`).
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check (`pnpm run lint`) with 0 errors and 0 warnings.
     - Clean Prettier code formatting verified across all files.
     - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
 
@@ -279,23 +329,23 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 6. Verification Results
 
-| Check                                | Command                   | Observed Result                                                                                                                  | Status       |
-| ------------------------------------ | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 62 passed across 9 test files (responsive-layout, domain, navigation, schemas, sanitization, storage, rubric, extract, adapters) | **PASSED**   |
-| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                   | **PASSED**   |
-| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                       | **PASSED**   |
-| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                        | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 7.1s; 8 routes registered (Home, Not-Found, Library, Add Material, Review, 3 APIs)        | **PASSED**   |
-| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                 | **VERIFIED** |
-| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                 | **VERIFIED** |
-| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000         | **VERIFIED** |
+| Check                                | Command                   | Observed Result                                                                                                           | Status       |
+| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Vitest Unit Test Suite               | `pnpm run test`           | 99 passed across 11 test files (followup-features, multimodal-extraction, responsive-layout, domain, navigation, etc.)    | **PASSED**   |
+| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                            | **PASSED**   |
+| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                | **PASSED**   |
+| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                 | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 6.6s; 8 routes registered (Home, Not-Found, Library, Add Material, Review, 3 APIs) | **PASSED**   |
+| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                          | **VERIFIED** |
+| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                          | **VERIFIED** |
+| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000  | **VERIFIED** |
 
 ---
 
 ## 7. Latest Git Commit
 
-- **Latest Commit:** `99b84ae` — `fix: correct Meta realtime ASR handshake and verify live transcription`
-- **Previous Commit:** `fbc70b7994e49188659f7107bd658cc54488f377` — `feat: add AI provider verification and smoke tests`
+- **Latest Commit:** `af6f806` — `feat: support multi-image imports and accurate study-set save states`
+- **Previous Commit:** `5e25424` — `feat: add image and PDF study material ingestion with Meta multimodal reasoning`
 
 ---
 

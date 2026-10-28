@@ -10,7 +10,7 @@ import {
 import { getReasoningProvider } from "@/lib/providers";
 import { sanitizeError } from "@/lib/providers/errors";
 import type { MessageContentPart, ChatMessage } from "@/lib/providers/types";
-import { validateStudyFile } from "@/lib/files";
+import { validateFileBatch } from "@/lib/files";
 
 const MULTIMODAL_TIMEOUT_MS = 75000; // 75 seconds for large scanned documents and multi-page PDFs
 
@@ -23,7 +23,12 @@ MANDATORY SOURCE-GROUNDING RULES:
 2. RECOGNIZE EXISTING PROMPTS: Look for explicit questions ("What...", "How...", "Why...", "?") as well as exam instruction prompts ("Explain...", "Describe...", "Compare...", "Discuss...", "Define...", "List...", "Draw...", "Differentiate...").
 3. PRESERVE ORIGINAL WORDING: Preserve the framing, terminology, formula structures, and meaning of the student's actual questions and original answers.
 4. PRESERVE PARAGRAPHS & STEPS: Keep numbered lists, sequence steps, and paragraph breaks intact in the reference answer. Do not flatten multi-paragraph answers into a single run-on sentence.
-5. CROSS-PAGE CONTINUITY: If an answer starts on one page and continues onto the next, merge them into the single complete reference answer. Do not attach the tail of an answer to an unrelated question on the next page.
+5. CROSS-PAGE CONTINUITY & MULTI-IMAGE DEDUPLICATION:
+   When multiple images or pages are provided, treat them as consecutive pages (Page 1, Page 2, Page 3...) of ONE single document.
+   - If an answer starts on one page and continues onto the next, merge them into the single complete reference answer. Do not split an answer across pages into separate questions.
+   - If a question appears on overlapping photographs or across consecutive pages, do NOT output duplicate questions. Extract each unique question once, merging any continuation text into the complete answer.
+   - Set "pageNumber" to the page where the question begins (1-indexed based on page or image order).
+   - If deduplication between two questions is ambiguous or uncertain, output the question with "isUncertain": true so the student can review or edit it, rather than silently deleting valid content.
 6. DETECT MISSING QUESTIONS: If the submitted material consists solely of explanatory notes, textbook paragraphs, or answers with NO identifiable question prompt:
    - Set "status": "missing_question"
    - Set "detectedContent": A concise 1-2 sentence summary of what the notes explain
@@ -73,18 +78,23 @@ export async function POST(req: NextRequest) {
       const studentQuestion =
         (formData.get("studentQuestion") as string | null) || undefined;
 
-      // Collect uploaded files (support single 'file' or multiple 'files')
+      // Collect uploaded files in deterministic order
       const fileEntries = formData.getAll("files");
       const singleFile = formData.get("file");
       const filesToProcess: File[] = [];
 
-      if (singleFile && singleFile instanceof File && singleFile.size > 0) {
-        filesToProcess.push(singleFile);
-      }
       for (const entry of fileEntries) {
         if (entry instanceof File && entry.size > 0) {
           filesToProcess.push(entry);
         }
+      }
+      if (
+        singleFile &&
+        singleFile instanceof File &&
+        singleFile.size > 0 &&
+        !filesToProcess.includes(singleFile)
+      ) {
+        filesToProcess.unshift(singleFile);
       }
 
       if (filesToProcess.length === 0) {
@@ -98,38 +108,35 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Validate each file
-      const validatedFiles: Array<{
-        file: File;
-        buffer: Buffer;
-        mime: string;
-        type: "pdf" | "image";
-        pageCount?: number;
-      }> = [];
-
+      // Read all file buffers
+      const bufferItems: Array<{ file: File; buffer: Buffer }> = [];
       for (const file of filesToProcess) {
         const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const validation = validateStudyFile(buffer, file.name);
-
-        if (!validation.valid) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: validation.error,
-            },
-            { status: 400 }
-          );
-        }
-
-        validatedFiles.push({
-          file,
-          buffer,
-          mime: validation.mimeType,
-          type: validation.type as "pdf" | "image",
-          pageCount: validation.pageCount,
-        });
+        bufferItems.push({ file, buffer: Buffer.from(arrayBuffer) });
       }
+
+      // Batch validation (checks signatures, counts, total size, PDF vs images)
+      const batchValidation = validateFileBatch(
+        bufferItems.map((b) => ({ name: b.file.name, buffer: b.buffer }))
+      );
+
+      if (!batchValidation.valid) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: batchValidation.error,
+          },
+          { status: 400 }
+        );
+      }
+
+      const validatedFiles = bufferItems.map((b, idx) => ({
+        file: b.file,
+        buffer: b.buffer,
+        mime: batchValidation.results[idx]!.mimeType,
+        type: batchValidation.results[idx]!.type as "pdf" | "image",
+        pageCount: batchValidation.results[idx]!.pageCount,
+      }));
 
       if (!provider.isConfigured()) {
         return NextResponse.json(
@@ -144,10 +151,9 @@ export async function POST(req: NextRequest) {
 
       const primaryFile = validatedFiles[0]!;
       const isPdf = primaryFile.type === "pdf";
-      const totalPageCount = validatedFiles.reduce(
-        (acc, f) => acc + (f.pageCount || 1),
-        0
-      );
+      const totalPageCount = isPdf
+        ? primaryFile.pageCount || 1
+        : validatedFiles.length;
 
       // Build multimodal content parts
       const contentParts: MessageContentPart[] = [
@@ -155,15 +161,22 @@ export async function POST(req: NextRequest) {
           type: "text",
           text: `SOURCE MATERIAL SUBMITTED BY STUDENT:
 Document Name: "${primaryFile.file.name}"
-Type: ${isPdf ? "PDF Document" : `${validatedFiles.length} Scanned Image(s)`}
+Type: ${isPdf ? `PDF Document (${totalPageCount} pages)` : `${validatedFiles.length} Scanned Image(s)`}
 ${userTitle ? `User-specified Topic: "${userTitle}"` : "Please suggest an appropriate topic title based on the material."}
 ${studentQuestion ? `Student-specified Question: "${studentQuestion}"` : ""}
 
-Extract all authentic questions and reference answers found in this material. Preserve original wording, paragraph structures, and question-answer associations.`,
+EXTRACTION INSTRUCTIONS:
+- ${isPdf ? "Read through the entire PDF." : `The ${validatedFiles.length} image(s) below are consecutive pages 1 to ${validatedFiles.length} of the same study material in sequential order.`}
+- Extract ALL authentic questions and reference answers found across the pages.
+- If an answer continues across page boundaries, merge it into one complete reference answer. Do not split answers into separate questions merely because of page breaks.
+- If overlapping photographs or consecutive pages show the same question, deduplicate and do NOT output duplicate questions.
+- Preserve original wording, paragraph structures, and question-answer associations.
+- Set "pageNumber" to the page number where the question begins (1-indexed).`,
         },
       ];
 
-      for (const vf of validatedFiles) {
+      for (let i = 0; i < validatedFiles.length; i++) {
+        const vf = validatedFiles[i]!;
         const base64Data = vf.buffer.toString("base64");
         const dataUrl = `data:${vf.mime};base64,${base64Data}`;
 
@@ -176,6 +189,12 @@ Extract all authentic questions and reference answers found in this material. Pr
             },
           });
         } else {
+          if (validatedFiles.length > 1) {
+            contentParts.push({
+              type: "text",
+              text: `--- PAGE / IMAGE ${i + 1} OF ${validatedFiles.length}: "${vf.file.name}" ---`,
+            });
+          }
           contentParts.push({
             type: "image_url",
             image_url: {

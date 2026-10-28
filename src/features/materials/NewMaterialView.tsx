@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState, useRef } from "react";
+import React, { Suspense, useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   SAMPLE_STUDY_MATERIALS,
@@ -13,7 +13,11 @@ import {
   StudySet,
 } from "@/lib/domain/study-set";
 import { saveStudySet } from "@/lib/storage/study-store";
-import { validateStudyFile, formatFileSize } from "@/lib/files";
+import {
+  validateStudyFile,
+  formatFileSize,
+  MAX_BATCH_FILES,
+} from "@/lib/files";
 import {
   SparklesIcon,
   ArrowPathIcon,
@@ -27,7 +31,21 @@ import {
   ArrowsRightLeftIcon,
   ChevronRightIcon,
   PlusIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
 } from "@/components/icons";
+
+interface StagedFileItem {
+  id: string;
+  file: File;
+  name: string;
+  size: number;
+  sizeFormatted: string;
+  type: "pdf" | "image";
+  pageCount?: number;
+  previewUrl?: string;
+  error?: string;
+}
 
 export function NewMaterialView() {
   return (
@@ -59,14 +77,9 @@ function NewMaterialContent() {
 
   // File Upload / Photo State
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addMoreFileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileMeta, setFileMeta] = useState<{
-    name: string;
-    sizeFormatted: string;
-    pageCount?: number;
-    type: "pdf" | "image";
-  } | null>(null);
+  const [stagedFiles, setStagedFiles] = useState<StagedFileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
   // Text Paste State
@@ -99,6 +112,15 @@ function NewMaterialContent() {
     null
   );
 
+  // Clean up object URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      stagedFiles.forEach((f) => {
+        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+      });
+    };
+  }, [stagedFiles]);
+
   // Text counts
   const characterCount = sourceText.length;
   const wordCount = sourceText.trim()
@@ -122,47 +144,162 @@ function NewMaterialContent() {
   const handleClearAll = () => {
     setTitle("");
     setSourceText("");
-    setSelectedFile(null);
-    setFileMeta(null);
+    stagedFiles.forEach((f) => {
+      if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+    });
+    setStagedFiles([]);
     setDetectedQuestions([]);
     setCurrentMaterial(null);
     setError(null);
     setMissingQuestionPrompt(null);
     setMissingAnswerPrompt(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (addMoreFileInputRef.current) addMoreFileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
-  // Process File Selection (from Upload or Camera)
-  const handleFileChosen = async (file: File) => {
+  // Process newly selected files (from upload picker, drag-drop, or camera)
+  const handleFilesChosen = async (
+    files: File[],
+    mode: "replace" | "append"
+  ) => {
     setError(null);
-    setDetectedQuestions([]);
-    setCurrentMaterial(null);
+
+    if (!files || files.length === 0) return;
 
     try {
-      const buffer = new Uint8Array(await file.arrayBuffer());
-      const validation = validateStudyFile(buffer, file.name);
+      // Check if user selected a PDF
+      const pdfFile = files.find(
+        (f) =>
+          f.name.toLowerCase().endsWith(".pdf") || f.type === "application/pdf"
+      );
 
-      if (!validation.valid) {
-        setError(validation.error || "Unsupported file format.");
+      if (pdfFile) {
+        // If a PDF is provided, it replaces everything as a single document
+        const buffer = new Uint8Array(await pdfFile.arrayBuffer());
+        const validation = validateStudyFile(buffer, pdfFile.name);
+
+        if (!validation.valid) {
+          setError(validation.error || "Unsupported PDF format.");
+          return;
+        }
+
+        // Clean up previous URLs
+        stagedFiles.forEach((f) => {
+          if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+        });
+
+        const singleItem: StagedFileItem = {
+          id: `file_${crypto.randomUUID()}`,
+          file: pdfFile,
+          name: pdfFile.name,
+          size: pdfFile.size,
+          sizeFormatted: formatFileSize(pdfFile.size),
+          type: "pdf",
+          pageCount: validation.pageCount,
+        };
+
+        setStagedFiles([singleItem]);
+        setDetectedQuestions([]);
+        setCurrentMaterial(null);
+        await executeExtractionWithFiles([pdfFile]);
         return;
       }
 
-      setSelectedFile(file);
-      setFileMeta({
-        name: file.name,
-        sizeFormatted: formatFileSize(file.size),
-        pageCount: validation.pageCount,
-        type: validation.type === "pdf" ? "pdf" : "image",
-      });
+      // Handle Image files
+      const newItems: StagedFileItem[] = [];
 
-      // Automatically trigger extraction for seamless student UX
-      await executeFileExtraction(file);
+      for (const file of files) {
+        const buffer = new Uint8Array(await file.arrayBuffer());
+        const validation = validateStudyFile(buffer, file.name);
+
+        const previewUrl = URL.createObjectURL(file);
+
+        newItems.push({
+          id: `file_${crypto.randomUUID()}`,
+          file,
+          name: file.name,
+          size: file.size,
+          sizeFormatted: formatFileSize(file.size),
+          type: "image",
+          previewUrl,
+          error: validation.valid ? undefined : validation.error,
+        });
+      }
+
+      let updatedList: StagedFileItem[] = [];
+      if (mode === "append") {
+        // Filter out any existing PDF if switching to images
+        const existingImages = stagedFiles.filter((f) => f.type === "image");
+        updatedList = [...existingImages, ...newItems];
+      } else {
+        // Replace
+        stagedFiles.forEach((f) => {
+          if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+        });
+        updatedList = newItems;
+      }
+
+      if (updatedList.length > MAX_BATCH_FILES) {
+        setError(`You can stage up to ${MAX_BATCH_FILES} images at a time.`);
+        setStagedFiles(updatedList.slice(0, MAX_BATCH_FILES));
+        return;
+      }
+
+      // Check if any item has individual error
+      const firstError = updatedList.find((i) => i.error);
+      if (firstError) {
+        setError(firstError.error || "One or more images could not be loaded.");
+      }
+
+      setStagedFiles(updatedList);
+      setDetectedQuestions([]);
+      setCurrentMaterial(null);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to read the selected file."
+        err instanceof Error
+          ? err.message
+          : "Failed to read the selected files."
       );
     }
+  };
+
+  // Move image earlier in page order
+  const moveFileUp = (index: number) => {
+    if (index <= 0) return;
+    setStagedFiles((prev) => {
+      const copy = [...prev];
+      const temp = copy[index - 1]!;
+      copy[index - 1] = copy[index]!;
+      copy[index] = temp;
+      return copy;
+    });
+  };
+
+  // Move image later in page order
+  const moveFileDown = (index: number) => {
+    if (index >= stagedFiles.length - 1) return;
+    setStagedFiles((prev) => {
+      const copy = [...prev];
+      const temp = copy[index + 1]!;
+      copy[index + 1] = copy[index]!;
+      copy[index] = temp;
+      return copy;
+    });
+  };
+
+  // Remove individual staged file
+  const removeStagedFile = (index: number) => {
+    setStagedFiles((prev) => {
+      const target = prev[index];
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      const updated = prev.filter((_, i) => i !== index);
+      if (updated.length === 0) {
+        setDetectedQuestions([]);
+        setCurrentMaterial(null);
+      }
+      return updated;
+    });
   };
 
   // Drag and drop handlers
@@ -180,26 +317,43 @@ function NewMaterialContent() {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      if (file) await handleFileChosen(file);
+      const dropped = Array.from(e.dataTransfer.files);
+      await handleFilesChosen(dropped, "replace");
     }
   };
 
-  // Extract from uploaded file using multipart/form-data
-  const executeFileExtraction = async (file: File) => {
+  // Extract from staged files
+  const executeExtractionWithFiles = async (filesToExtract?: File[]) => {
+    const files = filesToExtract || stagedFiles.map((s) => s.file);
+
+    if (files.length === 0) {
+      setError("Please select at least one document or image.");
+      return;
+    }
+
+    if (isExtracting) return; // Prevent duplicate submit clicks
+
     setIsExtracting(true);
     setError(null);
 
     try {
-      setExtractionStep("Uploading and scanning document...");
+      setExtractionStep(
+        files.length === 1 && files[0]?.type === "application/pdf"
+          ? "Uploading and reading PDF document..."
+          : `Uploading and ordering ${files.length} image page(s)...`
+      );
 
       const formData = new FormData();
-      formData.append("file", file);
+      for (const file of files) {
+        formData.append("files", file);
+      }
       if (title.trim()) {
         formData.append("title", title.trim());
       }
 
-      setExtractionStep("Analyzing document with Meta multimodal reasoning...");
+      setExtractionStep(
+        "Analyzing consecutive pages with Meta multimodal reasoning..."
+      );
 
       const extractRes = await fetch("/api/extract", {
         method: "POST",
@@ -253,6 +407,8 @@ function NewMaterialContent() {
       setError("Study material exceeds the 20,000 character limit.");
       return;
     }
+
+    if (isExtracting) return; // Prevent duplicate clicks
 
     setIsExtracting(true);
     setError(null);
@@ -360,7 +516,6 @@ function NewMaterialContent() {
   const handleSplitQuestion = () => {
     if (!activeQuestion) return;
 
-    // Check if question or answer has natural split point (newline or sentences)
     const qParts = activeQuestion.question.split(/\n+/).filter(Boolean);
     const aParts = activeQuestion.referenceAnswer
       .split(/\n\n+/)
@@ -404,7 +559,6 @@ function NewMaterialContent() {
     updated[selectedQuestionIndex] = updatedCurrent;
     updated.splice(selectedQuestionIndex + 1, 0, newQuestion);
 
-    // Reindex orders
     const reindexed = updated.map((q, idx) => ({ ...q, orderIndex: idx + 1 }));
     setDetectedQuestions(reindexed);
     setSelectedQuestionIndex(selectedQuestionIndex + 1);
@@ -464,7 +618,8 @@ function NewMaterialContent() {
       return;
     }
 
-    // Validate questions
+    if (isPreparing) return; // Prevent double submit
+
     for (let i = 0; i < detectedQuestions.length; i++) {
       const q = detectedQuestions[i]!;
       if (!q.question.trim()) {
@@ -489,20 +644,25 @@ function NewMaterialContent() {
           .map((q) => `Question: ${q.question}\nAnswer: ${q.referenceAnswer}`)
           .join("\n\n");
 
+      const primaryStaged = stagedFiles[0];
+      const totalStagedSize = stagedFiles.reduce((acc, f) => acc + f.size, 0);
+
       const materialToSave: StudyMaterial = currentMaterial || {
         id: `mat_${Date.now()}`,
         title: title.trim() || "Untitled Study Set",
         sourceText: rawText,
         characterCount: rawText.length,
-        sourceType: fileMeta?.type || "text",
-        fileName: fileMeta?.name,
-        fileSize: selectedFile?.size,
-        pageCount: fileMeta?.pageCount,
+        sourceType: primaryStaged?.type || "text",
+        fileName:
+          stagedFiles.length > 1
+            ? `${stagedFiles.length} pages (${primaryStaged?.name}...)`
+            : primaryStaged?.name,
+        fileSize: totalStagedSize || undefined,
+        pageCount: primaryStaged?.pageCount || stagedFiles.length || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      // Step: Generate rubrics for each question
       const rubrics: Record<string, QuestionRubric> = {};
 
       for (let i = 0; i < detectedQuestions.length; i++) {
@@ -535,7 +695,6 @@ function NewMaterialContent() {
         rubrics[q.id] = rubricData.rubric;
       }
 
-      // Step: Save to IndexedDB
       setPreparingStep("Saving study set to your local browser storage...");
 
       const studySet: StudySet = {
@@ -548,8 +707,6 @@ function NewMaterialContent() {
       };
 
       await saveStudySet(studySet);
-
-      // Navigate to Review Points screen
       router.push(`/review/${studySet.id}`);
     } catch (err: unknown) {
       const msg =
@@ -577,7 +734,6 @@ function NewMaterialContent() {
     setMissingAnswerPrompt(null);
   };
 
-  // Helper to extract clean short title for question
   const getQuestionShortTitle = (q: ExtractedQuestion, idx: number) => {
     const clean = q.question
       .replace(/^(question\s*\d*[:.-]?\s*|\d+[:.-]\s*)/i, "")
@@ -587,6 +743,10 @@ function NewMaterialContent() {
     }
     return clean || `Question ${idx + 1}`;
   };
+
+  const isPdfStaged =
+    stagedFiles.length === 1 && stagedFiles[0]?.type === "pdf";
+  const totalStagedBytes = stagedFiles.reduce((acc, f) => acc + f.size, 0);
 
   return (
     <div className="w-full min-w-0 space-y-6">
@@ -620,38 +780,35 @@ function NewMaterialContent() {
         </div>
       </div>
 
-      {/* Page Header with Decorative Illustration matching reference */}
+      {/* Page Header with Decorative Illustration */}
       <div className="border-brand-peach/60 relative flex w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border bg-white/80 p-5 shadow-xs sm:flex-row sm:items-center sm:p-7">
         <div className="max-w-xl">
           <h1 className="font-heading text-brand-ink text-xl font-bold sm:text-2xl">
             Add your study material
           </h1>
           <p className="text-brand-secondary mt-1.5 text-xs leading-relaxed sm:text-sm">
-            Upload a photo, PDF or paste text. We&apos;ll extract and organise
-            the questions and answers for you to review.
+            Upload multiple photos, a PDF or paste text. We&apos;ll extract and
+            organise the questions and answers for you to review.
           </p>
         </div>
 
         {/* Decorative Notes Illustration on Desktop */}
         <div className="hidden shrink-0 items-center justify-center sm:flex sm:pl-4">
           <div className="relative flex h-24 w-28 items-center justify-center">
-            {/* Background Paper */}
             <div className="bg-brand-peach/50 absolute h-18 w-18 rotate-12 rounded-xl shadow-xs" />
-            {/* Main Note Sheet */}
             <div className="border-brand-peach/80 bg-brand-cream absolute h-20 w-16 -rotate-6 rounded-xl border p-2 shadow-sm">
               <div className="bg-brand-peach/70 mb-1.5 h-1.5 w-8 rounded-full" />
               <div className="bg-brand-peach/50 mb-1 h-1 w-10 rounded-full" />
               <div className="bg-brand-peach/50 mb-1 h-1 w-11 rounded-full" />
               <div className="bg-brand-peach/50 mb-1 h-1 w-7 rounded-full" />
             </div>
-            {/* Sparkles */}
             <SparklesIcon className="text-brand-tomato absolute -top-1 right-2 h-5 w-5 animate-pulse" />
             <div className="bg-brand-tomato/80 absolute bottom-1 -left-1 h-2 w-2 rounded-full" />
           </div>
         </div>
       </div>
 
-      {/* Input Mode Tabs (responsive horizontal scroll without widening page) */}
+      {/* Input Mode Tabs */}
       <div className="border-brand-peach/60 flex w-full min-w-0 scrollbar-thin overflow-x-auto border-b">
         <button
           type="button"
@@ -666,7 +823,7 @@ function NewMaterialContent() {
           }`}
         >
           <DocumentTextIcon className="h-4 w-4" />
-          <span>Upload File</span>
+          <span>Upload Files</span>
         </button>
 
         <button
@@ -722,59 +879,241 @@ function NewMaterialContent() {
         </div>
       )}
 
-      {/* Selected File Card (matches design reference) */}
-      {fileMeta && (
-        <div className="border-brand-peach/80 flex w-full min-w-0 items-center justify-between rounded-2xl border bg-white p-4 shadow-xs sm:p-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="bg-brand-peach/50 text-brand-tomato flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-              {fileMeta.type === "pdf" ? (
-                <DocumentTextIcon className="h-6 w-6" />
-              ) : (
-                <PhotoIcon className="h-6 w-6" />
-              )}
+      {/* STAGED FILES MANAGEMENT VIEW (When 1 PDF or 1+ Images are chosen) */}
+      {stagedFiles.length > 0 && (
+        <div className="border-brand-peach/80 w-full min-w-0 space-y-4 rounded-2xl border bg-white p-4 shadow-xs sm:p-5">
+          {/* Header Bar */}
+          <div className="border-brand-peach/40 flex items-center justify-between border-b pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="font-heading text-brand-ink text-sm font-bold">
+                {isPdfStaged
+                  ? "Selected PDF Document"
+                  : `Selected Pages (${stagedFiles.length} ${
+                      stagedFiles.length === 1 ? "image" : "images"
+                    } · ${formatFileSize(totalStagedBytes)})`}
+              </span>
+              <span className="bg-brand-cream text-brand-tomato border-brand-peach rounded-full border px-2 py-0.5 text-[10px] font-bold">
+                {isPdfStaged
+                  ? `${stagedFiles[0]?.pageCount || 1} pages`
+                  : `${stagedFiles.length} page(s) ordered`}
+              </span>
             </div>
-            <div className="min-w-0">
-              <h3 className="font-heading text-brand-ink truncate text-sm font-bold">
-                {fileMeta.name}
-              </h3>
-              <p className="text-brand-secondary mt-0.5 text-xs">
-                {fileMeta.pageCount
-                  ? `${fileMeta.pageCount} ${
-                      fileMeta.pageCount === 1 ? "page" : "pages"
-                    } · ${fileMeta.sizeFormatted}`
-                  : `${fileMeta.sizeFormatted} · Scanned image`}
-              </p>
+
+            <div className="flex items-center gap-2">
+              {!isPdfStaged && activeTab === "upload" && (
+                <button
+                  type="button"
+                  onClick={() => addMoreFileInputRef.current?.click()}
+                  className="border-brand-peach bg-brand-cream/80 text-brand-ink hover:bg-brand-peach/40 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-semibold shadow-2xs transition"
+                >
+                  <PlusIcon className="text-brand-tomato h-3.5 w-3.5" />
+                  <span>Add more images</span>
+                </button>
+              )}
+
+              {!isPdfStaged && activeTab === "photo" && (
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold text-white shadow-2xs transition"
+                >
+                  <CameraIcon className="h-3.5 w-3.5" />
+                  <span>Take another photo</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="text-brand-secondary hover:text-brand-tomato flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl transition hover:bg-red-50"
+                title="Clear all files"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (fileMeta.type === "pdf" || activeTab === "upload") {
-                  fileInputRef.current?.click();
-                } else {
-                  cameraInputRef.current?.click();
-                }
-              }}
-              className="border-brand-peach bg-brand-cream/80 text-brand-ink hover:bg-brand-peach/40 hidden h-9 cursor-pointer items-center justify-center rounded-xl border px-3.5 text-xs font-semibold transition sm:inline-flex"
-            >
-              Change file
-            </button>
-            <button
-              type="button"
-              onClick={handleClearAll}
-              title="Remove file"
-              className="text-brand-secondary hover:text-brand-tomato flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl transition hover:bg-red-50"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </button>
-          </div>
+          {/* Single PDF View Card */}
+          {isPdfStaged && (
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-3">
+                <div className="bg-brand-peach/50 text-brand-tomato flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
+                  <DocumentTextIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h4 className="font-heading text-brand-ink text-sm font-bold">
+                    {stagedFiles[0]?.name}
+                  </h4>
+                  <p className="text-brand-secondary text-xs">
+                    {stagedFiles[0]?.pageCount} pages ·{" "}
+                    {stagedFiles[0]?.sizeFormatted}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="border-brand-peach bg-brand-cream/80 text-brand-ink hover:bg-brand-peach/40 hidden h-8 cursor-pointer items-center justify-center rounded-xl border px-3 text-xs font-semibold transition sm:inline-flex"
+              >
+                Change file
+              </button>
+            </div>
+          )}
+
+          {/* Multiple Images List with Ordering Controls & Thumbnails */}
+          {!isPdfStaged && (
+            <div className="space-y-2.5">
+              <p className="text-brand-secondary text-[11px]">
+                Review page order below. Use arrows to reorder pages before
+                extraction so answers spanning pages remain continuous.
+              </p>
+
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {stagedFiles.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className="border-brand-peach/60 bg-brand-cream/20 flex items-center justify-between rounded-xl border p-2.5 shadow-2xs"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      {item.previewUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={item.previewUrl}
+                          alt={item.name}
+                          className="h-12 w-12 shrink-0 rounded-lg border object-cover"
+                        />
+                      ) : (
+                        <div className="bg-brand-peach/50 text-brand-tomato flex h-12 w-12 shrink-0 items-center justify-center rounded-lg">
+                          <PhotoIcon className="h-6 w-6" />
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <span className="bg-brand-tomato rounded px-1.5 py-0.5 text-[9px] font-bold text-white">
+                          Page {idx + 1}
+                        </span>
+                        <h5 className="font-heading text-brand-ink mt-0.5 truncate text-xs font-bold">
+                          {item.name}
+                        </h5>
+                        <span className="text-brand-secondary text-[10px]">
+                          {item.sizeFormatted}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Ordering Controls & Remove */}
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={idx === 0 || isExtracting}
+                        onClick={() => moveFileUp(idx)}
+                        title="Move earlier (Page Up)"
+                        className="text-brand-secondary hover:text-brand-ink cursor-pointer p-1 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <ArrowUpIcon className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={
+                          idx === stagedFiles.length - 1 || isExtracting
+                        }
+                        onClick={() => moveFileDown(idx)}
+                        title="Move later (Page Down)"
+                        className="text-brand-secondary hover:text-brand-ink cursor-pointer p-1 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <ArrowDownIcon className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isExtracting}
+                        onClick={() => removeStagedFile(idx)}
+                        title="Remove this image"
+                        className="text-brand-secondary hover:text-brand-tomato cursor-pointer p-1 disabled:cursor-not-allowed"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Extract Questions Action Button (if not already extracted) */}
+          {detectedQuestions.length === 0 && (
+            <div className="border-brand-peach/40 flex flex-col items-center justify-between gap-3 border-t pt-3 sm:flex-row">
+              <span className="text-brand-secondary text-xs">
+                {isPdfStaged
+                  ? "Extract all authentic exam questions and answers from this PDF."
+                  : `Extract all questions across all ${stagedFiles.length} page(s) in order.`}
+              </span>
+
+              <button
+                type="button"
+                disabled={isExtracting}
+                onClick={() => executeExtractionWithFiles()}
+                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              >
+                {isExtracting ? (
+                  <>
+                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                    <span>Analyzing Document...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Extract questions &amp; answers</span>
+                    <span>&rarr;</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* TAB 1: Upload File Area */}
-      {activeTab === "upload" && !selectedFile && (
+      {/* Hidden File Inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept=".pdf,.png,.jpg,.jpeg,.webp"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) {
+            handleFilesChosen(Array.from(e.target.files), "replace");
+          }
+        }}
+      />
+      <input
+        ref={addMoreFileInputRef}
+        type="file"
+        multiple
+        accept=".png,.jpg,.jpeg,.webp"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) {
+            handleFilesChosen(Array.from(e.target.files), "append");
+          }
+        }}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleFilesChosen([e.target.files[0]], "append");
+          }
+        }}
+      />
+
+      {/* TAB 1: Upload File Drag/Drop Area (when no files staged yet) */}
+      {activeTab === "upload" && stagedFiles.length === 0 && (
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -783,48 +1122,33 @@ function NewMaterialContent() {
             isDragging ? "border-brand-tomato bg-brand-peach/20" : ""
           }`}
         >
-          {/* Hidden File Input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.webp"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFileChosen(file);
-            }}
-          />
-
           <div className="grid grid-cols-1 items-center gap-6 md:grid-cols-12 md:gap-8">
-            {/* Left Upload Drag/Drop Box */}
             <div className="flex flex-col items-center justify-center text-center md:col-span-6">
               <div className="bg-brand-peach/50 text-brand-tomato mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl">
                 <DocumentTextIcon className="h-7 w-7" />
               </div>
               <h3 className="font-heading text-brand-ink text-sm font-bold sm:text-base">
                 <span className="hidden sm:inline">
-                  Drag and drop a file here
+                  Drag and drop files here (multiple images or PDF)
                 </span>
-                <span className="sm:hidden">Tap to choose a file</span>
+                <span className="sm:hidden">Tap to choose files</span>
               </h3>
               <p className="text-brand-secondary mt-1 text-xs">
-                PDF, JPG, PNG (Max 20MB)
+                Select multiple JPG/PNG photos or a single PDF (Max 20MB)
               </p>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="bg-brand-tomato hover:bg-brand-tomato-hover mt-4 inline-flex h-10 cursor-pointer items-center justify-center rounded-xl px-6 text-xs font-bold text-white shadow-xs transition"
               >
-                Choose File
+                Choose Files
               </button>
             </div>
 
-            {/* Divider */}
             <div className="text-brand-secondary/60 flex items-center justify-center text-xs font-medium md:col-span-1">
               <span>or</span>
             </div>
 
-            {/* Right Supported Formats Panel */}
             <div className="border-brand-peach/60 rounded-xl border bg-white/70 p-4 md:col-span-5">
               <h4 className="font-heading text-brand-ink text-xs font-bold tracking-wider uppercase">
                 Supported formats
@@ -840,8 +1164,8 @@ function NewMaterialContent() {
                 <li className="text-brand-secondary flex items-start gap-2.5">
                   <PhotoIcon className="text-brand-tomato mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    <strong className="text-brand-ink">Images</strong> (photos
-                    of handwritten or printed notes)
+                    <strong className="text-brand-ink">Multiple images</strong>{" "}
+                    (select multiple page photos at once)
                   </span>
                 </li>
                 <li className="text-brand-secondary flex items-start gap-2.5">
@@ -861,32 +1185,19 @@ function NewMaterialContent() {
         </div>
       )}
 
-      {/* TAB 2: Take Photo Area */}
-      {activeTab === "photo" && !selectedFile && (
+      {/* TAB 2: Take Photo Area (when no files staged yet) */}
+      {activeTab === "photo" && stagedFiles.length === 0 && (
         <div className="border-brand-peach/80 bg-brand-cream/30 rounded-2xl border-2 border-dashed p-6 text-center sm:p-10">
-          {/* Hidden Camera Input */}
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFileChosen(file);
-            }}
-          />
-
           <div className="mx-auto flex max-w-md flex-col items-center">
             <div className="bg-brand-peach/50 text-brand-tomato mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl">
               <CameraIcon className="h-7 w-7" />
             </div>
             <h3 className="font-heading text-brand-ink text-base font-bold">
-              Take a photo of your study material
+              Take photos of your study material
             </h3>
             <p className="text-brand-secondary mt-1 text-xs leading-relaxed">
-              Snap a clear photo of your textbook, printed assignment, or
-              handwritten notes.
+              Snap clear photos of each page. You can capture multiple photos in
+              sequence to study multi-page answers.
             </p>
 
             <button
@@ -899,8 +1210,8 @@ function NewMaterialContent() {
             </button>
 
             <p className="text-brand-secondary/70 mt-3 text-[11px]">
-              On desktop or laptop devices, you can also select an existing
-              photo file.
+              On desktop or laptop devices, you can also select existing image
+              files.
             </p>
           </div>
         </div>
@@ -909,7 +1220,7 @@ function NewMaterialContent() {
       {/* TAB 3: Paste Text Area */}
       {activeTab === "paste" && (
         <div className="w-full min-w-0 space-y-5">
-          {/* Curated Sample Presets: Dedicated Section with Required Accessibility Attributes */}
+          {/* Curated Sample Presets: Dedicated Section */}
           <section className="border-brand-peach/60 w-full min-w-0 rounded-2xl border bg-white/80 p-3.5 shadow-xs sm:p-4">
             <div className="text-brand-secondary flex items-center justify-between text-xs font-bold tracking-wider uppercase">
               <div className="flex items-center gap-2">
@@ -921,7 +1232,6 @@ function NewMaterialContent() {
               </span>
             </div>
 
-            {/* Dedicated Inner Horizontal Scroll Container */}
             <div
               tabIndex={0}
               role="region"
@@ -1161,7 +1471,7 @@ function NewMaterialContent() {
         </div>
       )}
 
-      {/* Loading Progress State (honest status indicator) */}
+      {/* Loading Progress State */}
       {(isExtracting || isPreparing) && (
         <div className="border-brand-peach/80 bg-brand-cream/60 rounded-2xl border p-5 shadow-xs">
           <div className="flex items-center gap-3.5">
@@ -1180,10 +1490,9 @@ function NewMaterialContent() {
         </div>
       )}
 
-      {/* DETECTED QUESTIONS AND ANSWERS MASTER-DETAIL VIEW (matching reference image) */}
+      {/* DETECTED QUESTIONS AND ANSWERS MASTER-DETAIL VIEW */}
       {detectedQuestions.length > 0 && (
         <div className="space-y-4">
-          {/* Section Header */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2">
@@ -1200,7 +1509,6 @@ function NewMaterialContent() {
               </p>
             </div>
 
-            {/* Split / Merge / Add Question Controls */}
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -1243,7 +1551,7 @@ function NewMaterialContent() {
 
           {/* Master-Detail Layout */}
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
-            {/* Left Column: Master List of Questions (Col 1-5) */}
+            {/* Left Column: Master List of Questions */}
             <div className="space-y-2 lg:col-span-5">
               {detectedQuestions.map((q, idx) => {
                 const isSelected = idx === selectedQuestionIndex;
@@ -1261,15 +1569,22 @@ function NewMaterialContent() {
                     }`}
                   >
                     <div className="min-w-0 pr-2">
-                      <h4
-                        className={`font-heading truncate text-xs ${
-                          isSelected
-                            ? "text-brand-ink font-bold"
-                            : "text-brand-ink/90 font-semibold"
-                        }`}
-                      >
-                        {idx + 1}. {shortTitle}
-                      </h4>
+                      <div className="flex items-center gap-1.5">
+                        <h4
+                          className={`font-heading truncate text-xs ${
+                            isSelected
+                              ? "text-brand-ink font-bold"
+                              : "text-brand-ink/90 font-semibold"
+                          }`}
+                        >
+                          {idx + 1}. {shortTitle}
+                        </h4>
+                        {q.isUncertain && (
+                          <span className="py-0.2 shrink-0 rounded bg-amber-100 px-1.5 text-[9px] font-bold text-amber-800">
+                            Check
+                          </span>
+                        )}
+                      </div>
                       <p className="text-brand-secondary mt-0.5 text-[11px]">
                         {q.pageNumber ? `Page ${q.pageNumber} · ` : ""}
                         Question and answer detected
@@ -1287,10 +1602,9 @@ function NewMaterialContent() {
               })}
             </div>
 
-            {/* Right Column: Detail Editor for Active Question (Col 6-12) */}
+            {/* Right Column: Detail Editor for Active Question */}
             {activeQuestion && (
               <div className="border-brand-peach/80 rounded-2xl border bg-white p-5 shadow-xs lg:col-span-7">
-                {/* Detail Header */}
                 <div className="border-brand-peach/40 flex items-center justify-between border-b pb-3">
                   <h3 className="font-heading text-brand-ink truncate text-sm font-bold">
                     {selectedQuestionIndex + 1}.{" "}
@@ -1311,7 +1625,6 @@ function NewMaterialContent() {
                   </button>
                 </div>
 
-                {/* Question Editor */}
                 <div className="mt-4 space-y-4">
                   <div>
                     <div className="flex items-center justify-between">
@@ -1319,11 +1632,18 @@ function NewMaterialContent() {
                         <span>Question</span>
                         <PencilSquareIcon className="text-brand-secondary/60 h-3 w-3" />
                       </label>
-                      {activeQuestion.pageNumber && (
-                        <span className="bg-brand-peach/50 text-brand-tomato rounded px-2 py-0.5 text-[10px] font-bold">
-                          Page {activeQuestion.pageNumber}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {activeQuestion.pageNumber && (
+                          <span className="bg-brand-peach/50 text-brand-tomato rounded px-2 py-0.5 text-[10px] font-bold">
+                            Page {activeQuestion.pageNumber}
+                          </span>
+                        )}
+                        {activeQuestion.isUncertain && (
+                          <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                            ⚠️ Review wording
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <textarea
                       rows={3}
@@ -1339,7 +1659,6 @@ function NewMaterialContent() {
                     />
                   </div>
 
-                  {/* Reference Answer Editor */}
                   <div>
                     <label className="text-brand-ink flex items-center gap-1.5 text-xs font-bold">
                       <span>Answer (from your material)</span>

@@ -23,7 +23,7 @@ export function AppShell({ children }: AppShellProps) {
     pathname.startsWith("/materials/new") || pathname.startsWith("/review");
 
   return (
-    <div className="bg-brand-cream text-brand-ink flex min-h-screen">
+    <div className="bg-brand-cream text-brand-ink flex min-h-screen w-full min-w-0">
       {/* Desktop Persistent Left Sidebar (hidden on mobile) */}
       <aside className="border-brand-peach/60 sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-white/70 backdrop-blur-xs lg:flex">
         {/* Brand Logo */}
@@ -115,7 +115,7 @@ export function AppShell({ children }: AppShellProps) {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col pb-20 lg:pb-0">
+      <div className="flex w-full min-w-0 flex-1 flex-col pb-24 lg:pb-0">
         {/* Desktop Top Header Bar */}
         <header className="border-brand-peach/60 sticky top-0 z-20 hidden h-16 items-center justify-between border-b bg-white/70 px-8 backdrop-blur-xs lg:flex">
           {/* Search Bar matching reference image */}
@@ -160,8 +160,8 @@ export function AppShell({ children }: AppShellProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-          <div className="mx-auto max-w-6xl">{children}</div>
+        <main className="w-full min-w-0 flex-1 px-3.5 py-5 sm:px-6 sm:py-8 lg:px-8">
+          <div className="mx-auto w-full max-w-6xl min-w-0">{children}</div>
         </main>
       </div>
 

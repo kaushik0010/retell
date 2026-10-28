@@ -66,6 +66,7 @@ Allow students to input study materials (text or structured notes), extract the 
 | `TASK-2.5` | Implement foundational local storage persistence for study items in browser               | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)             |
 | `TASK-2.6` | Route-based navigation, Student-First UX, source-grounded extraction & visual polish      | **Completed** | [Section 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
 | `TASK-2.7` | UI Polish, Question Review Redesign, Responsive Fixes, Cursor Affordances & Page SEO      | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-2.8` | Mobile Responsiveness, Hero Order Correction & Section-Level Horizontal Scrolling        | **Completed** | [Section 2, 4, 5](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
 
 ### Acceptance Criteria
 
@@ -77,10 +78,13 @@ Allow students to input study materials (text or structured notes), extract the 
 - [x] Source-grounded extraction strictly enforces original text fidelity, detects missing questions/answers, and forbids silent question fabrication.
 - [x] Complete purge of developer/rubric jargon in favor of student-first active recall terminology.
 - [x] Home page hero features the authentic student illustration with responsive proportions and truthful study metrics.
-- [x] Sample study presets on Add Material page appear in one single horizontal scroll row across all screen sizes.
+- [x] Home page mobile hero order strictly follows heading/description -> hero illustration -> primary CTA button on mobile (< 768px), side-by-side on desktop (>= 768px), with zero DOM duplication.
+- [x] Document-level horizontal scroll eliminated across 320px, 360px, 390px, 430px, 768px, and 1440px viewports (`scrollWidth <= clientWidth`).
+- [x] Section-level horizontal scrolling properly constrained to dedicated scrollers (curated sample topics and category filter pills) with accessible region roles and `min-w-0` guards.
 - [x] Question Review page completely redesigned matching visual reference with auto-expanding textareas, mobile question selector, and zero nested scrolling.
 - [x] Interactive controls audit completed with explicit `cursor-pointer` and honest disabled practice affordances.
 - [x] Full App Router SEO page metadata and title templates implemented across all user-facing routes.
+- [x] Prohibited global `overflow-x-hidden` hacks on `html` or `body` completely avoided.
 
 ### Dependencies & Risks
 

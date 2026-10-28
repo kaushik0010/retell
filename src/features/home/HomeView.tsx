@@ -51,43 +51,45 @@ export function HomeView() {
   }, 0);
 
   return (
-    <div className="space-y-8">
+    <div className="w-full min-w-0 space-y-8">
       {/* Hero Banner matching visual reference */}
-      <section className="border-brand-peach/80 via-brand-cream relative overflow-hidden rounded-3xl border bg-gradient-to-br from-[#FFF4DF] to-[#FFE7DC] p-6 shadow-xs sm:p-8 md:p-10">
-        <div className="flex flex-col items-center justify-between gap-6 md:flex-row md:gap-8">
-          {/* Left Text & CTA */}
-          <div className="w-full max-w-xl space-y-3.5 text-center sm:text-left">
-            <h1 className="font-heading text-brand-ink text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
+      <section className="border-brand-peach/80 via-brand-cream relative w-full min-w-0 overflow-hidden rounded-3xl border bg-gradient-to-br from-[#FFF4DF] to-[#FFE7DC] p-5 shadow-xs sm:p-8 md:p-10">
+        <div className="grid w-full min-w-0 grid-cols-1 items-center gap-5 md:grid-cols-12 md:gap-8">
+          {/* 1. Heading & description (order-1 on mobile & desktop) */}
+          <div className="order-1 w-full min-w-0 space-y-3 text-center sm:text-left md:col-span-7">
+            <h1 className="font-heading text-brand-ink text-2xl leading-tight font-extrabold tracking-tight sm:text-4xl md:text-5xl">
               Turn what you study <br className="hidden sm:inline" />
               <span className="text-brand-tomato">into confidence.</span>
             </h1>
-            <p className="text-brand-secondary text-sm leading-relaxed sm:text-base">
+            <p className="text-brand-secondary text-xs leading-relaxed sm:text-base">
               Add your questions and answers, practise explaining them out loud,
               and discover what you missed before your exam.
             </p>
-            <div className="pt-2">
-              <Link
-                href="/materials/new"
-                className="bg-brand-tomato hover:bg-brand-tomato-hover focus-visible:outline-brand-tomato inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white shadow-xs transition focus-visible:outline-2 focus-visible:outline-offset-2"
-              >
-                <PlusCircleIcon className="h-5 w-5" />
-                <span>Add study material</span>
-              </Link>
-            </div>
           </div>
 
-          {/* Hero Illustration */}
-          <div className="flex w-full shrink-0 items-center justify-center md:w-auto">
-            <div className="relative flex items-center justify-center">
+          {/* 2. Hero illustration: Above CTA on mobile (order-2), right column on desktop (order-3, row-span-2) */}
+          <div className="order-2 flex w-full min-w-0 justify-center md:order-3 md:col-span-5 md:row-span-2 md:justify-end">
+            <div className="relative flex w-full max-w-[240px] items-center justify-center sm:max-w-[300px] md:max-w-[380px] lg:max-w-[420px]">
               <Image
                 src="/assets/homepage_illustration.png"
                 alt="Student practising an exam answer aloud"
                 width={480}
                 height={320}
                 priority
-                className="h-auto w-full max-w-[280px] object-contain sm:max-w-[340px] md:max-w-[400px] lg:max-w-[440px]"
+                className="h-auto w-full object-contain"
               />
             </div>
+          </div>
+
+          {/* 3. Primary CTA button: Below illustration on mobile (order-3), left column beneath text on desktop (order-2) */}
+          <div className="order-3 flex w-full min-w-0 justify-center pt-1 sm:justify-start md:order-2 md:col-span-7 md:pt-0">
+            <Link
+              href="/materials/new"
+              className="bg-brand-tomato hover:bg-brand-tomato-hover focus-visible:outline-brand-tomato inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white shadow-xs transition focus-visible:outline-2 focus-visible:outline-offset-2 sm:w-auto"
+            >
+              <PlusCircleIcon className="h-5 w-5" />
+              <span>Add study material</span>
+            </Link>
           </div>
         </div>
       </section>

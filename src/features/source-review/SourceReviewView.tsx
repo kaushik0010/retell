@@ -72,7 +72,7 @@ function AutoResizeTextarea({
         )}px`;
       }}
       placeholder={placeholder}
-      className={`w-full resize-none overflow-hidden ${className || ""}`}
+      className={`w-full min-w-0 resize-none overflow-hidden break-words ${className || ""}`}
       {...props}
     />
   );
@@ -426,20 +426,20 @@ export function SourceReviewView({
     : [];
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       {/* Top action & status bar matching reference */}
-      <div className="border-brand-peach/80 flex flex-col gap-3 rounded-2xl border bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
+      <div className="border-brand-peach/80 flex w-full min-w-0 flex-col gap-3 rounded-2xl border bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <Link
             href="/library"
             onClick={onBack}
-            className="border-brand-peach/80 bg-brand-cream/60 text-brand-ink hover:bg-brand-peach/40 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border transition"
+            className="border-brand-peach/80 bg-brand-cream/60 text-brand-ink hover:bg-brand-peach/40 inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition"
             title="Back to library"
           >
             <ArrowLeftIcon className="h-4 w-4" />
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             {isEditingTitle ? (
               <input
                 type="text"
@@ -450,17 +450,17 @@ export function SourceReviewView({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") setIsEditingTitle(false);
                 }}
-                className="border-brand-tomato text-brand-ink rounded-lg border bg-white px-2.5 py-1 text-sm font-bold focus:outline-none"
+                className="border-brand-tomato text-brand-ink w-full min-w-0 rounded-lg border bg-white px-2.5 py-1 text-sm font-bold focus:outline-none"
               />
             ) : (
-              <div className="flex items-center gap-2">
-                <h1 className="font-heading text-brand-ink text-base font-bold sm:text-lg">
+              <div className="flex min-w-0 items-center gap-2">
+                <h1 className="font-heading text-brand-ink truncate text-base font-bold sm:text-lg">
                   {studySet.material.title}
                 </h1>
                 <button
                   type="button"
                   onClick={() => setIsEditingTitle(true)}
-                  className="text-brand-secondary hover:text-brand-ink cursor-pointer rounded p-1"
+                  className="text-brand-secondary hover:text-brand-ink shrink-0 cursor-pointer rounded p-1"
                   title="Rename title"
                 >
                   <PencilSquareIcon className="h-3.5 w-3.5" />
@@ -470,7 +470,7 @@ export function SourceReviewView({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
           {saveFeedback && (
             <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
               <CheckIcon className="h-3.5 w-3.5" />
@@ -494,7 +494,7 @@ export function SourceReviewView({
             type="button"
             onClick={() => handleSave()}
             disabled={saveStatus === "saving"}
-            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saveStatus === "saving" ? (
               <>
@@ -512,12 +512,12 @@ export function SourceReviewView({
       </div>
 
       {/* Ready to Practise Explaining Aloud Banner matching reference */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-[#F5D96B]/80 bg-gradient-to-r from-[#FFF8E1] to-[#FFF1D6] p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <div className="flex items-center gap-3.5">
+      <div className="flex w-full min-w-0 flex-col gap-4 rounded-2xl border border-[#F5D96B]/80 bg-gradient-to-r from-[#FFF8E1] to-[#FFF1D6] p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex min-w-0 items-start gap-3.5 sm:items-center">
           <div className="bg-brand-butter flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xl shadow-2xs">
             🎙️
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="font-heading text-brand-ink text-sm font-bold">
               Ready to practise explaining aloud?
             </h2>
@@ -537,7 +537,7 @@ export function SourceReviewView({
             )
           }
           title="The Spoken Practice Room opens in Day 3"
-          className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl px-4 text-xs font-bold text-white shadow-xs transition sm:self-auto"
+          className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-xs transition sm:w-auto"
         >
           <span>Start practising</span>
           <span>&rarr;</span>
@@ -545,23 +545,23 @@ export function SourceReviewView({
       </div>
 
       {/* Collapsible Source Material Accordion */}
-      <div className="border-brand-peach/80 overflow-hidden rounded-2xl border bg-white shadow-xs">
+      <div className="border-brand-peach/80 w-full min-w-0 overflow-hidden rounded-2xl border bg-white shadow-xs">
         <button
           type="button"
           onClick={() => setIsSourceExpanded(!isSourceExpanded)}
-          className="hover:bg-brand-cream/30 flex w-full cursor-pointer items-center justify-between p-4 text-left transition sm:px-6"
+          className="hover:bg-brand-cream/30 flex w-full min-w-0 cursor-pointer items-center justify-between p-4 text-left transition sm:px-6"
         >
-          <div className="flex items-center gap-3">
-            <DocumentTextIcon className="text-brand-tomato h-4 w-4" />
-            <span className="font-heading text-brand-ink text-xs font-bold sm:text-sm">
+          <div className="flex min-w-0 items-center gap-3">
+            <DocumentTextIcon className="text-brand-tomato h-4 w-4 shrink-0" />
+            <span className="font-heading text-brand-ink truncate text-xs font-bold sm:text-sm">
               Original Notes &amp; Source Text
             </span>
-            <span className="bg-brand-cream text-brand-secondary rounded-full px-2 py-0.5 text-[10px] font-medium">
+            <span className="bg-brand-cream text-brand-secondary shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium">
               {studySet.material.characterCount.toLocaleString()} chars
             </span>
           </div>
           <ChevronDownIcon
-            className={`text-brand-secondary h-4 w-4 transition-transform duration-200 ${
+            className={`text-brand-secondary h-4 w-4 shrink-0 transition-transform duration-200 ${
               isSourceExpanded ? "rotate-180" : ""
             }`}
           />
@@ -569,7 +569,7 @@ export function SourceReviewView({
 
         {isSourceExpanded && (
           <div className="border-brand-peach/40 bg-brand-cream/20 border-t p-4 sm:p-6">
-            <div className="border-brand-peach/40 text-brand-secondary max-h-64 overflow-y-auto rounded-xl border bg-white p-4 font-sans text-xs leading-relaxed whitespace-pre-wrap">
+            <div className="border-brand-peach/40 text-brand-secondary max-h-64 overflow-y-auto rounded-xl border bg-white p-4 font-sans text-xs leading-relaxed break-words whitespace-pre-wrap">
               {studySet.material.sourceText}
             </div>
           </div>
@@ -577,9 +577,9 @@ export function SourceReviewView({
       </div>
 
       {/* Questions Selector Bar */}
-      <div>
+      <div className="w-full min-w-0">
         {/* Desktop Question Pills */}
-        <div className="border-brand-peach/60 hidden flex-wrap items-center gap-2 border-b pb-3 sm:flex">
+        <div className="border-brand-peach/60 hidden w-full min-w-0 flex-wrap items-center gap-2 border-b pb-3 sm:flex">
           <span className="text-brand-secondary mr-1 text-xs font-bold tracking-wider uppercase">
             Questions:
           </span>
@@ -615,7 +615,7 @@ export function SourceReviewView({
         </div>
 
         {/* Mobile Question Navigator matching reference */}
-        <div className="border-brand-peach/60 space-y-2 border-b pb-3 sm:hidden">
+        <div className="border-brand-peach/60 w-full min-w-0 space-y-2 border-b pb-3 sm:hidden">
           <div className="flex items-center justify-between">
             <span className="text-brand-secondary text-xs font-bold tracking-wider uppercase">
               Questions
@@ -646,13 +646,13 @@ export function SourceReviewView({
           </div>
 
           {/* Active Question Dropdown Selector */}
-          <div className="relative">
+          <div className="relative w-full min-w-0">
             <button
               type="button"
               onClick={() => setIsMobileDropdownOpen(!isMobileDropdownOpen)}
-              className="bg-brand-tomato flex w-full cursor-pointer items-center justify-between rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-2xs"
+              className="bg-brand-tomato flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-2xs"
             >
-              <span className="truncate">
+              <span className="min-w-0 truncate text-left">
                 {activeQuestionIndex + 1}. {activeQuestion?.question}
               </span>
               <ChevronDownIcon
@@ -663,7 +663,7 @@ export function SourceReviewView({
             </button>
 
             {isMobileDropdownOpen && (
-              <div className="border-brand-peach/80 absolute top-full z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border bg-white p-2 shadow-lg">
+              <div className="border-brand-peach/80 absolute top-full right-0 left-0 z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border bg-white p-2 shadow-lg">
                 {studySet.questions.map((q, idx) => (
                   <button
                     key={q.id}
@@ -702,10 +702,10 @@ export function SourceReviewView({
 
       {/* Main Two-Column Layout (Left: Q&A, Right: Important Points) */}
       {activeQuestion && (
-        <div className="grid items-start gap-6 lg:grid-cols-12">
+        <div className="grid w-full min-w-0 items-start gap-6 lg:grid-cols-12">
           {/* Left Column: Question & Reference Answer (5 columns on lg) */}
-          <div className="space-y-4 lg:col-span-5">
-            <div className="border-brand-peach/80 space-y-4 rounded-2xl border bg-white p-5 shadow-xs">
+          <div className="w-full min-w-0 space-y-4 lg:col-span-5">
+            <div className="border-brand-peach/80 w-full min-w-0 space-y-4 rounded-2xl border bg-white p-4 shadow-xs sm:p-5">
               {/* Question Header & Delete Action */}
               <div className="flex items-center justify-between">
                 <span className="text-brand-tomato text-xs font-bold tracking-wider uppercase">
@@ -724,7 +724,7 @@ export function SourceReviewView({
               </div>
 
               {/* Exam Question Field (Content-aware auto-resizing, no nested scroll) */}
-              <div className="space-y-1.5">
+              <div className="w-full min-w-0 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-brand-ink block text-xs font-bold">
                     Exam Question
@@ -733,7 +733,7 @@ export function SourceReviewView({
                     Click to edit
                   </span>
                 </div>
-                <div className="border-brand-peach/80 bg-brand-cream/30 focus-within:border-brand-tomato rounded-xl border p-3.5 transition focus-within:bg-white">
+                <div className="border-brand-peach/80 bg-brand-cream/30 focus-within:border-brand-tomato w-full min-w-0 rounded-xl border p-3.5 transition focus-within:bg-white">
                   <AutoResizeTextarea
                     minRows={3}
                     value={activeQuestion.question}
@@ -745,7 +745,7 @@ export function SourceReviewView({
               </div>
 
               {/* Your Original Answer Field (Content-aware auto-resizing, no clipping) */}
-              <div className="space-y-1.5">
+              <div className="w-full min-w-0 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-brand-ink block text-xs font-bold">
                     Your Original Answer
@@ -754,7 +754,7 @@ export function SourceReviewView({
                     From your notes
                   </span>
                 </div>
-                <div className="border-brand-peach/80 bg-brand-cream/30 focus-within:border-brand-tomato rounded-xl border p-3.5 transition focus-within:bg-white">
+                <div className="border-brand-peach/80 bg-brand-cream/30 focus-within:border-brand-tomato w-full min-w-0 rounded-xl border p-3.5 transition focus-within:bg-white">
                   <AutoResizeTextarea
                     minRows={6}
                     value={activeQuestion.referenceAnswer}
@@ -769,17 +769,17 @@ export function SourceReviewView({
               {activeQuestion.sourceExcerpt && (
                 <>
                   {/* Desktop excerpt: always visible */}
-                  <div className="hidden rounded-xl border border-[#FFE2D7] bg-[#FFF4EE] p-3.5 sm:block">
+                  <div className="hidden w-full min-w-0 rounded-xl border border-[#FFE2D7] bg-[#FFF4EE] p-3.5 sm:block">
                     <span className="text-brand-secondary text-[10px] font-bold tracking-wider uppercase">
                       Source Excerpt (From Your Material)
                     </span>
-                    <p className="text-brand-secondary mt-1 text-xs leading-relaxed italic">
+                    <p className="text-brand-secondary mt-1 text-xs leading-relaxed break-words italic">
                       &ldquo;{activeQuestion.sourceExcerpt}&rdquo;
                     </p>
                   </div>
 
                   {/* Mobile excerpt: collapsible accordion */}
-                  <div className="rounded-xl border border-[#FFE2D7] bg-[#FFF4EE] p-3 sm:hidden">
+                  <div className="w-full min-w-0 rounded-xl border border-[#FFE2D7] bg-[#FFF4EE] p-3 sm:hidden">
                     <button
                       type="button"
                       onClick={() =>
@@ -791,13 +791,13 @@ export function SourceReviewView({
                         Source excerpt
                       </span>
                       <ChevronDownIcon
-                        className={`text-brand-secondary h-3.5 w-3.5 transition-transform ${
+                        className={`text-brand-secondary h-3.5 w-3.5 shrink-0 transition-transform ${
                           isMobileExcerptExpanded ? "rotate-180" : ""
                         }`}
                       />
                     </button>
                     {isMobileExcerptExpanded && (
-                      <p className="text-brand-secondary mt-2 text-xs leading-relaxed italic">
+                      <p className="text-brand-secondary mt-2 text-xs leading-relaxed break-words italic">
                         &ldquo;{activeQuestion.sourceExcerpt}&rdquo;
                       </p>
                     )}
@@ -835,11 +835,11 @@ export function SourceReviewView({
           </div>
 
           {/* Right Column: Important Points to Remember (7 columns on lg) */}
-          <div className="space-y-4 lg:col-span-7">
-            <div className="border-brand-peach/80 rounded-2xl border bg-white p-5 shadow-xs">
+          <div className="w-full min-w-0 space-y-4 lg:col-span-7">
+            <div className="border-brand-peach/80 w-full min-w-0 rounded-2xl border bg-white p-4 shadow-xs sm:p-5">
               {/* Header and Add Button */}
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+              <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <h2 className="font-heading text-brand-ink text-base font-bold sm:text-lg">
                     Important points to remember
                   </h2>
@@ -852,7 +852,7 @@ export function SourceReviewView({
                 <button
                   type="button"
                   onClick={() => setIsAddingPoint(!isAddingPoint)}
-                  className="border-brand-peach bg-brand-cream/60 text-brand-ink hover:bg-brand-cream inline-flex cursor-pointer items-center gap-1.5 self-start rounded-xl border px-3.5 py-1.5 text-xs font-bold transition sm:self-auto"
+                  className="border-brand-peach bg-brand-cream/60 text-brand-ink hover:bg-brand-cream inline-flex shrink-0 cursor-pointer items-center gap-1.5 self-start rounded-xl border px-3.5 py-1.5 text-xs font-bold transition sm:self-auto"
                 >
                   <PlusIcon className="h-3.5 w-3.5" />
                   <span>Add an important point</span>
@@ -860,11 +860,16 @@ export function SourceReviewView({
               </div>
 
               {/* Category Filter Pills (Horizontal scrollable, student vocabulary) */}
-              <div className="border-brand-peach/40 mt-4 flex scrollbar-thin flex-nowrap items-center gap-1.5 overflow-x-auto border-b pb-3">
+              <div
+                role="region"
+                aria-label="Filter points by category"
+                tabIndex={0}
+                className="border-brand-peach/40 mt-4 flex w-full min-w-0 scrollbar-thin flex-nowrap items-center gap-1.5 overflow-x-auto border-b pb-3 focus:outline-none"
+              >
                 <button
                   type="button"
                   onClick={() => setCategoryFilter("all")}
-                  className={`cursor-pointer rounded-lg px-2.5 py-1 text-[11px] font-bold whitespace-nowrap transition ${
+                  className={`shrink-0 cursor-pointer rounded-lg px-2.5 py-1 text-[11px] font-bold whitespace-nowrap transition ${
                     categoryFilter === "all"
                       ? "bg-brand-ink text-white shadow-2xs"
                       : "bg-brand-cream/70 text-brand-secondary hover:text-brand-ink"
@@ -883,7 +888,7 @@ export function SourceReviewView({
                       key={cat}
                       type="button"
                       onClick={() => setCategoryFilter(cat)}
-                      className={`cursor-pointer rounded-lg px-2.5 py-1 text-[11px] font-bold whitespace-nowrap transition ${
+                      className={`shrink-0 cursor-pointer rounded-lg px-2.5 py-1 text-[11px] font-bold whitespace-nowrap transition ${
                         categoryFilter === cat
                           ? "bg-brand-ink text-white shadow-2xs"
                           : "bg-brand-cream/70 text-brand-secondary hover:text-brand-ink"
@@ -899,14 +904,14 @@ export function SourceReviewView({
               {isAddingPoint && (
                 <form
                   onSubmit={handleAddPointSubmit}
-                  className="border-brand-peach bg-brand-cream/40 mt-4 space-y-3 rounded-xl border p-4"
+                  className="border-brand-peach bg-brand-cream/40 mt-4 w-full min-w-0 space-y-3 rounded-xl border p-4"
                 >
                   <h3 className="font-heading text-brand-ink text-xs font-bold">
                     Add an important point to remember
                   </h3>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
+                  <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2">
+                    <div className="min-w-0">
                       <label className="text-brand-ink mb-1 block text-[11px] font-semibold">
                         Category
                       </label>
@@ -931,7 +936,7 @@ export function SourceReviewView({
                       </select>
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <label className="text-brand-ink mb-1 block text-[11px] font-semibold">
                         Point Title
                       </label>
@@ -946,7 +951,7 @@ export function SourceReviewView({
                     </div>
                   </div>
 
-                  <div>
+                  <div className="w-full min-w-0">
                     <label className="text-brand-ink mb-1 block text-[11px] font-semibold">
                       What needs to be remembered
                     </label>
@@ -960,7 +965,7 @@ export function SourceReviewView({
                     />
                   </div>
 
-                  <div>
+                  <div className="w-full min-w-0">
                     <label className="text-brand-ink mb-1 block text-[11px] font-semibold">
                       What a good answer explains (accepts your own words)
                     </label>
@@ -1004,7 +1009,7 @@ export function SourceReviewView({
               )}
 
               {/* Important Point Cards List matching reference */}
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 w-full min-w-0 space-y-3">
                 {filteredCriteria.length === 0 ? (
                   <div className="text-brand-secondary p-6 text-center text-xs">
                     No points in this category.
@@ -1015,13 +1020,13 @@ export function SourceReviewView({
                     return (
                       <div
                         key={criterion.id}
-                        className="border-brand-peach/70 hover:border-brand-peach space-y-2.5 rounded-xl border bg-white p-4 shadow-2xs transition"
+                        className="border-brand-peach/70 hover:border-brand-peach w-full min-w-0 space-y-2.5 rounded-xl border bg-white p-3.5 shadow-2xs transition sm:p-4"
                       >
                         {/* Point Top Row: Category, Title, Controls */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex flex-1 flex-wrap items-center gap-2">
+                        <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
                             <span
-                              className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder}`}
+                              className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-bold ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder}`}
                             >
                               {meta.studentLabel}
                             </span>
@@ -1034,11 +1039,11 @@ export function SourceReviewView({
                                   name: e.target.value,
                                 })
                               }
-                              className="font-heading text-brand-ink hover:border-brand-peach focus:border-brand-tomato flex-1 border-b border-transparent text-xs font-bold focus:outline-none sm:text-sm"
+                              className="font-heading text-brand-ink hover:border-brand-peach focus:border-brand-tomato w-full min-w-0 flex-1 border-b border-transparent text-xs font-bold focus:outline-none sm:text-sm"
                             />
                           </div>
 
-                          <div className="flex shrink-0 items-center gap-2.5">
+                          <div className="flex shrink-0 items-center justify-between gap-2.5 sm:justify-end">
                             <label className="text-brand-secondary inline-flex cursor-pointer items-center gap-1.5 text-[11px] sm:text-xs">
                               <input
                                 type="checkbox"
@@ -1065,7 +1070,7 @@ export function SourceReviewView({
                         </div>
 
                         {/* Description (auto-resizing, no clipped line) */}
-                        <div>
+                        <div className="w-full min-w-0">
                           <AutoResizeTextarea
                             minRows={1}
                             value={criterion.description}
@@ -1080,7 +1085,7 @@ export function SourceReviewView({
                         </div>
 
                         {/* What a Good Answer Explains Guidance Box */}
-                        <div className="border-brand-peach/40 bg-brand-cream/60 rounded-xl border p-3">
+                        <div className="border-brand-peach/40 bg-brand-cream/60 w-full min-w-0 rounded-xl border p-3">
                           <span className="text-brand-secondary block text-[10px] font-bold tracking-wider uppercase">
                             What a good answer explains (accepts your own
                             words):

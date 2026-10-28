@@ -141,6 +141,31 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier formatting across all files.
     - Successful Webpack production build generating all 8 static and dynamic routes.
 
+- [x] **`TASK-2.8` — Mobile Responsiveness and Section-Level Horizontal Scrolling (Task 7)**
+  - **Home Page Hero Ordering (`src/features/home/HomeView.tsx`):**
+    - Implemented responsive CSS Grid ordering: on mobile (< 768px), strictly displays (1) Heading & description (`order-1`), (2) Hero illustration (`order-2`), (3) Primary "Add study material" CTA button (`order-3`).
+    - On desktop (>= 768px), preserves side-by-side layout: heading (`md:col-span-7`), CTA beneath description (`md:order-2 md:col-span-7`), and illustration in the right column (`md:order-3 md:col-span-5 md:row-span-2`).
+    - Zero element duplication: exactly one `<Image>` and one `<Link>` CTA in the DOM.
+  - **Add Material Section Scrolling & Compact Stepper (`src/features/materials/NewMaterialView.tsx`):**
+    - Constrained curated topic sample cards strictly inside a dedicated horizontal scroll container (`role="region" aria-label="Curated exam topics" tabIndex={0}`) with `w-[230px] min-w-[210px] shrink-0` card dimensions and `min-w-0` on parent.
+    - Replaced wide stepper dividers with compact responsive spacing (`gap-1.5 sm:gap-3`, `w-4 sm:w-10`) preventing document blowout on narrow screens.
+    - Made input mode selector tabs horizontally scrollable (`w-full min-w-0 overflow-x-auto scrollbar-thin flex-nowrap`).
+  - **Question Review Responsive Safeguards (`src/features/source-review/SourceReviewView.tsx`):**
+    - Added `w-full min-w-0` to all grid wrappers (`lg:col-span-5`, `lg:col-span-7`) preventing flex blowout caused by intrinsic input sizing.
+    - Fixed point card top row on mobile: stacks category badge + title input with `min-w-0 flex-1`, while placing "Must include" toggle and delete button on the second row with `justify-between`.
+    - Enforced `break-words` and `min-w-0` on `AutoResizeTextarea` to wrap long unbroken words.
+    - Constrained category filter pills row to dedicated section scroller (`role="region" aria-label="Filter points by category" tabIndex={0}`).
+  - **Global Shell Isolation (`src/components/AppShell.tsx`, `src/app/globals.css`):**
+    - Added `w-full min-w-0` across root shell containers.
+    - Added `pb-24 lg:pb-0` to ensure mobile fixed bottom navigation bar never obscures bottom page content.
+    - Audited against prohibited `w-screen` and rejected global `overflow-x-hidden` hacks on `html` or `body`.
+  - **Testing & Verification:**
+    - 62 passing unit tests across 9 test suites in Vitest (including new `tests/unit/responsive-layout.test.ts`).
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check with 0 errors and 0 warnings.
+    - Clean Prettier formatting across all files.
+    - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
+
 ---
 
 ## 2. In Progress Tasks
@@ -210,11 +235,11 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 | Check                                | Command                   | Observed Result                                                                                                          | Status       |
 | ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 23 passed across 3 test files (schemas, sanitization, adapters)                                                          | **PASSED**   |
+| Vitest Unit Test Suite               | `pnpm run test`           | 62 passed across 9 test files (responsive-layout, domain, navigation, schemas, sanitization, storage, rubric, extract, adapters) | **PASSED**   |
 | TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                           | **PASSED**   |
 | ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                               | **PASSED**   |
 | Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 2.9s; dynamic route `/api/dev/verify-provider` registered                         | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 7.1s; 8 routes registered (Home, Not-Found, Library, Add Material, Review, 3 APIs) | **PASSED**   |
 | Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                         | **VERIFIED** |
 | Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                         | **VERIFIED** |
 | Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000 | **VERIFIED** |

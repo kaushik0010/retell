@@ -236,41 +236,43 @@ function NewMaterialContent() {
   };
 
   return (
-    <div className="max-w-full space-y-6 overflow-hidden">
-      {/* Stepper Header */}
-      <div className="flex items-center justify-center gap-2 py-2 sm:gap-4">
-        <div className="flex items-center gap-2">
-          <div className="bg-brand-tomato flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white shadow-2xs">
+    <div className="w-full min-w-0 space-y-6">
+      {/* Stepper Header (responsive, never exceeds mobile viewport) */}
+      <div className="flex w-full items-center justify-center gap-1.5 py-1 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div className="bg-brand-tomato flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-2xs sm:h-6 sm:w-6 sm:text-xs">
             1
           </div>
-          <span className="text-brand-ink text-xs font-bold">Add Material</span>
+          <span className="text-brand-ink text-[11px] font-bold whitespace-nowrap sm:text-xs">
+            Add Material
+          </span>
         </div>
-        <div className="bg-brand-peach h-0.5 w-8 sm:w-16" />
-        <div className="flex items-center gap-2 opacity-60">
-          <div className="border-brand-peach bg-brand-cream text-brand-secondary flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold">
+        <div className="bg-brand-peach h-0.5 w-4 shrink sm:w-10" />
+        <div className="flex shrink-0 items-center gap-1.5 opacity-60">
+          <div className="border-brand-peach bg-brand-cream text-brand-secondary flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold sm:h-6 sm:w-6 sm:text-xs">
             2
           </div>
-          <span className="text-brand-secondary text-xs font-medium">
+          <span className="text-brand-secondary text-[11px] font-medium whitespace-nowrap sm:text-xs">
             Review Points
           </span>
         </div>
-        <div className="bg-brand-peach h-0.5 w-8 sm:w-16" />
-        <div className="flex items-center gap-2 opacity-60">
-          <div className="border-brand-peach bg-brand-cream text-brand-secondary flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold">
+        <div className="bg-brand-peach h-0.5 w-4 shrink sm:w-10" />
+        <div className="flex shrink-0 items-center gap-1.5 opacity-60">
+          <div className="border-brand-peach bg-brand-cream text-brand-secondary flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold sm:h-6 sm:w-6 sm:text-xs">
             3
           </div>
-          <span className="text-brand-secondary text-xs font-medium">
+          <span className="text-brand-secondary text-[11px] font-medium whitespace-nowrap sm:text-xs">
             Practise Aloud
           </span>
         </div>
       </div>
 
-      {/* Input Mode Selector Tabs */}
-      <div className="border-brand-peach/60 flex border-b">
+      {/* Input Mode Selector Tabs (scrolls horizontally on small screens without widening page) */}
+      <div className="border-brand-peach/60 flex w-full min-w-0 scrollbar-thin overflow-x-auto border-b">
         <button
           type="button"
           onClick={() => setActiveTab("paste")}
-          className={`flex cursor-pointer items-center gap-2 border-b-2 px-5 py-3 text-xs font-bold transition ${
+          className={`flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-3.5 py-2.5 text-xs font-bold whitespace-nowrap transition sm:px-5 sm:py-3 ${
             activeTab === "paste"
               ? "border-brand-tomato text-brand-tomato"
               : "text-brand-secondary hover:text-brand-ink border-transparent"
@@ -283,57 +285,62 @@ function NewMaterialContent() {
         <button
           type="button"
           onClick={() => setActiveTab("upload")}
-          className={`flex cursor-pointer items-center gap-2 border-b-2 px-5 py-3 text-xs font-medium transition ${
+          className={`flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-3.5 py-2.5 text-xs font-medium whitespace-nowrap transition sm:px-5 sm:py-3 ${
             activeTab === "upload"
               ? "border-brand-tomato text-brand-tomato"
               : "text-brand-secondary hover:text-brand-ink border-transparent"
           }`}
         >
           <span>Upload File</span>
-          <span className="bg-brand-peach/50 text-brand-tomato rounded-full px-2 py-0.5 text-[9px] font-bold">
-            Coming Day 5
+          <span className="bg-brand-peach/50 text-brand-tomato rounded-full px-1.5 py-0.5 text-[9px] font-bold">
+            Day 5
           </span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("photo")}
-          className={`flex cursor-pointer items-center gap-2 border-b-2 px-5 py-3 text-xs font-medium transition ${
+          className={`flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-3.5 py-2.5 text-xs font-medium whitespace-nowrap transition sm:px-5 sm:py-3 ${
             activeTab === "photo"
               ? "border-brand-tomato text-brand-tomato"
               : "text-brand-secondary hover:text-brand-ink border-transparent"
           }`}
         >
           <span>Take Photo</span>
-          <span className="bg-brand-peach/50 text-brand-tomato rounded-full px-2 py-0.5 text-[9px] font-bold">
-            Coming Day 5
+          <span className="bg-brand-peach/50 text-brand-tomato rounded-full px-1.5 py-0.5 text-[9px] font-bold">
+            Day 5
           </span>
         </button>
       </div>
 
-      {/* Curated Sample Presets: One Single Horizontal Row */}
-      <div className="border-brand-peach/60 max-w-full overflow-hidden rounded-2xl border bg-white/80 p-4 shadow-xs">
+      {/* Curated Sample Presets: One Single Horizontal Row Inside Dedicated Section */}
+      <section className="border-brand-peach/60 w-full min-w-0 rounded-2xl border bg-white/80 p-3.5 shadow-xs sm:p-4">
         <div className="text-brand-secondary flex items-center justify-between text-xs font-bold tracking-wider uppercase">
           <div className="flex items-center gap-2">
-            <SparklesIcon className="text-brand-tomato h-4 w-4" />
-            <span>Or load a curated exam topic with one click:</span>
+            <SparklesIcon className="text-brand-tomato h-4 w-4 shrink-0" />
+            <span className="truncate">Or load a curated exam topic:</span>
           </div>
-          <span className="text-brand-secondary/70 hidden text-[10px] font-medium lowercase sm:inline-block">
+          <span className="text-brand-secondary/70 hidden shrink-0 text-[10px] font-medium lowercase sm:inline-block">
             scroll horizontally &rarr;
           </span>
         </div>
 
-        {/* 1 Horizontal Row with horizontal scroll, shrink-0 cards */}
-        <div className="mt-3 flex scrollbar-thin flex-nowrap items-stretch gap-3 overflow-x-auto pt-0.5 pb-2">
+        {/* Dedicated Inner Horizontal Scroll Container */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Curated exam topics"
+          className="mt-3 flex w-full min-w-0 scrollbar-thin flex-nowrap items-stretch gap-3 overflow-x-auto pt-0.5 pb-2"
+        >
           {SAMPLE_STUDY_MATERIALS.map((sample) => (
             <button
               key={sample.id}
               type="button"
               disabled={isLoading}
               onClick={() => handleSelectSample(sample)}
-              className="group border-brand-peach/80 bg-brand-cream/60 hover:border-brand-tomato/60 focus-visible:outline-brand-tomato flex max-w-[260px] min-w-[220px] shrink-0 cursor-pointer flex-col justify-between rounded-xl border p-3 text-left shadow-2xs transition hover:bg-white focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="group border-brand-peach/80 bg-brand-cream/60 hover:border-brand-tomato/60 focus-visible:outline-brand-tomato flex w-[230px] max-w-[260px] min-w-[210px] shrink-0 cursor-pointer flex-col justify-between rounded-xl border p-3 text-left shadow-2xs transition hover:bg-white focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <div>
+              <div className="w-full min-w-0">
                 <span className="text-brand-tomato text-[10px] font-bold tracking-wider uppercase">
                   {sample.category}
                 </span>
@@ -350,7 +357,7 @@ function NewMaterialContent() {
             </button>
           ))}
         </div>
-      </div>
+      </section>
 
       {/* Missing Question Resolution Card */}
       {missingQuestionPrompt && (

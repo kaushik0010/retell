@@ -371,6 +371,27 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier code formatting verified across all files (`pnpm run format:check`).
     - Successful Webpack production build (`next build --webpack`) generating all 10 static and dynamic routes.
 
+- [x] **`TASK-3.7` — Corrective Phase: Transcript Preservation, Contextual Recall Hints & Quiet-Voice Calibration**
+  - **P0 Fix for Transcript Loss (`src/lib/audio/transcript-accumulator.ts`, `src/features/practice/PracticeRoomView.tsx`, `src/lib/audio/transcribe-client.ts`, `src/lib/providers/transcribe-session.ts`):**
+    - Root cause identified: In-flight spoken words were kept only in `interimText` (React state) and `latestInterimTranscript` until a trailing `isFinal: true` frame was emitted. When students clicked "Finish attempt", React state `transcript` was empty or stale, client stop aborted SpeechRecognition before flushing interim words, and server `finalTranscript` was empty, causing `0 words captured` upon saving.
+    - Implemented `TranscriptAccumulator`: an authoritative, monotonically growing accumulation class. Handles partial vs. final segments, deduplicates overlapping clauses, flushes in-flight interim tokens on `finalize()`, falls back to local snapshot if server final is empty, and rejects late events after session completion.
+    - Wrapped client and server finish routines with bounded timeout fallbacks to interim text so no spoken words are lost regardless of server latency or network closure order.
+    - Updated `PracticeRoomView.tsx` to compute metrics (`wordCount`, `durationSeconds`) and render the attempt summary strictly from the saved attempt record (`lastSavedAttempt`), ensuring what is saved is what is displayed.
+    - Added error preservation: if IndexedDB write fails, transcript is still safely preserved in view state with an explicit error alert.
+  - **P1 Answer-Grounded Contextual Recall Hints (`src/lib/domain/recall-hints.ts`, `src/features/practice/ContextualHint.tsx`):**
+    - Replaced generic "TAKE YOUR TIME" motivational text with concise (1–4 words) contextual recall cues derived strictly from rubric criteria or reference answers.
+    - Evaluates student's spoken words so far; automatically skips already covered concepts using semantic keyword matching and word stemming.
+    - Respects student autonomy: never gives away the complete answer, limits cues to a maximum of 3 per attempt, and returns `null` when concepts are already demonstrated or when answers are minimal.
+    - Designed as a subtle, dismissible, non-blocking pill (`💡 Recall cue: ...`) with an accessible dismiss button.
+  - **P2 Quiet-Voice Usability & Calibration (`src/lib/audio/capture.ts`, `src/features/practice/PracticeRoomView.tsx`):**
+    - Calibrated `silenceThresholdRms` from `0.018` down to `0.008`, ensuring gentle, soft-spoken voices (typically 0.009–0.016 RMS) are reliably recognized as active speech rather than false pauses.
+    - Scaled waveform visualizer sensitivity (`Math.min(1, Math.max(0, rms * 14))`) so quiet speech provides visible amplitude bars.
+    - Added concise UX guidance note near microphone controls: _"Practise in a quiet voice. Headphones with a microphone may help in noisy places."_
+  - **Testing & Verification:**
+    - 124 passing unit tests across 14 test files (including 8 new tests in `transcript-accumulator.test.ts` and 7 in `recall-hints.test.ts`).
+    - 100% clean TypeScript (`tsc --noEmit`), ESLint, and Prettier checks.
+    - Clean production Webpack build (`next build --webpack`).
+
 ---
 
 ## 2. In Progress Tasks
@@ -436,16 +457,16 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 6. Verification Results
 
-| Check                                | Command                   | Observed Result                                                                                                                 | Status       |
-| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 108 passed across 12 test files (practice-session, storage, domain, navigation, multimodal-extraction, rubric, etc.)            | **PASSED**   |
-| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                  | **PASSED**   |
-| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                      | **PASSED**   |
-| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                       | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 10 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, APIs) | **PASSED**   |
-| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                | **VERIFIED** |
-| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                | **VERIFIED** |
-| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000        | **VERIFIED** |
+| Check                                | Command                   | Observed Result                                                                                                                                            | Status       |
+| ------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Vitest Unit Test Suite               | `pnpm run test`           | 124 passed across 14 test files (transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, multimodal-extraction, rubric, etc.) | **PASSED**   |
+| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                                             | **PASSED**   |
+| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                                                 | **PASSED**   |
+| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                                                  | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 10 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, APIs)                            | **PASSED**   |
+| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                           | **VERIFIED** |
+| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                           | **VERIFIED** |
+| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000                                   | **VERIFIED** |
 
 ---
 

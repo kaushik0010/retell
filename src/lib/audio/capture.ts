@@ -62,7 +62,7 @@ export class AudioCaptureController {
     this.callbacks = callbacks;
     this.config = {
       sampleRate: config?.sampleRate || 24000,
-      silenceThresholdRms: config?.silenceThresholdRms || 0.018,
+      silenceThresholdRms: config?.silenceThresholdRms || 0.008,
       pauseTriggerMs: config?.pauseTriggerMs || 4000,
     };
   }
@@ -119,8 +119,8 @@ export class AudioCaptureController {
         const inputData = evt.inputBuffer.getChannelData(0);
         const rms = calculateRms(inputData);
 
-        // Normalize volume roughly between 0 and 1
-        const normalizedVolume = Math.min(1, Math.max(0, rms * 8));
+        // Normalize volume roughly between 0 and 1 with enhanced sensitivity for quiet/gentle voices
+        const normalizedVolume = Math.min(1, Math.max(0, rms * 14));
         this.callbacks.onVolumeChange?.(normalizedVolume);
 
         // Pause / Silence Monitoring

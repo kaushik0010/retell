@@ -150,6 +150,24 @@ describe("Server-Side Transcribe Relay Session Lifecycle", () => {
     unsubscribe();
     session.close();
   });
+
+  it("server finish returns interim transcript if final transcript was not emitted", async () => {
+    const session = await createTranscribeSession({
+      sampleRate: 24000,
+      mockFallback: true,
+    });
+
+    session.interimTranscript = "In-flight spoken concept before stream ended";
+    session.finalTranscript = "";
+
+    const finalized = await session.finish();
+    expect(finalized).toBe("In-flight spoken concept before stream ended");
+    expect(session.finalTranscript).toBe(
+      "In-flight spoken concept before stream ended"
+    );
+
+    session.close();
+  });
 });
 
 describe("Practice Attempt Local Persistence", () => {

@@ -136,6 +136,9 @@ Create the spoken Practice Room with browser microphone capture, resilient WebSo
 - [x] RMS silence monitoring detects conversational pauses (> 4s) and surfaces a non-punitive, reassuring contextual nudge.
 - [x] Practice attempt records (`id`, `studySetId`, `questionId`, `transcript`, `wordCount`, `durationSeconds`) persist reliably to IndexedDB (`retell_db` -> `practice_attempts`) with offline in-memory fallback.
 - [x] Seamless navigation wired from Source Review ("Start practising") and Home page study set cards directly into the Practice Room.
+- [x] Corrective Phase: Transcript loss on finish resolved via monotonic `TranscriptAccumulator`, interim token promotion, and safe snapshot fallbacks.
+- [x] Corrective Phase: Contextual recall cues replace generic pause nudges with 1–4 word hints grounded in study material, capped at 3 per attempt.
+- [x] Corrective Phase: Quiet-voice usability calibrated (`silenceThresholdRms: 0.008`) with waveform sensitivity scaling and clear UX guidance.
 
 ### Acceptance Criteria
 

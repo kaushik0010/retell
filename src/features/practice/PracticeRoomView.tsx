@@ -16,9 +16,11 @@ import {
 import { savePracticeAttempt } from "@/lib/storage/study-store";
 import { AudioCaptureController } from "@/lib/audio/capture";
 import { TranscribeClient } from "@/lib/audio/transcribe-client";
+import { TranscriptAccumulator } from "@/lib/audio/transcript-accumulator";
+import { generateRecallHint } from "@/lib/domain/recall-hints";
 import { WaveformVisualizer } from "./WaveformVisualizer";
 import { LiveTranscript } from "./LiveTranscript";
-import { PauseNudge } from "./PauseNudge";
+import { ContextualHint } from "./ContextualHint";
 
 interface PracticeRoomViewProps {
   studySet: StudySet;
@@ -67,12 +69,18 @@ export function PracticeRoomView({
   const [transcript, setTranscript] = useState("");
   const [interimText, setInterimText] = useState("");
   const [isPaused, setIsPaused] = useState(false);
-  const [pauseDurationSec, setPauseDurationSec] = useState(0);
+  const [currentHint, setCurrentHint] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastSavedAttempt, setLastSavedAttempt] =
     useState<PracticeAttempt | null>(null);
 
-  // Audio refs
+  // Authoritative transcript accumulator and session refs
+  const accumulatorRef = useRef<TranscriptAccumulator>(
+    new TranscriptAccumulator()
+  );
+  const isFinishingRef = useRef<boolean>(false);
+  const durationSecondsRef = useRef<number>(0);
+  const previousHintsRef = useRef<string[]>([]);
   const captureControllerRef = useRef<AudioCaptureController | null>(null);
   const transcribeClientRef = useRef<TranscribeClient | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -97,9 +105,14 @@ export function PracticeRoomView({
     }
     setSelectedQuestionId(questionId);
     setSessionState("idle");
+    accumulatorRef.current.reset();
+    isFinishingRef.current = false;
+    previousHintsRef.current = [];
+    setCurrentHint(null);
     setTranscript("");
     setInterimText("");
     setDurationSeconds(0);
+    durationSecondsRef.current = 0;
     setLastSavedAttempt(null);
     setErrorMessage(null);
   };
@@ -129,6 +142,7 @@ export function PracticeRoomView({
 
     setErrorMessage(friendlyMessage);
     setSessionState("error");
+    isFinishingRef.current = false;
     if (timerRef.current) clearInterval(timerRef.current);
     captureControllerRef.current?.stop();
     transcribeClientRef.current?.close();
@@ -139,28 +153,38 @@ export function PracticeRoomView({
     try {
       setErrorMessage(null);
       setSessionState("requesting_permission");
+      accumulatorRef.current.reset();
+      isFinishingRef.current = false;
+      previousHintsRef.current = [];
+      setCurrentHint(null);
       setTranscript("");
       setInterimText("");
       setDurationSeconds(0);
+      durationSecondsRef.current = 0;
       setIsPaused(false);
       setLastSavedAttempt(null);
 
       // 1. Initialize server-relay transcribe client
       const client = new TranscribeClient({
         onTranscriptDelta: (text, isFinal) => {
-          if (isFinal) {
-            setTranscript(text);
-            setInterimText("");
-          } else {
-            setInterimText(text);
+          // Reject any late events if finishing or completed
+          if (
+            isFinishingRef.current ||
+            sessionState === "finishing" ||
+            sessionState === "completed"
+          ) {
+            return;
           }
+          accumulatorRef.current.update(text, isFinal);
+          setTranscript(accumulatorRef.current.finalizedText);
+          setInterimText(accumulatorRef.current.interimText);
         },
         onAudioProgress: () => {},
         onError: (errText) => {
           console.warn("Transcribe streaming notice:", errText);
         },
         onStateChange: (st) => {
-          if (st === "listening") {
+          if (st === "listening" && !isFinishingRef.current) {
             setSessionState("listening");
           }
         },
@@ -169,7 +193,7 @@ export function PracticeRoomView({
       await client.start();
       transcribeClientRef.current = client;
 
-      // 2. Start browser audio capture
+      // 2. Start browser audio capture (with quiet-voice threshold 0.008)
       const capture = new AudioCaptureController(
         {
           onAudioChunk: (chunk) => {
@@ -178,15 +202,37 @@ export function PracticeRoomView({
           onVolumeChange: (vol) => {
             setVolume(vol);
           },
-          onPauseStateChange: (paused, pauseSec) => {
+          onPauseStateChange: (paused) => {
             setIsPaused(paused);
-            setPauseDurationSec(pauseSec);
+
+            if (paused) {
+              // Generate source-grounded recall hint from reference answer and rubric
+              const currentFullText =
+                accumulatorRef.current.getFullTranscript();
+              const hint = generateRecallHint({
+                referenceAnswer: activeQuestion?.referenceAnswer,
+                criteria: activeRubric?.criteria,
+                currentTranscript: currentFullText,
+                previousHints: previousHintsRef.current,
+                maxHintsPerAttempt: 3,
+              });
+
+              if (hint) {
+                setCurrentHint(hint.cue);
+                previousHintsRef.current.push(hint.cue);
+              } else {
+                setCurrentHint(null);
+              }
+            } else {
+              // Student resumed speaking -> hide hint immediately
+              setCurrentHint(null);
+            }
           },
           onError: (err) => {
             handleAudioError(err);
           },
         },
-        { sampleRate: 24000 }
+        { sampleRate: 24000, silenceThresholdRms: 0.008 }
       );
 
       await capture.start();
@@ -194,7 +240,8 @@ export function PracticeRoomView({
 
       // Start elapsed timer
       timerRef.current = setInterval(() => {
-        setDurationSeconds((d) => d + 1);
+        durationSecondsRef.current += 1;
+        setDurationSeconds(durationSecondsRef.current);
       }, 1000);
 
       setSessionState("listening");
@@ -203,40 +250,65 @@ export function PracticeRoomView({
     }
   };
 
-  // Finish practice attempt
+  // Finish practice attempt with monotonic transcript preservation
   const handleFinishPractice = async () => {
     if (!activeQuestion) return;
-    setSessionState("finishing");
-    if (timerRef.current) clearInterval(timerRef.current);
 
-    // Stop recording capture
+    // Prevent duplicate saves from repeated clicks or concurrent triggers
+    if (
+      isFinishingRef.current ||
+      sessionState === "finishing" ||
+      sessionState === "completed"
+    ) {
+      return;
+    }
+    isFinishingRef.current = true;
+    setSessionState("finishing");
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // 1. Stop recording capture immediately (releases microphone hardware)
     captureControllerRef.current?.stop();
     captureControllerRef.current = null;
 
-    // Flush & finalize transcribe client
-    let finalWords = transcript;
+    // 2. Capture pre-final snapshot of authoritative transcript before async flush
+    const preFinalSnapshot = accumulatorRef.current.getFullTranscript();
+
+    // 3. Flush & finalize transcribe client (with bounded timeout)
+    let serverFinal = "";
     try {
-      const serverFinal = await transcribeClientRef.current?.finish();
-      if (serverFinal && serverFinal.trim().length > 0) {
-        finalWords = serverFinal.trim();
+      if (transcribeClientRef.current) {
+        serverFinal = await transcribeClientRef.current.finish();
       }
     } catch (err) {
-      console.warn("Could not retrieve server final transcript:", err);
+      console.warn("Notice finalizing transcribe session on server:", err);
     }
     transcribeClientRef.current = null;
 
-    const fullTranscript = finalWords.trim() || transcript.trim();
+    // 4. Finalize accumulator monotonically
+    const finalizedText = accumulatorRef.current.finalize(serverFinal);
+    // Absolute safety guard: never replace non-empty spoken words with empty string
+    const fullTranscript = (
+      finalizedText.trim() || preFinalSnapshot.trim()
+    ).trim();
+
     setTranscript(fullTranscript);
     setInterimText("");
 
-    // Persist attempt to IndexedDB
+    const finalDuration = durationSecondsRef.current;
+    const finalWordCount = calculateWordCount(fullTranscript);
+
+    // 5. Persist attempt record to IndexedDB
     const attempt: PracticeAttempt = {
       id: createAttemptId(),
       studySetId: studySet.id,
       questionId: activeQuestion.id,
       transcript: fullTranscript,
-      wordCount: calculateWordCount(fullTranscript),
-      durationSeconds,
+      wordCount: finalWordCount,
+      durationSeconds: finalDuration,
       status: "completed",
       createdAt: new Date().toISOString(),
     };
@@ -244,11 +316,18 @@ export function PracticeRoomView({
     try {
       await savePracticeAttempt(attempt);
       setLastSavedAttempt(attempt);
+      setSessionState("completed");
     } catch (saveErr) {
-      console.error("Failed to save practice attempt:", saveErr);
+      console.error("Failed to save practice attempt to IndexedDB:", saveErr);
+      setErrorMessage(
+        "Your spoken words are preserved below, but could not be saved to browser storage."
+      );
+      // Preserve attempt so words are never lost
+      setLastSavedAttempt(attempt);
+      setSessionState("completed");
+    } finally {
+      isFinishingRef.current = false;
     }
-
-    setSessionState("completed");
   };
 
   // Cancel attempt without saving
@@ -259,10 +338,15 @@ export function PracticeRoomView({
     transcribeClientRef.current?.close();
     transcribeClientRef.current = null;
 
+    accumulatorRef.current.reset();
+    isFinishingRef.current = false;
+    previousHintsRef.current = [];
+    setCurrentHint(null);
     setSessionState("idle");
     setTranscript("");
     setInterimText("");
     setDurationSeconds(0);
+    durationSecondsRef.current = 0;
     setIsPaused(false);
   };
 
@@ -471,6 +555,15 @@ export function PracticeRoomView({
                   </svg>
                   <span>Start speaking</span>
                 </button>
+
+                {/* Quiet voice practice note */}
+                <p className="text-brand-secondary/80 mt-3.5 flex items-center justify-center gap-1.5 text-[11px]">
+                  <span>🎧</span>
+                  <span>
+                    Practise in a quiet voice. Headphones with a microphone may
+                    help in noisy places.
+                  </span>
+                </p>
               </div>
             )}
 
@@ -501,11 +594,15 @@ export function PracticeRoomView({
                   durationSeconds={durationSeconds}
                 />
 
-                {/* Pause Nudge */}
-                <PauseNudge
-                  isVisible={isPaused && sessionState === "listening"}
-                  pauseDurationSec={pauseDurationSec}
-                  onDismiss={() => setIsPaused(false)}
+                {/* Contextual Recall Hint */}
+                <ContextualHint
+                  isVisible={
+                    isPaused &&
+                    sessionState === "listening" &&
+                    Boolean(currentHint)
+                  }
+                  hintText={currentHint}
+                  onDismiss={() => setCurrentHint(null)}
                 />
 
                 {/* Live Transcript Display */}
@@ -547,6 +644,12 @@ export function PracticeRoomView({
                     )}
                   </button>
                 </div>
+
+                {/* Quiet voice practice note */}
+                <p className="text-brand-secondary/70 text-center text-[11px]">
+                  Practise in a quiet voice. Headphones with a microphone may
+                  help in noisy places.
+                </p>
               </div>
             )}
 
@@ -575,7 +678,7 @@ export function PracticeRoomView({
                       Spoken Words
                     </span>
                     <p className="font-heading text-brand-ink text-xl font-bold">
-                      {lastSavedAttempt?.wordCount || wordCount}
+                      {lastSavedAttempt?.wordCount ?? 0}
                     </p>
                   </div>
                   <div>
@@ -583,7 +686,7 @@ export function PracticeRoomView({
                       Duration
                     </span>
                     <p className="font-heading text-brand-ink text-xl font-bold">
-                      {lastSavedAttempt?.durationSeconds || durationSeconds}s
+                      {lastSavedAttempt?.durationSeconds ?? 0}s
                     </p>
                   </div>
                 </div>
@@ -594,7 +697,8 @@ export function PracticeRoomView({
                     What you said:
                   </h4>
                   <div className="bg-brand-cream/40 border-brand-peach/60 text-brand-ink max-h-48 overflow-y-auto rounded-xl border p-4 text-xs leading-relaxed whitespace-pre-wrap">
-                    {transcript || "No words captured in this attempt."}
+                    {lastSavedAttempt?.transcript ||
+                      "No words captured in this attempt."}
                   </div>
                 </div>
 

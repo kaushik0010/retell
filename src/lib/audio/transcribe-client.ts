@@ -46,6 +46,7 @@ export class TranscribeClient {
   private isFinishing = false;
   private isClosed = false;
   private accumulatedFinalTranscript = "";
+  private latestInterimTranscript = "";
   private speechRecognition: SpeechRecognitionLike | null = null;
   private isMockRelay = false;
 
@@ -57,6 +58,7 @@ export class TranscribeClient {
     this.isFinishing = false;
     this.isClosed = false;
     this.accumulatedFinalTranscript = "";
+    this.latestInterimTranscript = "";
     this.callbacks.onStateChange?.("connecting");
 
     try {
@@ -89,17 +91,24 @@ export class TranscribeClient {
       );
 
       this.eventSource.onmessage = (event) => {
+        if (this.isClosed || this.isFinishing) return;
+
         try {
           const payload = JSON.parse(event.data);
           if (payload.type === "transcript") {
             if (payload.final) {
               this.accumulatedFinalTranscript = payload.transcript || "";
+              this.latestInterimTranscript = "";
               this.callbacks.onTranscriptDelta(
                 this.accumulatedFinalTranscript,
                 true
               );
             } else {
-              this.callbacks.onTranscriptDelta(payload.transcript || "", false);
+              this.latestInterimTranscript = payload.transcript || "";
+              this.callbacks.onTranscriptDelta(
+                this.latestInterimTranscript,
+                false
+              );
             }
           } else if (payload.type === "audioProgress") {
             this.callbacks.onAudioProgress?.(payload.audioProcessedMs || 0);
@@ -155,6 +164,8 @@ export class TranscribeClient {
         recognition.lang = "en-US";
 
         recognition.onresult = (event: SpeechRecognitionEventLike) => {
+          if (this.isClosed || this.isFinishing) return;
+
           let interimText = "";
           let finalText = this.accumulatedFinalTranscript;
 
@@ -168,13 +179,12 @@ export class TranscribeClient {
             }
           }
 
-          this.accumulatedFinalTranscript = finalText;
+          this.accumulatedFinalTranscript = finalText.trim();
+          this.latestInterimTranscript = interimText.trim();
 
           if (interimText) {
-            this.callbacks.onTranscriptDelta(
-              (finalText ? `${finalText} ` : "") + interimText,
-              false
-            );
+            const combined = (finalText ? `${finalText} ` : "") + interimText;
+            this.callbacks.onTranscriptDelta(combined, false);
           } else if (finalText) {
             this.callbacks.onTranscriptDelta(finalText, true);
           }
@@ -214,6 +224,17 @@ export class TranscribeClient {
     this.isFinishing = true;
     this.callbacks.onStateChange?.("finishing");
 
+    // Promote any unfinalized in-flight speech before closing
+    const inFlight = this.latestInterimTranscript.trim();
+    if (inFlight) {
+      if (!this.accumulatedFinalTranscript) {
+        this.accumulatedFinalTranscript = inFlight;
+      } else if (!this.accumulatedFinalTranscript.includes(inFlight)) {
+        this.accumulatedFinalTranscript =
+          `${this.accumulatedFinalTranscript} ${inFlight}`.trim();
+      }
+    }
+
     // Stop browser speech recognition if active
     if (this.speechRecognition) {
       try {
@@ -228,22 +249,33 @@ export class TranscribeClient {
     }
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
       const res = await fetch(
         `/api/transcribe/finish?sessionId=${encodeURIComponent(this.sessionId)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeoutId);
 
       if (res.ok) {
         const data = await res.json();
         if (data.finalTranscript && data.finalTranscript.trim().length > 0) {
-          this.accumulatedFinalTranscript = data.finalTranscript.trim();
+          const serverTrimmed = data.finalTranscript.trim();
+          if (serverTrimmed.length >= this.accumulatedFinalTranscript.length) {
+            this.accumulatedFinalTranscript = serverTrimmed;
+          } else if (!this.accumulatedFinalTranscript.includes(serverTrimmed)) {
+            this.accumulatedFinalTranscript =
+              `${this.accumulatedFinalTranscript} ${serverTrimmed}`.trim();
+          }
         }
       }
     } catch (err) {
-      console.warn("Error finalizing transcribe session on server:", err);
+      console.warn("Notice finalizing transcribe session on server:", err);
     }
 
     this.close();

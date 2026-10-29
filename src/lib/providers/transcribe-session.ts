@@ -117,13 +117,16 @@ export async function createTranscribeSession(options?: {
       finish: async () => {
         session.isClosed = true;
         session.lastActivityAt = Date.now();
+        const output =
+          session.finalTranscript.trim() || session.interimTranscript.trim();
+        session.finalTranscript = output;
         broadcast({
           type: "transcript",
-          transcript: session.finalTranscript,
+          transcript: output,
           final: true,
         });
         broadcast({ type: "closed" });
-        return session.finalTranscript;
+        return output;
       },
       close: () => {
         session.isClosed = true;
@@ -214,7 +217,11 @@ export async function createTranscribeSession(options?: {
               try {
                 ws.close();
               } catch {}
-              res(session.finalTranscript);
+              const output =
+                session.finalTranscript.trim() ||
+                session.interimTranscript.trim();
+              session.finalTranscript = output;
+              res(output);
             }, 3000);
 
             const origBroadcast = session.broadcast;
@@ -223,13 +230,21 @@ export async function createTranscribeSession(options?: {
               if (evt.type === "transcript" && evt.final) {
                 clearTimeout(finishTimeout);
                 session.isClosed = true;
-                res(session.finalTranscript);
+                const output =
+                  session.finalTranscript.trim() ||
+                  session.interimTranscript.trim();
+                session.finalTranscript = output;
+                res(output);
               }
             };
           } else {
             session.isClosed = true;
             broadcast({ type: "closed" });
-            res(session.finalTranscript);
+            const output =
+              session.finalTranscript.trim() ||
+              session.interimTranscript.trim();
+            session.finalTranscript = output;
+            res(output);
           }
         });
       },
@@ -393,13 +408,16 @@ function createMockFallbackSession(
     },
     finish: async () => {
       session.isClosed = true;
+      const output =
+        session.finalTranscript.trim() || session.interimTranscript.trim();
+      session.finalTranscript = output;
       broadcast({
         type: "transcript",
-        transcript: session.finalTranscript,
+        transcript: output,
         final: true,
       });
       broadcast({ type: "closed" });
-      return session.finalTranscript;
+      return output;
     },
     close: () => {
       session.isClosed = true;

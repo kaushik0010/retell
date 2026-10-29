@@ -451,7 +451,7 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 7. Latest Git Commit
 
-- **Latest Commit:** Pending (`feat: implement Practice Room with live speech transcription`)
+- **Latest Commit:** `a985df3` — `feat: implement Practice Room with live speech transcription`
 - **Previous Commit:** `6e12420` — `fix: clarify responsive image upload actions and homepage title`
 
 ---

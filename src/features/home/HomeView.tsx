@@ -184,18 +184,13 @@ export function HomeView() {
                       <ChevronRightIcon className="h-3.5 w-3.5" />
                     </Link>
 
-                    {/* Honest Affordance: Practice Room arrives in Day 3 */}
-                    <button
-                      type="button"
-                      disabled
-                      title="The Spoken Practice Room unlocks in Day 3. Review your points first!"
-                      className="border-brand-peach/70 bg-brand-cream/60 text-brand-secondary inline-flex h-8 cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-semibold opacity-75 shadow-2xs"
+                    <Link
+                      href={`/study/${set.id}/practice`}
+                      className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-white shadow-2xs transition"
                     >
                       <span>Practise</span>
-                      <span className="bg-brand-peach/60 text-brand-secondary rounded px-1 py-0.5 text-[9px] font-bold">
-                        Day 3
-                      </span>
-                    </button>
+                      <span>&rarr;</span>
+                    </Link>
                   </div>
                 </div>
               );

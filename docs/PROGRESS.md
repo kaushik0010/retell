@@ -328,37 +328,78 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier code formatting verified across all files.
     - Successful Webpack production build (`next build --webpack`) generating all 8 static and dynamic routes.
 
+- [x] **`TASK-3.1` – `TASK-3.6` — Spoken Practice Room, Microphone Capture, Live Speech Transcription & WebSocket Lifecycle (Day 3 Milestone)**
+  - **Spoken Practice Room UI (`src/features/practice/PracticeRoomView.tsx`, `PracticeRoomClient.tsx`):**
+    - Built comprehensive Practice Room at canonical route `/study/:id/practice` with compatibility alias at `/practice/:id`.
+    - Implemented with authentic Butter & Tomato design tokens (Warm Cream `#FFF8EB`, Tomato `#E6533D`, Butter `#F5D96B`, Peach `#FFE2D7`, Ink `#302B27`).
+    - Prominent question display, page numbering, collapsible reference answer ("Show reference answer"), and "Points to Remember" concept checklist side panel.
+    - Question switcher with previous/next controls when study sets contain multiple questions.
+    - Calm, student-first states: "Ready to test your active recall?", "Start speaking", "Listening aloud", "Take your time", "Finish attempt", and "Practice attempt complete!".
+    - Attempt completed summary card displaying duration, total words spoken, finalized transcript review, "Practise again", "Next question", and clear honest affordance for Day 4 Semantic Audit.
+  - **Client-Side Web Audio Capture & Resampling (`src/lib/audio/capture.ts`):**
+    - Explicit permission gating: microphone is never requested on page load; only upon clicking "Start speaking".
+    - Resamples microphone input to 24kHz mono signed 16-bit PCM (`floatTo16BitPCM` with [-1.0, 1.0] clipping).
+    - Emits frames in 80ms chunks (1,920 samples = 3,840 bytes) matching Meta Voice Transcribe specifications.
+    - Continuous RMS energy calculation drives live waveform visualization and pause monitoring.
+    - Graceful cleanup: terminates all `MediaStreamTrack`s (`track.stop()`) and closes `AudioContext` on stop or page unmount with zero resource leakage.
+    - Never automatically terminates recording when students pause; raw audio is never written to disk or persisted (privacy-first).
+  - **Server-Side Transcribe Relay API (`src/app/api/transcribe/*`, `src/lib/providers/transcribe-session.ts`):**
+    - Zero client secret leakage: private `META_MODEL_API_KEY` remains strictly server-side.
+    - `POST /api/transcribe/session`: Connects server-side to Meta Voice Transcribe WebSocket (`wss://api.meta.ai/v1/asr/realtime`), sends authenticated handshake frame (`authorization: { accessToken: "Bearer <KEY>" }`, `audioEncoding: "PCM_24KHZ"`, `model: "muse-voice-transcribe-1.0"`), and returns session ID.
+    - `GET /api/transcribe/stream`: Server-Sent Events (SSE) stream pushing real-time `transcript` deltas, `audioProgress`, and `error` events to the browser.
+    - `POST /api/transcribe/audio`: Receives binary PCM frames and forwards them to Meta's WebSocket.
+    - `POST /api/transcribe/finish`: Dispatches `{"type": "endStream"}` text frame, awaits finalized transcript, flushes, and cleanly terminates session.
+    - Graceful fallback: when offline, in sandbox, or without API key, runs simulated/local relay so students and evaluators can always rehearse speech end-to-end.
+  - **Live Transcript Streaming UI (`src/features/practice/LiveTranscript.tsx`):**
+    - Displays accumulated finalized phrases alongside in-progress interim text with subtle styling.
+    - Live word count badge (`calculateWordCount`).
+    - Auto-scrolls gracefully to bottom as new speech streams in.
+  - **Silence & Pause Detection with Contextual Nudge (`src/features/practice/PauseNudge.tsx`):**
+    - Monitors RMS volume energy continuously; when silence exceeds 4,000ms, renders a gentle, reassuring banner: "Take your time. There's no rush! Think about the key steps and explain them naturally in your own words."
+    - Automatically fades out when speech resumes without penalizing the student or interrupting recording.
+  - **Persistence & Attempt History (`src/lib/domain/practice-session.ts`, `src/lib/storage/study-store.ts`):**
+    - Defined `PracticeAttemptSchema` and types: `id`, `studySetId`, `questionId`, `transcript`, `wordCount`, `durationSeconds`, `status`, `createdAt`.
+    - Upgraded IndexedDB schema to Version 2 with `practice_attempts` object store (indexed by `studySetId`, `questionId`, `createdAt`), with memory store fallback for SSR and tests.
+    - Provided `savePracticeAttempt`, `getPracticeAttempt`, `listPracticeAttempts`, and `deletePracticeAttempt`.
+  - **Navigation Integration:**
+    - Replaced Day 3 placeholder alert on Points Review page (`src/features/source-review/SourceReviewView.tsx`) with direct link to `/study/${studySet.id}/practice?questionId=${activeQuestion?.id || ""}`.
+    - Activated "Practise" button on Home page recent study set cards linking to `/study/${set.id}/practice`.
+  - **Testing & Verification:**
+    - 108 passing unit tests across 12 test suites in Vitest (including new 8-test suite in `tests/unit/practice-session.test.ts`).
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check (`pnpm run lint`) with 0 errors and 0 warnings.
+    - Clean Prettier code formatting verified across all files (`pnpm run format:check`).
+    - Successful Webpack production build (`next build --webpack`) generating all 10 static and dynamic routes.
+
 ---
 
 ## 2. In Progress Tasks
 
-- _None (Task 6 completed; ready for Day 3 Practice Room & Real-Time ASR)_
+- _None (Day 3 completed; ready for Day 4 Semantic Answer Auditing & Retries)_
 
 ---
 
 ## 3. Next Tasks
 
-### Day 3: Practice Room & Real-Time ASR
+### Day 4: Semantic Answer Auditing & Retries
 
-- [ ] `TASK-3.1` — Build Practice Room UI in `src/features/practice`.
-- [ ] `TASK-3.2` — Browser microphone capture pipeline (`src/lib/audio`).
-- [ ] `TASK-3.3` — Audio streaming / speech transcription integration (with fallback adapter).
-- [ ] `TASK-3.4` — Live streaming transcript UI component.
-- [ ] `TASK-3.5` — Silence detection and contextual pause nudge.
-- [ ] `TASK-3.6` — Session finalization and transcript preservation logic.
+- [ ] `TASK-4.1` — Server-side semantic answer audit route handler using Meta reasoning model.
+- [ ] `TASK-4.2` — Build Answer Review UI (`src/features/answer-review`) with concept breakdown cards.
+- [ ] `TASK-4.3` — Implement concept status visualizer (`correct`, `partially_covered`, `missing`, `incorrect`).
+- [ ] `TASK-4.4` — Implement retry practice flow preserving previous attempts.
+- [ ] `TASK-4.5` — Build Attempt Comparison view highlighting progression across tries.
 
 ---
 
 ## 4. Remaining Tasks
 
-### Day 3: Practice Room & Real-Time ASR
+### Day 4: Semantic Answer Auditing & Retries
 
-- [ ] `TASK-3.1` — Build Practice Room UI in `src/features/practice`.
-- [ ] `TASK-3.2` — Browser microphone capture pipeline (`src/lib/audio`).
-- [ ] `TASK-3.3` — Audio streaming / speech transcription integration (with fallback adapter).
-- [ ] `TASK-3.4` — Live streaming transcript UI component.
-- [ ] `TASK-3.5` — Silence detection and contextual pause nudge.
-- [ ] `TASK-3.6` — Session finalization and transcript preservation logic.
+- [ ] `TASK-4.1` — Server-side semantic answer audit route handler.
+- [ ] `TASK-4.2` — Answer Review UI in `src/features/answer-review`.
+- [ ] `TASK-4.3` — Concept status visualizer (correct, partial, missing, incorrect).
+- [ ] `TASK-4.4` — Retry practice flow preserving attempt history.
+- [ ] `TASK-4.5` — Attempt comparison view.
 
 ### Day 4: Semantic Answer Auditing & Retries
 
@@ -395,23 +436,23 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 6. Verification Results
 
-| Check                                | Command                   | Observed Result                                                                                                           | Status       |
-| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 99 passed across 11 test files (followup-features, multimodal-extraction, responsive-layout, domain, navigation, etc.)    | **PASSED**   |
-| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                            | **PASSED**   |
-| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                | **PASSED**   |
-| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                 | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully in 6.6s; 8 routes registered (Home, Not-Found, Library, Add Material, Review, 3 APIs) | **PASSED**   |
-| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                          | **VERIFIED** |
-| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                          | **VERIFIED** |
-| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000  | **VERIFIED** |
+| Check                                | Command                   | Observed Result                                                                                                                 | Status       |
+| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Vitest Unit Test Suite               | `pnpm run test`           | 108 passed across 12 test files (practice-session, storage, domain, navigation, multimodal-extraction, rubric, etc.)            | **PASSED**   |
+| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                  | **PASSED**   |
+| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                      | **PASSED**   |
+| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                       | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 10 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, APIs) | **PASSED**   |
+| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                | **VERIFIED** |
+| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                | **VERIFIED** |
+| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000        | **VERIFIED** |
 
 ---
 
 ## 7. Latest Git Commit
 
-- **Latest Commit:** `a4839ec` — `fix: clarify responsive image upload actions and homepage title`
-- **Previous Commit:** `d0b4c61` — `feat: support multi-image imports and accurate study-set save states`
+- **Latest Commit:** Pending (`feat: implement Practice Room with live speech transcription`)
+- **Previous Commit:** `6e12420` — `fix: clarify responsive image upload actions and homepage title`
 
 ---
 

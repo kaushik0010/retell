@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  clearAllPracticeAttempts,
   clearAllStudySets,
+  deletePracticeAttempt,
   deleteStudySet,
+  getPracticeAttempt,
   getStudySet,
+  listPracticeAttempts,
   listStudySets,
+  savePracticeAttempt,
   saveStudySet,
   updateStudySet,
 } from "../../src/lib/storage/study-store";
 import { StudySet } from "../../src/lib/domain/study-set";
+import { PracticeAttempt } from "../../src/lib/domain/practice-session";
 
 function createMockStudySet(
   id: string,
@@ -151,5 +157,53 @@ describe("Study Store (IndexedDB / In-Memory Fallback)", () => {
 
     const retrieved = await getStudySet("set_update");
     expect(retrieved?.material.title).toBe("Renamed Title");
+  });
+
+  it("persists, retrieves, and filters practice attempts", async () => {
+    await clearAllPracticeAttempts();
+
+    const attempt1: PracticeAttempt = {
+      id: "attempt_1",
+      studySetId: "set_a",
+      questionId: "q_1",
+      transcript: "This is my spoken answer explaining the primary concept.",
+      wordCount: 9,
+      durationSeconds: 12,
+      status: "completed",
+      createdAt: "2026-10-29T10:00:00Z",
+    };
+
+    const attempt2: PracticeAttempt = {
+      id: "attempt_2",
+      studySetId: "set_a",
+      questionId: "q_2",
+      transcript: "Second spoken answer for question two.",
+      wordCount: 6,
+      durationSeconds: 8,
+      status: "completed",
+      createdAt: "2026-10-29T11:00:00Z",
+    };
+
+    await savePracticeAttempt(attempt1);
+    await savePracticeAttempt(attempt2);
+
+    const fetched = await getPracticeAttempt("attempt_1");
+    expect(fetched).not.toBeNull();
+    expect(fetched?.wordCount).toBe(9);
+    expect(fetched?.transcript).toContain("primary concept");
+
+    const forSetA = await listPracticeAttempts("set_a");
+    expect(forSetA).toHaveLength(2);
+    // Ordered newest first
+    expect(forSetA[0]!.id).toBe("attempt_2");
+
+    const forQ1 = await listPracticeAttempts("set_a", "q_1");
+    expect(forQ1).toHaveLength(1);
+    expect(forQ1[0]!.id).toBe("attempt_1");
+
+    await deletePracticeAttempt("attempt_1");
+    const remaining = await listPracticeAttempts("set_a");
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.id).toBe("attempt_2");
   });
 });

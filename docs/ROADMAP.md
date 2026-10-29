@@ -118,14 +118,24 @@ Create the spoken Practice Room with browser microphone capture, resilient WebSo
 
 ### Tasks & Status
 
-| Task ID    | Task Description                                                                                  | Status  | Implementation Plan Ref                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
-| `TASK-3.1` | Build Practice Room UI (`src/features/practice`) with waveform and status indicator               | Pending | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
-| `TASK-3.2` | Implement client-side audio capture pipeline (`src/lib/audio`) via `MediaRecorder`/`AudioWorklet` | Pending | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
-| `TASK-3.3` | Implement WebSocket connection to Meta real-time ASR endpoint (`muse-voice-transcribe-1.0`)       | Pending | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer)      |
-| `TASK-3.4` | Implement live transcript streaming UI with real-time word updates                                | Pending | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
-| `TASK-3.5` | Implement silence/pause detection with optional contextual nudge hint                             | Pending | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
-| `TASK-3.6` | Ensure audio session finalization preserves full transcript under all disconnect scenarios        | Pending | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
+| Task ID    | Task Description                                                                                  | Status    | Implementation Plan Ref                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------- |
+| `TASK-3.1` | Build Practice Room UI (`src/features/practice`) with waveform and status indicator               | Completed | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
+| `TASK-3.2` | Implement client-side audio capture pipeline (`src/lib/audio`) via `MediaRecorder`/`AudioWorklet` | Completed | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
+| `TASK-3.3` | Implement WebSocket connection to Meta real-time ASR endpoint (`muse-voice-transcribe-1.0`)       | Completed | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer)      |
+| `TASK-3.4` | Implement live transcript streaming UI with real-time word updates                                | Completed | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
+| `TASK-3.5` | Implement silence/pause detection with optional contextual nudge hint                             | Completed | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
+| `TASK-3.6` | Ensure audio session finalization preserves full transcript under all disconnect scenarios        | Completed | [Section 6](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#6-features-practice-room) |
+
+### Key Milestones Completed
+
+- [x] Spoken Practice Room UI implemented at canonical route `/study/:id/practice` (with `/practice/:id` alias) styled with authentic Butter & Tomato design tokens.
+- [x] Web Audio microphone capture pipeline resamples to 24kHz signed 16-bit PCM mono, chunks into 80ms frames (3,840 bytes), and releases all audio tracks on unmount without resource leakage.
+- [x] Server-side Next.js route handlers (`/api/transcribe/*`) relay audio frames to `wss://api.meta.ai/v1/asr/realtime` with zero client-side secret exposure.
+- [x] Real-time Server-Sent Events (SSE) stream deltas to client, distinguishing live interim speech from finalized phrases without word duplication.
+- [x] RMS silence monitoring detects conversational pauses (> 4s) and surfaces a non-punitive, reassuring contextual nudge.
+- [x] Practice attempt records (`id`, `studySetId`, `questionId`, `transcript`, `wordCount`, `durationSeconds`) persist reliably to IndexedDB (`retell_db` -> `practice_attempts`) with offline in-memory fallback.
+- [x] Seamless navigation wired from Source Review ("Start practising") and Home page study set cards directly into the Practice Room.
 
 ### Acceptance Criteria
 

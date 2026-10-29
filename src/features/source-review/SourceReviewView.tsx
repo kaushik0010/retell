@@ -614,20 +614,14 @@ export function SourceReviewView({
           </div>
         </div>
 
-        {/* Honest affordance for Day 3 Practice Room */}
-        <button
-          type="button"
-          onClick={() =>
-            alert(
-              "The Spoken Practice Room with real-time speech transcription unlocks in Day 3! Review and refine your points now so you're ready to rehearse aloud."
-            )
-          }
-          title="The Spoken Practice Room opens in Day 3"
+        {/* Practice Room Link */}
+        <Link
+          href={`/study/${studySet.id}/practice?questionId=${activeQuestion?.id || ""}`}
           className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-xs transition sm:w-auto"
         >
           <span>Start practising</span>
           <span>&rarr;</span>
-        </button>
+        </Link>
       </div>
 
       {/* Collapsible Source Material Accordion */}

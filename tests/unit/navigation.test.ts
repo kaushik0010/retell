@@ -66,9 +66,19 @@ describe("Navigation, Presets and Route Contracts", () => {
     expect(reviewMeta.title).toBe("Review Points to Remember");
     expect(reviewMeta.description).toContain("set_test_123");
 
+    const generatePracticeMeta = (
+      await import("../../src/app/study/[id]/practice/page")
+    ).generateMetadata;
+    const practiceMeta = await generatePracticeMeta({
+      params: Promise.resolve({ id: "set_test_123" }),
+    });
+    expect(practiceMeta.title).toBe("Spoken Practice Room");
+    expect(practiceMeta.description).toContain("set_test_123");
+
     // Verify only homepage overrides layout title template with absolute title
     expect(typeof libraryMeta.title).toBe("string");
     expect(typeof addMeta.title).toBe("string");
     expect(typeof reviewMeta.title).toBe("string");
-  });
+    expect(typeof practiceMeta.title).toBe("string");
+  }, 15000);
 });

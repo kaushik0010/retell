@@ -66,8 +66,8 @@ function tokenize(text: string): string[] {
 }
 
 /**
- * Extracts a concise 1-4 word recall cue from a criterion name or sentence.
- * Avoids cutting off meaningful concept words at colons or dashes.
+ * Extracts a concise 1-3 word technical cue from a criterion name or sentence.
+ * Strips numbering, boilerplate, punctuation, and returns a clean, capitalized 1-3 word phrase.
  */
 export function extractConciseCue(raw: string): string {
   let text = raw.trim();
@@ -80,16 +80,16 @@ export function extractConciseCue(raw: string): string {
 
   // 2. Remove generic academic boilerplate prefixes
   text = text.replace(
-    /^(concept of|explanation of|definition of|understanding of|overview of|importance of|role of|mechanism of)\s+/i,
+    /^(the\s+)?(concept of|explanation of|definition of|understanding of|overview of|importance of|role of|mechanism of|process of|description of)\s+/i,
     ""
   );
 
-  // 3. Handle colon or dash separators:
+  // 3. Handle colon, dash, or semicolon separators:
   // If formatted as "Category: Specific Detail", prefer the specific detail after the separator
   // so multiple criteria sharing a category prefix (e.g. "DNS Resolution: Root query") don't collide.
-  if (/[:\-–—]/.test(text)) {
+  if (/[:\-–—;]/.test(text)) {
     const parts = text
-      .split(/[:\-–—]/)
+      .split(/[:\-–—;]/)
       .map((p) => p.trim())
       .filter(Boolean);
     if (parts.length > 1) {
@@ -106,27 +106,34 @@ export function extractConciseCue(raw: string): string {
   // Remove secondary boilerplate that might have followed the separator
   text = text
     .replace(
-      /^(concept of|explanation of|definition of|understanding of|overview of|importance of|role of|mechanism of)\s+/i,
+      /^(the\s+)?(concept of|explanation of|definition of|understanding of|overview of|importance of|role of|mechanism of|process of|description of)\s+/i,
       ""
     )
     .trim();
 
-  // 4. Split into words and limit to 1-4 words (concise cue)
-  const words = text.split(/\s+/).filter(Boolean);
-  if (words.length <= 4) {
-    return words.join(" ");
+  // Clean trailing punctuation and surrounding non-alphanumeric characters
+  text = text.replace(/^[\s\W_]+|[\s\W_]+$/g, "").trim();
+
+  // 4. Split into words and clean punctuation on individual tokens
+  const words = text
+    .split(/\s+/)
+    .map((w) => w.replace(/^[\s\W_]+|[\s\W_]+$/g, "").trim())
+    .filter(Boolean);
+
+  if (words.length === 0) return "";
+
+  // If already 1 to 3 words, capitalize and return
+  if (words.length <= 3) {
+    const joined = words.join(" ");
+    return joined.charAt(0).toUpperCase() + joined.slice(1);
   }
 
-  // Filter out stop words to preserve the most salient keywords
+  // Filter out stop words to preserve the most salient technical keywords
   const salient = words.filter((w) => !COMMON_STOP_WORDS.has(w.toLowerCase()));
-  if (salient.length >= 2 && salient.length <= 4) {
-    return salient.join(" ");
-  }
-  if (salient.length > 4) {
-    return salient.slice(0, 3).join(" ");
-  }
-
-  return words.slice(0, 3).join(" ");
+  const targetWords =
+    salient.length >= 1 ? salient.slice(0, 3) : words.slice(0, 3);
+  const joined = targetWords.join(" ");
+  return joined.charAt(0).toUpperCase() + joined.slice(1);
 }
 
 /**

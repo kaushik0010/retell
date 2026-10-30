@@ -25,10 +25,10 @@ export function ContextualHint({
         <span className="shrink-0 text-sm" aria-hidden="true">
           💡
         </span>
-        <span className="font-heading text-brand-secondary shrink-0 text-[11px] font-bold tracking-wider uppercase">
-          Recall cue:
+        <span className="font-heading text-brand-tomato shrink-0 text-xs font-bold">
+          Hint:
         </span>
-        <span className="font-heading text-brand-ink truncate font-semibold">
+        <span className="font-heading text-brand-ink truncate text-xs font-semibold">
           {hintText}
         </span>
       </div>

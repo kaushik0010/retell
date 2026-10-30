@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { generateRecallHint } from "../../src/lib/domain/recall-hints";
+import {
+  generateRecallHint,
+  extractConciseCue,
+} from "../../src/lib/domain/recall-hints";
 import { RubricCriterion } from "../../src/lib/domain/study-set";
 
 describe("generateRecallHint Unit Test Suite", () => {
@@ -36,7 +39,7 @@ describe("generateRecallHint Unit Test Suite", () => {
   const sampleAnswer =
     "Belady's anomaly occurs in FIFO page replacement where increasing the number of page frames leads to more page faults. For example, 3 frames cause 9 faults while 4 frames cause 10 faults.";
 
-  it("selects the first unmentioned criterion as a short 1-4 word cue", () => {
+  it("selects the first unmentioned criterion as a short 1-3 word cue", () => {
     const hint = generateRecallHint({
       referenceAnswer: sampleAnswer,
       criteria: sampleCriteria,
@@ -48,8 +51,36 @@ describe("generateRecallHint Unit Test Suite", () => {
     expect(hint).not.toBeNull();
     expect(hint?.cue).toBe("FIFO Page Replacement");
     expect(hint?.source).toBe("criterion");
-    // Word count of cue must be brief (<= 4 words)
-    expect(hint?.cue.split(/\s+/).length).toBeLessThanOrEqual(4);
+    // Word count of cue must be concise (1-3 words)
+    const wordCount = hint?.cue.split(/\s+/).length || 0;
+    expect(wordCount).toBeGreaterThanOrEqual(1);
+    expect(wordCount).toBeLessThanOrEqual(3);
+  });
+
+  it("extracts concise 1-3 word cues matching required technical phrase shapes", () => {
+    expect(extractConciseCue("Recursive query")).toBe("Recursive query");
+    expect(extractConciseCue("1. Root nameserver.")).toBe("Root nameserver");
+    expect(extractConciseCue("Step 2: TLD nameserver,")).toBe("TLD nameserver");
+    expect(extractConciseCue("Criterion 3 - Systematic development:")).toBe(
+      "Systematic development"
+    );
+    expect(extractConciseCue("Concept of Recursive Query")).toBe(
+      "Recursive Query"
+    );
+
+    // Verify word counts strictly 1-3 words
+    const cues = [
+      extractConciseCue("Recursive query"),
+      extractConciseCue("1. Root nameserver."),
+      extractConciseCue("Step 2: TLD nameserver,"),
+      extractConciseCue("Criterion 3 - Systematic development:"),
+    ];
+
+    for (const cue of cues) {
+      const words = cue.split(/\s+/);
+      expect(words.length).toBeGreaterThanOrEqual(1);
+      expect(words.length).toBeLessThanOrEqual(3);
+    }
   });
 
   it("respects semantic paraphrasing: skips already mentioned concepts", () => {
@@ -255,7 +286,7 @@ describe("generateRecallHint Unit Test Suite", () => {
 
     expect(hint).not.toBeNull();
     expect(hint?.source).toBe("reference_answer");
-    expect(hint?.cue.split(/\s+/).length).toBeLessThanOrEqual(4);
+    expect(hint?.cue.split(/\s+/).length).toBeLessThanOrEqual(3);
   });
 
   it("returns null when all key concepts have already been mentioned", () => {

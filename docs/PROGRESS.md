@@ -371,23 +371,32 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier code formatting verified across all files (`pnpm run format:check`).
     - Successful Webpack production build (`next build --webpack`) generating all 10 static and dynamic routes.
 
-- [x] **`TASK-3.7` — Corrective Phase: Transcript Preservation, Contextual Recall Hints & Quiet-Voice Calibration**
-  - **P0 Fix for Transcript Loss (`src/lib/audio/transcript-accumulator.ts`, `src/features/practice/PracticeRoomView.tsx`, `src/lib/audio/transcribe-client.ts`, `src/lib/providers/transcribe-session.ts`):**
-    - Root cause identified: In-flight spoken words were kept only in `interimText` (React state) and `latestInterimTranscript` until a trailing `isFinal: true` frame was emitted. When students clicked "Finish attempt", React state `transcript` was empty or stale, client stop aborted SpeechRecognition before flushing interim words, and server `finalTranscript` was empty, causing `0 words captured` upon saving.
-    - Implemented `TranscriptAccumulator`: an authoritative, monotonically growing accumulation class. Handles partial vs. final segments, deduplicates overlapping clauses, flushes in-flight interim tokens on `finalize()`, falls back to local snapshot if server final is empty, and rejects late events after session completion.
-    - Wrapped client and server finish routines with bounded timeout fallbacks to interim text so no spoken words are lost regardless of server latency or network closure order.
-    - Updated `PracticeRoomView.tsx` to compute metrics (`wordCount`, `durationSeconds`) and render the attempt summary strictly from the saved attempt record (`lastSavedAttempt`), ensuring what is saved is what is displayed.
-    - Added error preservation: if IndexedDB write fails, transcript is still safely preserved in view state with an explicit error alert.
-  - **P1 Answer-Grounded Contextual Recall Hints (`src/lib/domain/recall-hints.ts`, `src/features/practice/ContextualHint.tsx`):**
-    - Replaced generic "TAKE YOUR TIME" motivational text with concise (1–4 words) contextual recall cues derived strictly from rubric criteria or reference answers.
-    - Evaluates student's spoken words so far; automatically skips already covered concepts using semantic keyword matching and word stemming.
-    - Respects student autonomy: never gives away the complete answer, limits cues to a maximum of 3 per attempt, and returns `null` when concepts are already demonstrated or when answers are minimal.
-    - Designed as a subtle, dismissible, non-blocking pill (`💡 Recall cue: ...`) with an accessible dismiss button.
-  - **P2 Quiet-Voice Usability & Calibration (`src/lib/audio/capture.ts`, `src/features/practice/PracticeRoomView.tsx`):**
-    - Calibrated `silenceThresholdRms` from `0.018` down to `0.008`, ensuring gentle, soft-spoken voices (typically 0.009–0.016 RMS) are reliably recognized as active speech rather than false pauses.
-    - Scaled waveform visualizer sensitivity (`Math.min(1, Math.max(0, rms * 14))`) so quiet speech provides visible amplitude bars.
-    - Added concise UX guidance note near microphone controls: _"Practise in a quiet voice. Headphones with a microphone may help in noisy places."_
+- [x] **`TASK-3.9` — Practice Room UI Reversion, Hint Presentation ("Hint:") & Targeted Meta Auth Diagnostics**
+  - **Restored Simpler Microphone Experience (`src/features/practice/PracticeRoomView.tsx`):**
+    - Removed microphone selection dropdown (`<select id="mic-device-select">`), device labels, Bluetooth indicators, and hardware enumeration logic.
+    - Captures default microphone audio seamlessly via browser-standard permissions upon clicking "Start speaking".
+    - Restored clean idle layout: centered microphone card, "Start speaking" CTA button, and quiet-voice usage note.
+  - **Removed Student-Facing Provider Badges (`src/features/practice/PracticeRoomView.tsx`):**
+    - Removed status bar containing `🎙️ Input: ...` and transcription-engine badges (`Meta Voice AI` / `Browser Speech Engine (Local)`) from recording canvas and completed attempt summary.
+    - Reverted completed attempt metrics card to a clean 2-column layout (`Spoken Words` and `Duration`).
+    - Kept provider state, fallback switching, and diagnostic details strictly server-side and console-only.
+  - **Corrected Hint Presentation & 1–3 Word Salient Cues (`src/features/practice/ContextualHint.tsx`, `src/lib/domain/recall-hints.ts`):**
+    - Replaced label `"Recall cue"` with **`"Hint:"`** (e.g. `💡 Hint: Recursive query`).
+    - Stripped all occurrences of `"Recall cue"` across student-facing UI and accessibility labels.
+    - Tuned `extractConciseCue` to target 1–3 words (concise technical terms such as `Recursive query`, `Root nameserver`, `TLD nameserver`, `Systematic development`).
+    - Cleaned punctuation on individual tokens and stripped trailing/leading non-alphanumeric punctuation.
+    - Grounded hints in rubric criteria; continues beyond 3 hints sequentially when uncovered concepts remain without duplicates; stops when all concepts are addressed or attempt ends.
+  - **Targeted Meta Auth Check & Server Diagnostics (`src/lib/providers/meta.ts`, `src/lib/providers/transcribe-session.ts`):**
+    - Implemented `sanitizeApiToken` to strip surrounding quotes (`"` or `'`), Windows CRLF artifacts (`\r\n`), and duplicate `Bearer ` prefixes from `.env.local` / environment variables.
+    - Captured and logged server-side `{ closeCode, closeReason, wasClean }` without exposing sensitive tokens.
+    - Correctly distinguished Policy Violation (code 1008 with exact reason string) from abnormal connection drops (code 1006), rate limits (code 1013), and server errors (code 1011).
+    - Prevented generic connection timeouts or network drops from ever being misreported as authentication failures.
   - **Testing & Verification:**
+    - 141 passing unit tests across 15 test suites in Vitest (`pnpm run test`).
+    - Clean TypeScript validation (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint validation (`pnpm run lint`) with 0 errors and 0 warnings.
+    - Clean Prettier formatting (`pnpm run format:check`) across all files.
+    - Successful Webpack production build (`next build --webpack`) generating all 10 routes.
     - 124 passing unit tests across 14 test files (including 8 new tests in `transcript-accumulator.test.ts` and 7 in `recall-hints.test.ts`).
     - 100% clean TypeScript (`tsc --noEmit`), ESLint, and Prettier checks.
     - Clean production Webpack build (`next build --webpack`).
@@ -486,7 +495,7 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 | Check                                | Command                   | Observed Result                                                                                                                                                                       | Status       |
 | ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 135 passed across 15 test files (transcription-reliability, transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, multimodal-extraction, rubric, etc.) | **PASSED**   |
+| Vitest Unit Test Suite               | `pnpm run test`           | 141 passed across 15 test files (transcription-reliability, transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, multimodal-extraction, rubric, etc.) | **PASSED**   |
 | TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                                                                        | **PASSED**   |
 | ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                                                                            | **PASSED**   |
 | Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                                                                             | **PASSED**   |
@@ -499,8 +508,8 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 7. Latest Git Commit
 
-- **Latest Commit:** `a985df3` — `feat: implement Practice Room with live speech transcription`
-- **Previous Commit:** `6e12420` — `fix: clarify responsive image upload actions and homepage title`
+- **Latest Commit:** `HEAD` — `fix: simplify practice room ui, update hint presentation to hint, and improve meta auth diagnostics`
+- **Previous Commit:** `a1f6027` — `fix: practice room session persistence, auto-restart speech recognition, and diagnostic observability`
 
 ---
 

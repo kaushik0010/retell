@@ -1,6 +1,6 @@
 import "server-only";
 
-import { MetaTranscriptionProvider } from "./meta";
+import { MetaTranscriptionProvider, sanitizeApiToken } from "./meta";
 import type { MetaServerEvent } from "./types";
 
 export interface TranscribeEventData {
@@ -104,11 +104,14 @@ export async function createTranscribeSession(options?: {
   };
 
   const provider = new MetaTranscriptionProvider();
-  const apiKey = process.env.META_MODEL_API_KEY?.trim();
+  const apiKey = sanitizeApiToken(process.env.META_MODEL_API_KEY);
   const hasValidApiKey = Boolean(apiKey && apiKey.length > 0);
 
   // If no API key or explicitly mockFallback without API key, run graceful fallback session
   if (!hasValidApiKey || options?.mockFallback) {
+    console.info(
+      `[TranscribeSession] Initializing fallback session for ${sessionId} (hasValidApiKey=${hasValidApiKey}, mockFallback=${Boolean(options?.mockFallback)})`
+    );
     const session = createMockFallbackSession(
       sessionId,
       listeners,
@@ -127,7 +130,10 @@ export async function createTranscribeSession(options?: {
     try {
       ws = new WebSocket(provider.endpoint);
     } catch (err) {
-      console.warn("Could not instantiate Meta WebSocket:", err);
+      console.warn(
+        "[TranscribeSession] Could not instantiate Meta WebSocket:",
+        err
+      );
       // Gracefully fall back to local session so the student can still practice
       const fallbackSession = createMockFallbackSession(
         sessionId,
@@ -145,7 +151,7 @@ export async function createTranscribeSession(options?: {
       if (!resolved) {
         resolved = true;
         console.warn(
-          "Meta WebSocket connection timed out; using local fallback"
+          `[TranscribeSession] Meta WebSocket handshake timed out after 9000ms for session ${sessionId}. Activating browser speech fallback.`
         );
         // Safely detach all listeners and close the timed out websocket so its
         // onclose never interferes with the fallback session or deletes it
@@ -189,7 +195,10 @@ export async function createTranscribeSession(options?: {
           try {
             ws.send(chunk);
           } catch (err) {
-            console.error("Failed to send audio chunk to Meta WS:", err);
+            console.error(
+              "[TranscribeSession] Failed to send audio chunk to Meta WS:",
+              err
+            );
           }
         }
       },
@@ -262,7 +271,10 @@ export async function createTranscribeSession(options?: {
     };
 
     ws.onopen = () => {
-      const handshake = provider.createHandshakePayload(apiKey!, {
+      console.info(
+        `[TranscribeSession] WebSocket connected to Meta endpoint (${provider.endpoint}) for session ${sessionId}. Sending initial handshake...`
+      );
+      const handshake = provider.createHandshakePayload(apiKey, {
         sampleRate: options?.sampleRate || 24000,
         languageBias: options?.languageBias,
         mode: "PUSH_TO_TALK",
@@ -270,7 +282,10 @@ export async function createTranscribeSession(options?: {
       try {
         ws.send(JSON.stringify(handshake));
       } catch (err) {
-        console.error("Failed to send Meta handshake:", err);
+        console.error(
+          "[TranscribeSession] Failed to send Meta handshake:",
+          err
+        );
       }
     };
 
@@ -283,6 +298,9 @@ export async function createTranscribeSession(options?: {
       // Initial Handshake Ack
       if ("sessionId" in parsed && typeof parsed.sessionId === "string") {
         session.metaSessionId = parsed.sessionId;
+        console.info(
+          `[TranscribeSession] Meta handshake acknowledged. metaSessionId=${parsed.sessionId} for session ${sessionId}`
+        );
         if (!resolved) {
           resolved = true;
           clearTimeout(connectionTimer);
@@ -347,6 +365,10 @@ export async function createTranscribeSession(options?: {
         // Error Event
         if (parsed.type === "error") {
           const errEvt = parsed as { message?: string };
+          console.warn(
+            `[TranscribeSession] Meta server emitted error for session ${sessionId}:`,
+            errEvt.message
+          );
           broadcast({
             type: "error",
             message: errEvt.message || "Meta transcription error",
@@ -356,7 +378,10 @@ export async function createTranscribeSession(options?: {
     };
 
     ws.onerror = (err) => {
-      console.warn("Meta WebSocket error:", err);
+      console.warn(
+        `[TranscribeSession] Meta WebSocket error for session ${sessionId}:`,
+        err
+      );
       if (!resolved) {
         resolved = true;
         clearTimeout(connectionTimer);
@@ -367,6 +392,9 @@ export async function createTranscribeSession(options?: {
         try {
           ws.close();
         } catch {}
+        console.info(
+          `[TranscribeSession] Meta WebSocket failed before handshake completed. Falling back to browser speech session.`
+        );
         const fallbackSession = createMockFallbackSession(
           sessionId,
           listeners,
@@ -390,15 +418,31 @@ export async function createTranscribeSession(options?: {
       }
       const closeCode = event?.code ?? 1000;
       const closeReason = event?.reason ?? "";
+
+      console.info(
+        `[TranscribeSession] Meta WebSocket closed for session ${sessionId}: code=${closeCode}, reason="${closeReason}", wasClean=${Boolean(event?.wasClean)}`
+      );
+
       let userMessage = "Voice transcription connection closed.";
       if (closeCode === 1008) {
+        // Policy Violation: token invalid, model not authorized, or format issue
+        const reasonDetail = closeReason ? `: ${closeReason}` : "";
+        userMessage = `Meta API policy or authentication rejected (code 1008${reasonDetail}). Please verify META_MODEL_API_KEY and model permissions.`;
+        console.warn(
+          `[TranscribeSession] Meta returned Policy Violation (code 1008${reasonDetail}). Key configured: ${hasValidApiKey ? "YES" : "NO"}`
+        );
+      } else if (closeCode === 1006) {
         userMessage =
-          "Meta API authentication failed. Please verify your META_MODEL_API_KEY.";
+          "Meta transcription connection dropped abnormally (network or TLS reset). Switched to fallback.";
+        console.warn(
+          `[TranscribeSession] Meta abnormal closure (code 1006). Switched to browser speech fallback.`
+        );
       } else if (closeCode === 1013) {
         userMessage =
-          "Meta API rate limit reached or server busy. Switched to fallback.";
+          "Meta API rate limit reached or server busy (code 1013). Switched to fallback.";
       } else if (closeCode === 1011) {
-        userMessage = "Meta Voice server error. Switched to fallback.";
+        const reasonDetail = closeReason ? `: ${closeReason}` : "";
+        userMessage = `Meta Voice server error (code 1011${reasonDetail}). Switched to fallback.`;
       }
 
       broadcast({

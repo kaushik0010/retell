@@ -1,10 +1,19 @@
 import { describe, expect, it, beforeEach } from "vitest";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   createTranscribeSession,
   getTranscribeSession,
   type TranscribeEventData,
 } from "../../src/lib/providers/transcribe-session";
+import {
+  MetaTranscriptionProvider,
+  sanitizeApiToken,
+} from "../../src/lib/providers/meta";
 import { TranscriptAccumulator } from "../../src/lib/audio/transcript-accumulator";
+import { ContextualHint } from "../../src/features/practice/ContextualHint";
+import fs from "fs";
+import path from "path";
 
 describe("Transcription Reliability & Session Lifecycle Regression Suite", () => {
   beforeEach(() => {
@@ -13,6 +22,47 @@ describe("Transcription Reliability & Session Lifecycle Regression Suite", () =>
       __retellActiveSessions?: Map<string, unknown>;
     };
     globalTranscribe.__retellActiveSessions?.clear();
+  });
+
+  it("sanitizes API keys removing outer quotes, CRLF, and duplicate Bearer prefixes", () => {
+    // Double quotes
+    expect(sanitizeApiToken('"sec_key_12345"')).toBe("sec_key_12345");
+    // Single quotes
+    expect(sanitizeApiToken("'sec_key_67890'")).toBe("sec_key_67890");
+    // Windows CRLF
+    expect(sanitizeApiToken("sec_key_abc\r\n")).toBe("sec_key_abc");
+    // Bearer prefix in env
+    expect(sanitizeApiToken("Bearer sec_key_with_bearer")).toBe(
+      "sec_key_with_bearer"
+    );
+    expect(sanitizeApiToken("bearer sec_key_lower_bearer")).toBe(
+      "sec_key_lower_bearer"
+    );
+    // Quoted with Bearer
+    expect(sanitizeApiToken('"Bearer sec_key_quoted_bearer"')).toBe(
+      "sec_key_quoted_bearer"
+    );
+    // Empty, null, undefined
+    expect(sanitizeApiToken("")).toBe("");
+    expect(sanitizeApiToken(null)).toBe("");
+    expect(sanitizeApiToken(undefined)).toBe("");
+  });
+
+  it("formats handshake payload with exact Bearer prefix and no duplicate or quotes", () => {
+    const provider = new MetaTranscriptionProvider();
+    const payload = provider.createHandshakePayload('"my_secret_token_123"', {
+      sampleRate: 24000,
+    });
+
+    expect(payload.authorization.accessToken).toBe(
+      "Bearer my_secret_token_123"
+    );
+    expect(payload.audioEncoding).toBe("PCM_24KHZ");
+    expect(payload.mode).toBe("PUSH_TO_TALK");
+    expect(payload.authorization.accessToken.includes('"')).toBe(false);
+    expect(payload.authorization.accessToken.startsWith("Bearer Bearer")).toBe(
+      false
+    );
   });
 
   it("registers and retrieves session via globalThis singleton across routes", async () => {
@@ -71,18 +121,79 @@ describe("Transcription Reliability & Session Lifecycle Regression Suite", () =>
     session.broadcast({
       type: "closed",
       closeCode: 1008,
-      closeReason: "Unauthorized",
+      closeReason: "Policy Violation",
       message:
-        "Meta API authentication failed. Please verify your META_MODEL_API_KEY.",
+        "Meta API policy or authentication rejected (code 1008: Policy Violation). Please verify META_MODEL_API_KEY and model permissions.",
     });
 
     const closedEvt = receivedEvents.find((e) => e.type === "closed");
     expect(closedEvt).toBeDefined();
     expect(closedEvt?.closeCode).toBe(1008);
-    expect(closedEvt?.closeReason).toBe("Unauthorized");
-    expect(closedEvt?.message).toContain("Meta API authentication failed");
+    expect(closedEvt?.closeReason).toBe("Policy Violation");
+    expect(closedEvt?.message).toContain(
+      "Meta API policy or authentication rejected"
+    );
 
     session.close();
+  });
+
+  it("distinguishes abnormal network drop (code 1006) from auth failure", async () => {
+    const session = await createTranscribeSession({
+      sampleRate: 24000,
+      mockFallback: true,
+    });
+
+    const receivedEvents: TranscribeEventData[] = [];
+    session.subscribe((evt) => {
+      receivedEvents.push(evt);
+    });
+
+    // Code 1006 must never be reported as authentication failed
+    session.broadcast({
+      type: "closed",
+      closeCode: 1006,
+      closeReason: "",
+      message:
+        "Meta transcription connection dropped abnormally (network or TLS reset). Switched to fallback.",
+    });
+
+    const closedEvt = receivedEvents.find((e) => e.type === "closed");
+    expect(closedEvt?.closeCode).toBe(1006);
+    expect(closedEvt?.message).not.toContain("authentication failed");
+    expect(closedEvt?.message).toContain("dropped abnormally");
+
+    session.close();
+  });
+
+  it("renders ContextualHint with 'Hint:' label and zero occurrences of 'Recall cue'", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ContextualHint, {
+        isVisible: true,
+        hintText: "Recursive query",
+      })
+    );
+
+    expect(html).toContain("Hint:");
+    expect(html).toContain("Recursive query");
+    expect(html).not.toContain("Recall cue");
+  });
+
+  it("verifies PracticeRoomView source code contains no mic dropdown and no student-facing provider badges", () => {
+    const practiceRoomPath = path.resolve(
+      __dirname,
+      "../../src/features/practice/PracticeRoomView.tsx"
+    );
+    const source = fs.readFileSync(practiceRoomPath, "utf-8");
+
+    // No microphone dropdown selector
+    expect(source).not.toContain("mic-device-select");
+    expect(source).not.toContain("Audio Input Device");
+    // No student-facing provider badges
+    expect(source).not.toContain("Meta Voice AI");
+    expect(source).not.toContain("Browser Speech Engine");
+    // Completed state metrics card is 2 columns (spoken words, duration)
+    expect(source).toContain("grid grid-cols-2");
+    expect(source).not.toContain("Transcription Engine");
   });
 
   it("processes audio chunks and computes audioProcessedMs accurately", async () => {

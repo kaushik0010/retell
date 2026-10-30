@@ -19,14 +19,38 @@ const META_BASE_URL = "https://api.meta.ai/v1";
 const META_TRANSCRIPTION_WS = "wss://api.meta.ai/v1/asr/realtime";
 const DEFAULT_TIMEOUT_MS = 45000;
 
+/**
+ * Safely sanitizes API tokens loaded from environment or config.
+ * Strips Windows CRLF artifacts, surrounding quotes, and leading "Bearer " prefixes.
+ */
+export function sanitizeApiToken(token?: string | null): string {
+  if (!token) return "";
+  let clean = token.replace(/[\r\n]/g, "").trim();
+  // Strip outer quotes ("..." or '...')
+  if (
+    (clean.startsWith('"') && clean.endsWith('"')) ||
+    (clean.startsWith("'") && clean.endsWith("'"))
+  ) {
+    clean = clean
+      .slice(1, -1)
+      .replace(/[\r\n]/g, "")
+      .trim();
+  }
+  // Strip duplicate Bearer prefix if provided by user in .env
+  if (clean.toLowerCase().startsWith("bearer ")) {
+    clean = clean.slice(7).trim();
+  }
+  return clean;
+}
+
 export class MetaReasoningProvider implements ReasoningProvider {
   public readonly id = "meta" as const;
   public readonly modelId: string;
-  private readonly apiKey: string | undefined;
+  private readonly apiKey: string;
   private readonly baseUrl: string;
 
   constructor() {
-    this.apiKey = process.env.META_MODEL_API_KEY?.trim();
+    this.apiKey = sanitizeApiToken(process.env.META_MODEL_API_KEY);
     this.modelId =
       process.env.META_REASONING_MODEL?.trim() || DEFAULT_META_REASONING_MODEL;
     this.baseUrl = META_BASE_URL;
@@ -311,10 +335,10 @@ export class MetaTranscriptionProvider implements TranscriptionProvider {
   public readonly id = "meta" as const;
   public readonly modelId: string;
   public readonly endpoint: string;
-  private readonly apiKey: string | undefined;
+  private readonly apiKey: string;
 
   constructor() {
-    this.apiKey = process.env.META_MODEL_API_KEY?.trim();
+    this.apiKey = sanitizeApiToken(process.env.META_MODEL_API_KEY);
     this.modelId =
       process.env.META_TRANSCRIPTION_MODEL?.trim() ||
       DEFAULT_META_TRANSCRIPTION_MODEL;
@@ -329,8 +353,8 @@ export class MetaTranscriptionProvider implements TranscriptionProvider {
     apiKey: string,
     config?: Partial<TranscriptionSessionConfig>
   ): TranscriptionHandshakePayload {
-    const rawKey = apiKey.trim();
-    const token = rawKey.startsWith("Bearer ") ? rawKey : `Bearer ${rawKey}`;
+    const cleanKey = sanitizeApiToken(apiKey);
+    const token = `Bearer ${cleanKey}`;
     const encoding = config?.sampleRate === 16000 ? "PCM_16KHZ" : "PCM_24KHZ";
 
     return {

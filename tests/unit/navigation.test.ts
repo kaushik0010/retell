@@ -35,14 +35,19 @@ describe("Navigation, Presets and Route Contracts", () => {
       library: "/library",
       addMaterial: "/materials/new",
       review: (id: string) => `/review/${id}`,
-      practice: (id: string) => `/practice/${id}`,
+      practice: (id: string) => `/study/${id}/practice`,
+      attemptReview: (studyId: string, attemptId: string) =>
+        `/study/${studyId}/attempts/${attemptId}`,
     };
 
     expect(routes.home).toBe("/");
     expect(routes.library).toBe("/library");
     expect(routes.addMaterial).toBe("/materials/new");
     expect(routes.review("test_123")).toBe("/review/test_123");
-    expect(routes.practice("test_123")).toBe("/practice/test_123");
+    expect(routes.practice("test_123")).toBe("/study/test_123/practice");
+    expect(routes.attemptReview("test_123", "att_456")).toBe(
+      "/study/test_123/attempts/att_456"
+    );
   });
 
   it("verifies SEO page metadata definitions", async () => {
@@ -75,10 +80,20 @@ describe("Navigation, Presets and Route Contracts", () => {
     expect(practiceMeta.title).toBe("Spoken Practice Room");
     expect(practiceMeta.description).toContain("set_test_123");
 
+    const generateAttemptMeta = (
+      await import("../../src/app/study/[id]/attempts/[attemptId]/page")
+    ).generateMetadata;
+    const attemptMeta = await generateAttemptMeta({
+      params: Promise.resolve({ id: "set_test_123", attemptId: "att_456" }),
+    });
+    expect(attemptMeta.title).toBe("Answer Review | Retell");
+    expect(attemptMeta.description).toContain("set_test_123");
+
     // Verify only homepage overrides layout title template with absolute title
     expect(typeof libraryMeta.title).toBe("string");
     expect(typeof addMeta.title).toBe("string");
     expect(typeof reviewMeta.title).toBe("string");
     expect(typeof practiceMeta.title).toBe("string");
-  }, 15000);
+    expect(typeof attemptMeta.title).toBe("string");
+  }, 30000);
 });

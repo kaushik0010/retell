@@ -158,27 +158,41 @@ Create the spoken Practice Room with browser microphone capture, resilient WebSo
 
 ---
 
-## Day 4 — October 30: Semantic Answer Auditing, Actionable Feedback, Retries & Attempt Comparison
+## Day 4 — October 30: Semantic Answer Auditing, Actionable Feedback, Retries & Paragraph Scoping
 
 ### Objective
 
-Implement the semantic evaluation engine that scores spoken transcripts against the structured rubric, highlights covered, partial, missing, and inaccurate points without keyword bias, and enables side-by-side attempt comparisons.
+Implement the semantic evaluation engine that assesses spoken transcripts against the reference answer and structured points to remember, highlights covered, partial, missing, and inaccurate points without keyword bias, strictly distinguishes omissions from factual contradictions, supports paragraph-level practice evaluation, and presents transparent conceptual coverage breakdowns in the Answer Review view.
 
 ### Tasks & Status
 
-| Task ID    | Task Description                                                                             | Status  | Implementation Plan Ref                                                                              |
-| ---------- | -------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------- |
-| `TASK-4.1` | Implement server-side semantic answer audit route handler using Meta reasoning model         | Pending | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
-| `TASK-4.2` | Build Answer Review UI (`src/features/answer-review`) with concept breakdown cards           | Pending | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
-| `TASK-4.3` | Implement concept status visualizer (`correct`, `partially_covered`, `missing`, `incorrect`) | Pending | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
-| `TASK-4.4` | Implement retry practice flow preserving previous attempts                                   | Pending | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
-| `TASK-4.5` | Build Attempt Comparison view highlighting progression across tries                          | Pending | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
+| Task ID    | Task Description                                                                                      | Status        | Implementation Plan Ref                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------- |
+| `TASK-4.1` | Implement server-side semantic answer audit route handler (`/api/audit`) using Meta reasoning model    | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
+| `TASK-4.2` | Build Answer Review UI (`/study/:id/attempts/:attemptId`) with conceptual breakdown cards             | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
+| `TASK-4.3` | Implement concept status visualizer (`covered`, `partially_covered`, `missing`, `incorrect`)          | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
+| `TASK-4.4` | Implement retry practice flow preserving previous attempts with local IndexedDB persistence           | **Completed** | [Section 7, 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                 |
+| `TASK-4.5` | Implement paragraph-level answer scoping and evaluation for multi-paragraph answers                   | **Completed** | [Section 6, 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                 |
+| `TASK-4.6` | Build Attempt-to-Attempt Progression & Comparison view                                                 | Pending       | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
+
+### Key Milestones Completed
+
+- [x] Evaluates conceptual understanding, NOT rote sentence memorization — students receive full credit for correct explanations using different phrasing, sentence structures, or valid real-world analogies.
+- [x] Multi-status criterion evaluation (`covered`, `partially_covered`, `missing`, `incorrect`, `optional`) with honest visual distinction and badges.
+- [x] Strict separation of omissions (`missing` / "What needs more attention") from factual errors (`incorrect` / "What needs correction").
+- [x] Grounded transcript evidence citations with anti-hallucination verification — quoted student evidence must appear in the actual transcript or is omitted.
+- [x] Transparent conceptual breakdown and coverage bar (e.g., "2 of 2 concepts covered") — zero unexplained percentages or AI confidence scores.
+- [x] Local-first storage safety — student practice attempts are saved to IndexedDB *before* triggering async evaluation, ensuring zero transcript loss on network drops or provider timeouts.
+- [x] Canonical Answer Review route at `/study/:id/attempts/:attemptId` with SEO page metadata and seamless practice-to-review transition.
+- [x] Paragraph-level practice support — multi-paragraph questions can be practiced by individual paragraph with scoped evaluation without penalizing unselected paragraphs.
+- [x] 12-scenario evaluation test suite (`tests/unit/semantic-audit.test.ts`) validating exact matches, paraphrasing, partial answers, omissions, contradictions, keyword stuffing rejection, acoustic imperfections, and resilient storage retries.
 
 ### Acceptance Criteria
 
-- Semantic audit accepts valid paraphrases and does not perform naive string equality.
-- Missing and inaccurate points cite specific evidence from the student transcript.
-- Students can view attempt #1 vs attempt #2 to observe concept coverage improvement.
+- [x] Semantic audit accepts valid paraphrases and does not perform naive string equality.
+- [x] Missing and inaccurate points cite specific evidence from the student transcript.
+- [x] Practice attempt transcripts persist safely in IndexedDB prior to calling evaluation endpoints.
+- [x] Omissions and factual misconceptions are strictly separated in both evaluation and visual UI presentation.
 
 ### Dependencies & Risks
 

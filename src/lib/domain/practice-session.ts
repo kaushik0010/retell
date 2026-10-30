@@ -9,6 +9,7 @@ export const PracticeSessionStateSchema = z.enum([
   "connecting",
   "listening",
   "finishing",
+  "auditing",
   "completed",
   "error",
 ]);
@@ -58,6 +59,11 @@ export const PracticeAttemptSchema = z.object({
   durationSeconds: z.number().int().nonnegative().default(0),
   status: z.enum(["completed", "partial", "abandoned"]).default("completed"),
   audioProcessedMs: z.number().int().nonnegative().optional(),
+  scope: z
+    .enum(["whole_answer", "paragraph", "selected_paragraphs"])
+    .optional(),
+  paragraphIndex: z.number().int().nonnegative().optional(),
+  auditId: z.string().optional(),
   createdAt: z.string(),
 });
 

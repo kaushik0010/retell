@@ -1,7 +1,8 @@
-"useclient";
+"use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   StudySet,
   ExtractedQuestion,
@@ -13,7 +14,10 @@ import {
   calculateWordCount,
   createAttemptId,
 } from "@/lib/domain/practice-session";
-import { savePracticeAttempt } from "@/lib/storage/study-store";
+import {
+  savePracticeAttempt,
+  saveSemanticAuditResult,
+} from "@/lib/storage/study-store";
 import { AudioCaptureController } from "@/lib/audio/capture";
 import { TranscribeClient } from "@/lib/audio/transcribe-client";
 import { TranscriptAccumulator } from "@/lib/audio/transcript-accumulator";
@@ -31,6 +35,8 @@ export function PracticeRoomView({
   studySet,
   initialQuestionId,
 }: PracticeRoomViewProps) {
+  const router = useRouter();
+
   // Active question selection
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>(() => {
     if (
@@ -57,6 +63,20 @@ export function PracticeRoomView({
     ? studySet.rubrics[activeQuestion.id]
     : undefined;
 
+  // Split reference answer into paragraphs for paragraph-level practice
+  const activeReference = activeQuestion?.referenceAnswer;
+  const paragraphs = useMemo(() => {
+    if (!activeReference) return [];
+    return activeReference
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+  }, [activeReference]);
+
+  const [selectedParagraphIndex, setSelectedParagraphIndex] = useState<
+    number | null
+  >(null);
+
   // Collapsible sections
   const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
   const [showPointsChecklist, setShowPointsChecklist] = useState(true);
@@ -71,8 +91,10 @@ export function PracticeRoomView({
   const [isPaused, setIsPaused] = useState(false);
   const [currentHint, setCurrentHint] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [auditNotice, setAuditNotice] = useState<string | null>(null);
   const [lastSavedAttempt, setLastSavedAttempt] =
     useState<PracticeAttempt | null>(null);
+  const [isRetryingAudit, setIsRetryingAudit] = useState(false);
 
   // Authoritative transcript accumulator and session refs
   const accumulatorRef = useRef<TranscriptAccumulator>(
@@ -96,7 +118,11 @@ export function PracticeRoomView({
 
   // Handle question switch
   const handleSwitchQuestion = (questionId: string) => {
-    if (sessionState === "listening" || sessionState === "connecting") {
+    if (
+      sessionState === "listening" ||
+      sessionState === "connecting" ||
+      sessionState === "auditing"
+    ) {
       const confirmSwitch = window.confirm(
         "You have an active practice attempt in progress. Stop and switch questions?"
       );
@@ -104,6 +130,7 @@ export function PracticeRoomView({
       handleCancelPractice();
     }
     setSelectedQuestionId(questionId);
+    setSelectedParagraphIndex(null);
     setSessionState("idle");
     accumulatorRef.current.reset();
     isFinishingRef.current = false;
@@ -115,6 +142,7 @@ export function PracticeRoomView({
     durationSecondsRef.current = 0;
     setLastSavedAttempt(null);
     setErrorMessage(null);
+    setAuditNotice(null);
   };
 
   const handleAudioError = (err: unknown) => {
@@ -201,6 +229,12 @@ export function PracticeRoomView({
       await client.start();
       transcribeClientRef.current = client;
 
+      // Effective reference answer for hints (whole answer or targeted paragraph)
+      const targetHintReference =
+        selectedParagraphIndex !== null && paragraphs[selectedParagraphIndex]
+          ? paragraphs[selectedParagraphIndex]
+          : activeQuestion?.referenceAnswer;
+
       // 2. Start browser audio capture using browser-provided default microphone (with quiet-voice threshold 0.008)
       const capture = new AudioCaptureController(
         {
@@ -224,7 +258,7 @@ export function PracticeRoomView({
               const currentFullText =
                 accumulatorRef.current.getFullTranscript();
               const hint = generateRecallHint({
-                referenceAnswer: activeQuestion?.referenceAnswer,
+                referenceAnswer: targetHintReference,
                 criteria: activeRubric?.criteria,
                 currentTranscript: currentFullText,
                 previousHints: previousHintsRef.current,
@@ -266,7 +300,7 @@ export function PracticeRoomView({
     }
   };
 
-  // Finish practice attempt with monotonic transcript preservation
+  // Finish practice attempt with monotonic transcript preservation and automated semantic audit
   const handleFinishPractice = async () => {
     if (!activeQuestion) return;
 
@@ -274,6 +308,7 @@ export function PracticeRoomView({
     if (
       isFinishingRef.current ||
       sessionState === "finishing" ||
+      sessionState === "auditing" ||
       sessionState === "completed"
     ) {
       return;
@@ -317,7 +352,7 @@ export function PracticeRoomView({
     const finalDuration = durationSecondsRef.current;
     const finalWordCount = calculateWordCount(fullTranscript);
 
-    // 5. Persist attempt record to IndexedDB
+    // 5. Persist attempt record to IndexedDB FIRST so student speech is guaranteed safe
     const attempt: PracticeAttempt = {
       id: createAttemptId(),
       studySetId: studySet.id,
@@ -326,23 +361,117 @@ export function PracticeRoomView({
       wordCount: finalWordCount,
       durationSeconds: finalDuration,
       status: "completed",
+      scope: selectedParagraphIndex !== null ? "paragraph" : "whole_answer",
+      paragraphIndex:
+        selectedParagraphIndex !== null ? selectedParagraphIndex : undefined,
       createdAt: new Date().toISOString(),
     };
 
     try {
       await savePracticeAttempt(attempt);
       setLastSavedAttempt(attempt);
-      setSessionState("completed");
     } catch (saveErr) {
       console.error("Failed to save practice attempt to IndexedDB:", saveErr);
       setErrorMessage(
         "Your spoken words are preserved below, but could not be saved to browser storage."
       );
-      // Preserve attempt so words are never lost
       setLastSavedAttempt(attempt);
+    }
+
+    // 6. Transition to auditing state and call semantic audit engine
+    setSessionState("auditing");
+
+    try {
+      const auditRes = await fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attemptId: attempt.id,
+          studySetId: studySet.id,
+          questionId: activeQuestion.id,
+          question: activeQuestion.question,
+          referenceAnswer: activeQuestion.referenceAnswer,
+          transcript: fullTranscript,
+          criteria: activeRubric?.criteria || [],
+          scope: {
+            type: attempt.scope,
+            paragraphIndex: attempt.paragraphIndex,
+          },
+        }),
+      });
+
+      const auditData = await auditRes.json();
+      if (auditRes.ok && auditData.success && auditData.audit) {
+        // Save audit result alongside attempt in IndexedDB
+        await saveSemanticAuditResult(auditData.audit);
+        attempt.auditId = auditData.audit.id;
+        await savePracticeAttempt(attempt);
+
+        // 7. Seamlessly navigate to Answer Review page
+        router.push(`/study/${studySet.id}/attempts/${attempt.id}`);
+        return;
+      } else {
+        throw new Error(auditData.error || "Evaluation returned an error.");
+      }
+    } catch (auditErr: unknown) {
+      console.warn("Semantic audit notice:", auditErr);
+      // Attempt is safely stored; render completed state with review/retry option
       setSessionState("completed");
+      setAuditNotice(
+        "Your spoken response has been recorded and safely saved to your device."
+      );
     } finally {
       isFinishingRef.current = false;
+    }
+  };
+
+  // Retry semantic audit if initial attempt timed out or failed
+  const handleRetryAudit = async () => {
+    if (!lastSavedAttempt || !activeQuestion) return;
+
+    try {
+      setIsRetryingAudit(true);
+      setAuditNotice(null);
+
+      const auditRes = await fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attemptId: lastSavedAttempt.id,
+          studySetId: studySet.id,
+          questionId: activeQuestion.id,
+          question: activeQuestion.question,
+          referenceAnswer: activeQuestion.referenceAnswer,
+          transcript: lastSavedAttempt.transcript,
+          criteria: activeRubric?.criteria || [],
+          scope: {
+            type: lastSavedAttempt.scope,
+            paragraphIndex: lastSavedAttempt.paragraphIndex,
+          },
+        }),
+      });
+
+      const auditData = await auditRes.json();
+      if (auditRes.ok && auditData.success && auditData.audit) {
+        await saveSemanticAuditResult(auditData.audit);
+        const updatedAttempt: PracticeAttempt = {
+          ...lastSavedAttempt,
+          auditId: auditData.audit.id,
+        };
+        await savePracticeAttempt(updatedAttempt);
+        setLastSavedAttempt(updatedAttempt);
+        router.push(`/study/${studySet.id}/attempts/${updatedAttempt.id}`);
+      } else {
+        throw new Error(auditData.error || "Could not complete evaluation.");
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Evaluation could not be completed.";
+      setAuditNotice(`Evaluation retry notice: ${msg}`);
+    } finally {
+      setIsRetryingAudit(false);
     }
   };
 
@@ -496,6 +625,49 @@ export function PracticeRoomView({
               {activeQuestion.question}
             </h2>
 
+            {/* Paragraph-level practice selector when multi-paragraph answer exists */}
+            {paragraphs.length > 1 && sessionState === "idle" && (
+              <div className="border-brand-peach/60 bg-brand-cream/50 mt-4 rounded-xl border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-brand-secondary text-[11px] font-bold tracking-wider uppercase">
+                    Practice Scope
+                  </span>
+                  <span className="text-brand-secondary text-[10px]">
+                    {selectedParagraphIndex === null
+                      ? "Practising full answer"
+                      : `Practising Paragraph ${selectedParagraphIndex + 1} of ${paragraphs.length}`}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedParagraphIndex(null)}
+                    className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                      selectedParagraphIndex === null
+                        ? "bg-brand-tomato text-white shadow-2xs"
+                        : "border-brand-peach/80 text-brand-ink border bg-white hover:bg-stone-50"
+                    }`}
+                  >
+                    Whole answer ({paragraphs.length} paragraphs)
+                  </button>
+                  {paragraphs.map((_, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => setSelectedParagraphIndex(pIdx)}
+                      className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                        selectedParagraphIndex === pIdx
+                          ? "bg-brand-tomato text-white shadow-2xs"
+                          : "border-brand-peach/80 text-brand-ink border bg-white hover:bg-stone-50"
+                      }`}
+                    >
+                      Paragraph {pIdx + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Collapsible Reference Answer */}
             <div className="border-brand-peach/40 mt-4 border-t pt-3">
               <button
@@ -514,9 +686,27 @@ export function PracticeRoomView({
                   <p className="font-semibold text-stone-700">
                     Source Reference Answer:
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap">
-                    {activeQuestion.referenceAnswer}
-                  </p>
+                  {selectedParagraphIndex !== null &&
+                  paragraphs[selectedParagraphIndex] ? (
+                    <div className="mt-2 space-y-2">
+                      <div className="border-brand-tomato/30 rounded-lg border bg-white p-3 shadow-2xs">
+                        <span className="text-brand-tomato block text-[10px] font-bold tracking-wider uppercase">
+                          Selected Paragraph {selectedParagraphIndex + 1}
+                        </span>
+                        <p className="mt-1 font-medium whitespace-pre-wrap">
+                          {paragraphs[selectedParagraphIndex]}
+                        </p>
+                      </div>
+                      <p className="text-brand-secondary text-[11px] italic">
+                        Tip: You are practicing only this paragraph. Your
+                        evaluation will be based solely on this section.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-1 whitespace-pre-wrap">
+                      {activeQuestion.referenceAnswer}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -669,6 +859,27 @@ export function PracticeRoomView({
               </div>
             )}
 
+            {/* Auditing State */}
+            {sessionState === "auditing" && (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="border-brand-tomato h-10 w-10 animate-spin rounded-full border-3 border-t-transparent" />
+                <h3 className="font-heading text-brand-ink mt-4 text-base font-bold">
+                  Evaluating your conceptual understanding...
+                </h3>
+                <p className="text-brand-secondary mt-1 max-w-sm text-xs leading-relaxed">
+                  Comparing your explanation with the reference answer to
+                  identify which key concepts were covered, partially explained,
+                  or missed.
+                </p>
+                {lastSavedAttempt && (
+                  <p className="text-brand-secondary/70 mt-3 text-[11px]">
+                    Your spoken answer ({lastSavedAttempt.wordCount} words) is
+                    safely saved locally.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Attempt Completed Summary State */}
             {sessionState === "completed" && (
               <div className="space-y-5 py-2">
@@ -686,6 +897,13 @@ export function PracticeRoomView({
                     </p>
                   </div>
                 </div>
+
+                {/* Audit notice banner if evaluation failed or required attention */}
+                {auditNotice && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    <p className="font-semibold">{auditNotice}</p>
+                  </div>
+                )}
 
                 {/* Attempt Metrics Card */}
                 <div className="bg-brand-cream/70 border-brand-peach/60 grid grid-cols-2 gap-3 rounded-xl border p-4 text-center">
@@ -728,23 +946,39 @@ export function PracticeRoomView({
                     <span>↻ Practise again</span>
                   </button>
 
-                  <div className="flex items-center gap-2">
-                    {/* Day 4 Semantic Audit Honest Affordance */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        alert(
-                          "Day 4: Semantic Answer Auditing, missing concept detection, and attempt comparison will evaluate this transcript in the next milestone!"
-                        )
-                      }
-                      title="Semantic Answer Evaluation arrives in Day 4"
-                      className="bg-brand-butter text-brand-ink inline-flex cursor-pointer items-center justify-center gap-1 rounded-xl px-4 py-2.5 text-xs font-bold shadow-2xs transition hover:opacity-90"
-                    >
-                      <span>Check points</span>
-                      <span className="bg-brand-peach/80 rounded px-1 text-[9px] font-bold">
-                        Day 4
-                      </span>
-                    </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {lastSavedAttempt && (
+                      <>
+                        {lastSavedAttempt.auditId ? (
+                          <Link
+                            href={`/study/${studySet.id}/attempts/${lastSavedAttempt.id}`}
+                            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-xs transition"
+                          >
+                            <span>View Answer Review</span>
+                            <span>&rarr;</span>
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleRetryAudit}
+                            disabled={isRetryingAudit}
+                            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-xs transition disabled:opacity-75"
+                          >
+                            {isRetryingAudit ? (
+                              <>
+                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                <span>Evaluating...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Evaluate answer</span>
+                                <span>&rarr;</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </>
+                    )}
 
                     {activeQuestionIndex < studySet.questions.length - 1 && (
                       <button
@@ -754,7 +988,7 @@ export function PracticeRoomView({
                             studySet.questions[activeQuestionIndex + 1]!.id
                           )
                         }
-                        className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-xs transition"
+                        className="border-brand-peach/80 hover:bg-brand-cream/60 text-brand-ink inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-4 py-2.5 text-xs font-semibold transition"
                       >
                         <span>Next question &rarr;</span>
                       </button>

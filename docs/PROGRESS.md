@@ -428,43 +428,65 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - 100% clean TypeScript (`tsc --noEmit`), ESLint (`eslint`), and Prettier checks.
     - Clean production Webpack build (`next build --webpack`).
 
+- [x] **`TASK-4.1` – `TASK-4.5` — Semantic Answer Auditing, Actionable Feedback, Retries & Paragraph Scoping (Day 4 Milestone)**
+  - **Core Evaluation Principle:**
+    - Evaluates **conceptual understanding, not rote memorization of exact sentences**.
+    - Students receive full credit for correct explanations even when using different phrasing, vocabulary, sentence structures, or valid real-world analogies.
+  - **Independent Criterion-Level Evaluation Model (`src/lib/domain/semantic-audit.ts`):**
+    - Defined `CriterionEvaluationStatusSchema`: `covered`, `partially_covered`, `missing`, `incorrect`, `optional`.
+    - Rich metadata per status (`CRITERION_STATUS_META`): student label, badge colors, icon, description.
+    - Transparent overall assessment aggregate (`OverallAssessmentSchema`): plain-language summary, what was explained well, what needs more attention, what needs correction, suggested next improvement, and counts.
+    - Anti-hallucination evidence guard: quotes actual transcript phrases only if verified to exist in student transcript; strips false citations.
+    - Strict distinction: omissions (`missing`) are placed under "What needs more attention", while factual contradictions (`incorrect`) are strictly separated under "What needs correction".
+  - **IndexedDB Schema Upgrade (Version 3) (`src/lib/storage/study-store.ts`):**
+    - Upgraded IndexedDB version to 3; created `semantic_audits` store indexed on `attemptId` (unique), `studySetId`, `questionId`, `createdAt`.
+    - Implemented `saveSemanticAuditResult`, `getSemanticAuditResult`, `getSemanticAuditByAttempt`, `listSemanticAudits`, `deleteSemanticAuditResult`, `clearAllSemanticAudits`, and in-memory map fallback for SSR and tests.
+  - **Core Evaluator Engine & Fallback (`src/lib/audit/evaluator.ts`):**
+    - Structured Meta Muse Spark 1.3 prompt enforcing fair examiner rules, conceptual grading, and evidence verification.
+    - Multi-paragraph extractor `extractParagraphs()`.
+    - Robust deterministic offline fallback `evaluateDeterministically()` with synonym matching, stemming, and negation/contradiction detection.
+  - **Server-Side API Route (`src/app/api/audit/route.ts`):**
+    - Handled `POST /api/audit` with Zod schema validation, reasoning provider execution, anti-hallucination verification, and error sanitization.
+  - **Answer Review UI & Canonical Route (`src/features/answer-review/`, `src/app/study/[id]/attempts/[attemptId]/page.tsx`):**
+    - Authentic Butter & Tomato styled review page at `/study/:id/attempts/:attemptId`.
+    - Header with return to practice navigation, scope badge, and question context.
+    - Transparent concept coverage bar (e.g. "2 of 2 concepts covered") with zero AI jargon.
+    - Separate cards: "What you covered", "What needs more attention", and "What needs correction".
+    - Collapsible full transcript review and reference answer comparison.
+    - Suggested next steps: "Practise again" and "Back to Study Set".
+  - **Practice Room Integration (`src/features/practice/PracticeRoomView.tsx`):**
+    - Paragraph-level practice scope selector for multi-paragraph answers.
+    - Monotonic transcript assembly -> safe attempt save to IndexedDB -> automated transition to auditing state -> `/api/audit` call -> seamless router navigation to Answer Review.
+    - Resilient retry flow if evaluation fails: attempt remains safely saved in IndexedDB with retry button.
+  - **Deterministic 16-Scenario Test Suite (`tests/unit/semantic-audit.test.ts`):**
+    - 16 comprehensive tests covering exact answers, paraphrasing, partial coverage, omissions, contradictions, keyword stuffing rejection, valid extra examples, acoustic imperfections, garbled speech, paragraph scoping, IndexedDB persistence, provider retry resilience, schema validation, and API routes.
+  - **Testing & Verification:**
+    - 157 passing unit tests across 16 test files in Vitest (`pnpm run test`).
+    - Clean TypeScript check (`tsc --noEmit`) with 0 errors.
+    - Clean ESLint check (`eslint .`) with 0 errors.
+    - Clean Prettier code formatting verified across all files (`prettier --check .`).
+    - Clean Next.js Webpack production build (`next build --webpack`) with all 11 routes.
+
 ---
 
 ## 2. In Progress Tasks
 
-- _None (Day 3 completed; ready for Day 4 Semantic Answer Auditing & Retries)_
+- _None (Day 4 completed; ready for Day 5 IndexedDB, Polish & Accessibility)_
 
 ---
 
 ## 3. Next Tasks
 
-### Day 4: Semantic Answer Auditing & Retries
+### Day 5: Complete Core Screens, IndexedDB Persistence, Reliability & Responsive UI
 
-- [ ] `TASK-4.1` — Server-side semantic answer audit route handler using Meta reasoning model.
-- [ ] `TASK-4.2` — Build Answer Review UI (`src/features/answer-review`) with concept breakdown cards.
-- [ ] `TASK-4.3` — Implement concept status visualizer (`correct`, `partially_covered`, `missing`, `incorrect`).
-- [ ] `TASK-4.4` — Implement retry practice flow preserving previous attempts.
-- [ ] `TASK-4.5` — Build Attempt Comparison view highlighting progression across tries.
+- [ ] `TASK-5.1` — Complete client-side IndexedDB repository (`src/lib/storage`) with full attempt-to-attempt comparison and history logs.
+- [ ] `TASK-5.2` — Responsive UI audit at 390px, 768px, and 1440px.
+- [ ] `TASK-5.3` — Keyboard navigation, ARIA live regions, and contrast verification.
+- [ ] `TASK-5.4` — Error boundaries and offline storage safeguards.
 
 ---
 
 ## 4. Remaining Tasks
-
-### Day 4: Semantic Answer Auditing & Retries
-
-- [ ] `TASK-4.1` — Server-side semantic answer audit route handler.
-- [ ] `TASK-4.2` — Answer Review UI in `src/features/answer-review`.
-- [ ] `TASK-4.3` — Concept status visualizer (correct, partial, missing, incorrect).
-- [ ] `TASK-4.4` — Retry practice flow preserving attempt history.
-- [ ] `TASK-4.5` — Attempt comparison view.
-
-### Day 4: Semantic Answer Auditing & Retries
-
-- [ ] `TASK-4.1` — Server-side semantic answer audit route handler.
-- [ ] `TASK-4.2` — Answer Review UI in `src/features/answer-review`.
-- [ ] `TASK-4.3` — Concept status visualizer (correct, partial, missing, incorrect).
-- [ ] `TASK-4.4` — Retry practice flow preserving attempt history.
-- [ ] `TASK-4.5` — Attempt comparison view.
 
 ### Day 5: IndexedDB, Polish & Accessibility
 

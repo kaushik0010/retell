@@ -14,7 +14,11 @@ import {
   createAttemptId,
 } from "@/lib/domain/practice-session";
 import { savePracticeAttempt } from "@/lib/storage/study-store";
-import { AudioCaptureController } from "@/lib/audio/capture";
+import {
+  AudioCaptureController,
+  AudioDeviceInfo,
+  getAudioInputDevices,
+} from "@/lib/audio/capture";
 import { TranscribeClient } from "@/lib/audio/transcribe-client";
 import { TranscriptAccumulator } from "@/lib/audio/transcript-accumulator";
 import { generateRecallHint } from "@/lib/domain/recall-hints";
@@ -74,6 +78,16 @@ export function PracticeRoomView({
   const [lastSavedAttempt, setLastSavedAttempt] =
     useState<PracticeAttempt | null>(null);
 
+  // Audio input device selection and provider observability
+  const [audioDevices, setAudioDevices] = useState<AudioDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("default");
+  const [activeMicrophoneLabel, setActiveMicrophoneLabel] =
+    useState<string>("Default Microphone");
+  const [activeProvider, setActiveProvider] = useState<
+    "meta_voice" | "browser_fallback" | null
+  >(null);
+  const [providerReason, setProviderReason] = useState<string | null>(null);
+
   // Authoritative transcript accumulator and session refs
   const accumulatorRef = useRef<TranscriptAccumulator>(
     new TranscriptAccumulator()
@@ -84,6 +98,40 @@ export function PracticeRoomView({
   const captureControllerRef = useRef<AudioCaptureController | null>(null);
   const transcribeClientRef = useRef<TranscribeClient | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Enumerate audio input devices and listen for hardware changes
+  useEffect(() => {
+    let isMounted = true;
+
+    const refreshDevices = async () => {
+      const devices = await getAudioInputDevices();
+      if (isMounted) {
+        setAudioDevices(devices);
+      }
+    };
+
+    refreshDevices();
+
+    if (
+      typeof window !== "undefined" &&
+      navigator?.mediaDevices?.addEventListener
+    ) {
+      navigator.mediaDevices.addEventListener("devicechange", refreshDevices);
+    }
+
+    return () => {
+      isMounted = false;
+      if (
+        typeof window !== "undefined" &&
+        navigator?.mediaDevices?.removeEventListener
+      ) {
+        navigator.mediaDevices.removeEventListener(
+          "devicechange",
+          refreshDevices
+        );
+      }
+    };
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -180,6 +228,12 @@ export function PracticeRoomView({
           setInterimText(accumulatorRef.current.interimText);
         },
         onAudioProgress: () => {},
+        onProviderChange: (provider, details) => {
+          setActiveProvider(provider);
+          if (details?.reason) {
+            setProviderReason(details.reason);
+          }
+        },
         onError: (errText) => {
           console.warn("Transcribe streaming notice:", errText);
         },
@@ -192,8 +246,11 @@ export function PracticeRoomView({
 
       await client.start();
       transcribeClientRef.current = client;
+      if (client.provider) {
+        setActiveProvider(client.provider);
+      }
 
-      // 2. Start browser audio capture (with quiet-voice threshold 0.008)
+      // 2. Start browser audio capture (with quiet-voice threshold 0.008 and selected microphone)
       const capture = new AudioCaptureController(
         {
           onAudioChunk: (chunk) => {
@@ -202,11 +259,17 @@ export function PracticeRoomView({
           onVolumeChange: (vol) => {
             setVolume(vol);
           },
+          onDeviceDisconnected: (deviceLabel) => {
+            setErrorMessage(
+              `Microphone "${deviceLabel}" was disconnected. Your spoken words are preserved. You can finish your attempt or reconnect your device.`
+            );
+          },
           onPauseStateChange: (paused) => {
             setIsPaused(paused);
 
             if (paused) {
               // Generate source-grounded recall hint from reference answer and rubric
+              // No arbitrary 3-hint ceiling: hints continue sequentially throughout the attempt
               const currentFullText =
                 accumulatorRef.current.getFullTranscript();
               const hint = generateRecallHint({
@@ -214,7 +277,6 @@ export function PracticeRoomView({
                 criteria: activeRubric?.criteria,
                 currentTranscript: currentFullText,
                 previousHints: previousHintsRef.current,
-                maxHintsPerAttempt: 3,
               });
 
               if (hint) {
@@ -232,11 +294,16 @@ export function PracticeRoomView({
             handleAudioError(err);
           },
         },
-        { sampleRate: 24000, silenceThresholdRms: 0.008 }
+        {
+          sampleRate: 24000,
+          silenceThresholdRms: 0.008,
+          deviceId: selectedDeviceId,
+        }
       );
 
       await capture.start();
       captureControllerRef.current = capture;
+      setActiveMicrophoneLabel(capture.deviceLabel);
 
       // Start elapsed timer
       timerRef.current = setInterval(() => {
@@ -535,10 +602,44 @@ export function PracticeRoomView({
                   listen, transcribe, and keep you on track.
                 </p>
 
+                {/* Microphone Input Device Selection */}
+                <div className="mt-4 flex w-full max-w-xs flex-col items-center gap-1.5 text-left">
+                  <label
+                    htmlFor="mic-device-select"
+                    className="text-brand-secondary text-[11px] font-semibold tracking-wider uppercase"
+                  >
+                    Audio Input Device
+                  </label>
+                  <div className="relative w-full">
+                    <select
+                      id="mic-device-select"
+                      value={selectedDeviceId}
+                      onChange={(e) => setSelectedDeviceId(e.target.value)}
+                      className="border-brand-peach/80 bg-brand-cream/50 text-brand-ink focus:border-brand-tomato w-full cursor-pointer appearance-none rounded-xl border px-3 py-2 pr-8 text-xs font-medium transition focus:outline-hidden"
+                    >
+                      <option value="default">
+                        🎙️ System Default Microphone
+                      </option>
+                      {audioDevices
+                        .filter((d) => d.deviceId !== "default")
+                        .map((dev) => (
+                          <option key={dev.deviceId} value={dev.deviceId}>
+                            {dev.isBluetooth ? "🎧 " : "🎙️ "}
+                            {dev.label}
+                            {dev.isBluetooth ? " (Bluetooth)" : ""}
+                          </option>
+                        ))}
+                    </select>
+                    <div className="text-brand-secondary pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-xs">
+                      ▼
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleStartPractice}
-                  className="bg-brand-tomato hover:bg-brand-tomato-hover mt-5 inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 font-bold text-white shadow-xs transition"
+                  className="bg-brand-tomato hover:bg-brand-tomato-hover mt-4 inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 font-bold text-white shadow-xs transition"
                 >
                   <svg
                     className="h-5 w-5"
@@ -587,6 +688,47 @@ export function PracticeRoomView({
             {/* Active Listening / Recording State */}
             {(sessionState === "listening" || sessionState === "finishing") && (
               <div className="space-y-5">
+                {/* Active Microphone & Provider Status Bar */}
+                <div className="border-brand-peach/40 flex flex-wrap items-center justify-between gap-2 border-b pb-2.5 text-xs">
+                  <div className="text-brand-secondary flex items-center gap-1.5">
+                    <span>🎙️ Input:</span>
+                    <span
+                      className="text-brand-ink max-w-[200px] truncate font-semibold"
+                      title={activeMicrophoneLabel}
+                    >
+                      {activeMicrophoneLabel}
+                    </span>
+                  </div>
+                  {activeProvider && (
+                    <div
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                        activeProvider === "meta_voice"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-amber-200 bg-amber-50 text-amber-900"
+                      }`}
+                      title={
+                        activeProvider === "meta_voice"
+                          ? "Connected to Meta Voice Transcribe WebSocket"
+                          : providerReason ||
+                            "Running browser speech engine fallback"
+                      }
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          activeProvider === "meta_voice"
+                            ? "animate-pulse bg-emerald-500"
+                            : "bg-amber-500"
+                        }`}
+                      />
+                      <span>
+                        {activeProvider === "meta_voice"
+                          ? "Meta Voice AI"
+                          : "Browser Speech Engine (Local)"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Waveform & Duration */}
                 <WaveformVisualizer
                   isListening={sessionState === "listening"}
@@ -672,7 +814,7 @@ export function PracticeRoomView({
                 </div>
 
                 {/* Attempt Metrics Card */}
-                <div className="bg-brand-cream/70 border-brand-peach/60 grid grid-cols-2 gap-3 rounded-xl border p-4 text-center">
+                <div className="bg-brand-cream/70 border-brand-peach/60 grid grid-cols-2 gap-3 rounded-xl border p-4 text-center sm:grid-cols-3">
                   <div>
                     <span className="text-brand-secondary text-[11px] font-semibold tracking-wider uppercase">
                       Spoken Words
@@ -687,6 +829,22 @@ export function PracticeRoomView({
                     </span>
                     <p className="font-heading text-brand-ink text-xl font-bold">
                       {lastSavedAttempt?.durationSeconds ?? 0}s
+                    </p>
+                  </div>
+                  <div className="border-brand-peach/60 col-span-2 flex flex-col justify-center border-t pt-2 sm:col-span-1 sm:border-t-0 sm:border-l sm:pt-0">
+                    <span className="text-brand-secondary text-[11px] font-semibold tracking-wider uppercase">
+                      Transcription Engine
+                    </span>
+                    <p className="text-brand-ink mt-1 text-xs font-bold">
+                      {activeProvider === "meta_voice"
+                        ? "Meta Voice AI"
+                        : "Browser Speech Engine"}
+                    </p>
+                    <p
+                      className="text-brand-secondary/70 mx-auto mt-0.5 max-w-[160px] truncate text-[10px]"
+                      title={activeMicrophoneLabel}
+                    >
+                      🎙️ {activeMicrophoneLabel}
                     </p>
                   </div>
                 </div>

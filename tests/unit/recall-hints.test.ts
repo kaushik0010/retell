@@ -80,7 +80,7 @@ describe("generateRecallHint Unit Test Suite", () => {
     expect(hint?.cue).toBe("Increasing Page Frames");
   });
 
-  it("caps hints at maximum 3 per attempt to prevent answer dumping", () => {
+  it("supports explicit max hints cap when specified", () => {
     const hint = generateRecallHint({
       referenceAnswer: sampleAnswer,
       criteria: sampleCriteria,
@@ -90,6 +90,158 @@ describe("generateRecallHint Unit Test Suite", () => {
     });
 
     expect(hint).toBeNull();
+  });
+
+  it("continues offering useful hints beyond three when multiple criteria exist", () => {
+    const multiCriteria: RubricCriterion[] = [
+      {
+        id: "c1",
+        category: "essential_concept",
+        name: "Criterion 1: Client query",
+        description: "",
+        satisfactoryDemonstration: "",
+        isMandatory: true,
+        orderIndex: 0,
+      },
+      {
+        id: "c2",
+        category: "essential_concept",
+        name: "Criterion 2: Recursive resolver",
+        description: "",
+        satisfactoryDemonstration: "",
+        isMandatory: true,
+        orderIndex: 1,
+      },
+      {
+        id: "c3",
+        category: "essential_concept",
+        name: "Criterion 3: Root nameserver",
+        description: "",
+        satisfactoryDemonstration: "",
+        isMandatory: true,
+        orderIndex: 2,
+      },
+      {
+        id: "c4",
+        category: "essential_concept",
+        name: "Criterion 4: TLD nameserver",
+        description: "",
+        satisfactoryDemonstration: "",
+        isMandatory: true,
+        orderIndex: 3,
+      },
+      {
+        id: "c5",
+        category: "essential_concept",
+        name: "Criterion 5: Authoritative nameserver",
+        description: "",
+        satisfactoryDemonstration: "",
+        isMandatory: true,
+        orderIndex: 4,
+      },
+    ];
+
+    // Hint 1
+    const h1 = generateRecallHint({
+      referenceAnswer: "DNS resolves hostnames to IP addresses.",
+      criteria: multiCriteria,
+      currentTranscript: "",
+      previousHints: [],
+    });
+    expect(h1).not.toBeNull();
+    expect(h1?.cue).toBe("Client query");
+
+    // Hint 2
+    const h2 = generateRecallHint({
+      referenceAnswer: "DNS resolves hostnames to IP addresses.",
+      criteria: multiCriteria,
+      currentTranscript: "",
+      previousHints: [h1!.cue],
+    });
+    expect(h2).not.toBeNull();
+    expect(h2?.cue).toBe("Recursive resolver");
+
+    // Hint 3
+    const h3 = generateRecallHint({
+      referenceAnswer: "DNS resolves hostnames to IP addresses.",
+      criteria: multiCriteria,
+      currentTranscript: "",
+      previousHints: [h1!.cue, h2!.cue],
+    });
+    expect(h3).not.toBeNull();
+    expect(h3?.cue).toBe("Root nameserver");
+
+    // Hint 4: MUST NOT stop after three!
+    const h4 = generateRecallHint({
+      referenceAnswer: "DNS resolves hostnames to IP addresses.",
+      criteria: multiCriteria,
+      currentTranscript: "",
+      previousHints: [h1!.cue, h2!.cue, h3!.cue],
+    });
+    expect(h4).not.toBeNull();
+    expect(h4?.cue).toBe("TLD nameserver");
+
+    // Hint 5
+    const h5 = generateRecallHint({
+      referenceAnswer: "DNS resolves hostnames to IP addresses.",
+      criteria: multiCriteria,
+      currentTranscript: "",
+      previousHints: [h1!.cue, h2!.cue, h3!.cue, h4!.cue],
+    });
+    expect(h5).not.toBeNull();
+    expect(h5?.cue).toBe("Authoritative nameserver");
+
+    // Once all 5 criteria have been shown, returns null (no hallucinated hints)
+    const h6 = generateRecallHint({
+      referenceAnswer: "DNS resolves hostnames to IP addresses.",
+      criteria: multiCriteria,
+      currentTranscript: "",
+      previousHints: [h1!.cue, h2!.cue, h3!.cue, h4!.cue, h5!.cue],
+    });
+    expect(h6).toBeNull();
+  });
+
+  it("extracts distinct cues from criteria that share category prefix before colon or dash", () => {
+    const prefixedCriteria: RubricCriterion[] = [
+      {
+        id: "p1",
+        category: "essential_concept",
+        name: "Process Isolation: Dedicated address space",
+        description: "",
+        satisfactoryDemonstration: "",
+        isMandatory: true,
+        orderIndex: 0,
+      },
+      {
+        id: "p2",
+        category: "essential_concept",
+        name: "Process Isolation: IPC communication overhead",
+        description: "",
+        satisfactoryDemonstration: "",
+        isMandatory: true,
+        orderIndex: 1,
+      },
+    ];
+
+    const cue1 = generateRecallHint({
+      referenceAnswer: "A process has isolated memory.",
+      criteria: prefixedCriteria,
+      currentTranscript: "",
+      previousHints: [],
+    });
+
+    expect(cue1).not.toBeNull();
+    expect(cue1?.cue).toBe("Dedicated address space");
+
+    const cue2 = generateRecallHint({
+      referenceAnswer: "A process has isolated memory.",
+      criteria: prefixedCriteria,
+      currentTranscript: "",
+      previousHints: [cue1!.cue],
+    });
+
+    expect(cue2).not.toBeNull();
+    expect(cue2?.cue).toBe("IPC communication overhead");
   });
 
   it("falls back to reference answer sentences when no rubric criteria exist", () => {

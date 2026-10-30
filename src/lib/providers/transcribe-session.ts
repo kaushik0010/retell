@@ -10,6 +10,9 @@ export interface TranscribeEventData {
   final?: boolean;
   audioProcessedMs?: number;
   message?: string;
+  provider?: "meta_voice" | "browser_fallback";
+  closeCode?: number;
+  closeReason?: string;
 }
 
 export type TranscribeEventListener = (event: TranscribeEventData) => void;
@@ -19,6 +22,7 @@ export interface TranscribeSession {
   metaSessionId: string | null;
   ws: WebSocket | null;
   isMock: boolean;
+  provider: "meta_voice" | "browser_fallback";
   isClosed: boolean;
   finalTranscript: string;
   interimTranscript: string;
@@ -33,11 +37,29 @@ export interface TranscribeSession {
   close: () => void;
 }
 
-// Global active sessions map (retained in server process memory)
-const activeSessions = new Map<string, TranscribeSession>();
+// Global active sessions map attached to globalThis to ensure a single shared registry
+// across all Next.js App Router route handlers (/api/transcribe/session, stream, audio, finish)
+const globalTranscribe = globalThis as unknown as {
+  __retellActiveSessions?: Map<string, TranscribeSession>;
+  __retellCleanupIntervalStarted?: boolean;
+};
+
+if (!globalTranscribe.__retellActiveSessions) {
+  globalTranscribe.__retellActiveSessions = new Map<
+    string,
+    TranscribeSession
+  >();
+}
+
+const activeSessions: Map<string, TranscribeSession> =
+  globalTranscribe.__retellActiveSessions;
 
 // Periodically clean up expired sessions (> 15 minutes of inactivity)
-if (typeof setInterval !== "undefined") {
+if (
+  !globalTranscribe.__retellCleanupIntervalStarted &&
+  typeof setInterval !== "undefined"
+) {
+  globalTranscribe.__retellCleanupIntervalStarted = true;
   setInterval(() => {
     const now = Date.now();
     for (const [id, session] of activeSessions.entries()) {
@@ -87,54 +109,12 @@ export async function createTranscribeSession(options?: {
 
   // If no API key or explicitly mockFallback without API key, run graceful fallback session
   if (!hasValidApiKey || options?.mockFallback) {
-    const session: TranscribeSession = {
-      id: sessionId,
-      metaSessionId: `mock_meta_${sessionId}`,
-      ws: null,
-      isMock: true,
-      isClosed: false,
-      finalTranscript: "",
-      interimTranscript: "",
-      audioProcessedMs: 0,
-      createdAt: Date.now(),
-      lastActivityAt: Date.now(),
+    const session = createMockFallbackSession(
+      sessionId,
       listeners,
-      subscribe,
       broadcast,
-      sendAudio: (chunk) => {
-        session.lastActivityAt = Date.now();
-        const byteLength = chunk.byteLength;
-        // In 24kHz 16-bit mono PCM: 2 bytes per sample, 24,000 samples per sec = 48,000 bytes/sec
-        // Each 3,840 bytes = 80ms
-        const chunkMs = Math.round((byteLength / 48000) * 1000);
-        session.audioProcessedMs += chunkMs;
-
-        broadcast({
-          type: "audioProgress",
-          audioProcessedMs: session.audioProcessedMs,
-        });
-      },
-      finish: async () => {
-        session.isClosed = true;
-        session.lastActivityAt = Date.now();
-        const output =
-          session.finalTranscript.trim() || session.interimTranscript.trim();
-        session.finalTranscript = output;
-        broadcast({
-          type: "transcript",
-          transcript: output,
-          final: true,
-        });
-        broadcast({ type: "closed" });
-        return output;
-      },
-      close: () => {
-        session.isClosed = true;
-        broadcast({ type: "closed" });
-        activeSessions.delete(sessionId);
-      },
-    };
-
+      subscribe
+    );
     activeSessions.set(sessionId, session);
     return session;
   }
@@ -160,12 +140,23 @@ export async function createTranscribeSession(options?: {
       return;
     }
 
+    // 9-second timeout matching Meta's 10-second initial handshake allowance
     const connectionTimer = setTimeout(() => {
       if (!resolved) {
         resolved = true;
         console.warn(
           "Meta WebSocket connection timed out; using local fallback"
         );
+        // Safely detach all listeners and close the timed out websocket so its
+        // onclose never interferes with the fallback session or deletes it
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        try {
+          ws.close();
+        } catch {}
+
         const fallbackSession = createMockFallbackSession(
           sessionId,
           listeners,
@@ -175,13 +166,14 @@ export async function createTranscribeSession(options?: {
         activeSessions.set(sessionId, fallbackSession);
         resolve(fallbackSession);
       }
-    }, 4000);
+    }, 9000);
 
     const session: TranscribeSession = {
       id: sessionId,
       metaSessionId: null,
       ws,
       isMock: false,
+      provider: "meta_voice",
       isClosed: false,
       finalTranscript: "",
       interimTranscript: "",
@@ -213,9 +205,9 @@ export async function createTranscribeSession(options?: {
             // Wait up to 3s for final transcript, then resolve with whatever we have
             const finishTimeout = setTimeout(() => {
               session.isClosed = true;
-              broadcast({ type: "closed" });
+              broadcast({ type: "closed", closeCode: 1000 });
               try {
-                ws.close();
+                ws.close(1000, "End of practice attempt");
               } catch {}
               const output =
                 session.finalTranscript.trim() ||
@@ -239,7 +231,7 @@ export async function createTranscribeSession(options?: {
             };
           } else {
             session.isClosed = true;
-            broadcast({ type: "closed" });
+            broadcast({ type: "closed", closeCode: 1000 });
             const output =
               session.finalTranscript.trim() ||
               session.interimTranscript.trim();
@@ -251,15 +243,21 @@ export async function createTranscribeSession(options?: {
       close: () => {
         session.isClosed = true;
         try {
+          ws.onopen = null;
+          ws.onmessage = null;
+          ws.onerror = null;
+          ws.onclose = null;
           if (
             ws.readyState === WebSocket.OPEN ||
             ws.readyState === WebSocket.CONNECTING
           ) {
-            ws.close();
+            ws.close(1000, "Client closed");
           }
         } catch {}
-        broadcast({ type: "closed" });
-        activeSessions.delete(sessionId);
+        broadcast({ type: "closed", closeCode: 1000 });
+        if (activeSessions.get(sessionId) === session) {
+          activeSessions.delete(sessionId);
+        }
       },
     };
 
@@ -294,6 +292,7 @@ export async function createTranscribeSession(options?: {
         broadcast({
           type: "connected",
           sessionId,
+          provider: "meta_voice",
         });
         return;
       }
@@ -317,8 +316,17 @@ export async function createTranscribeSession(options?: {
             final: boolean;
           };
           if (transcriptEvt.final) {
-            session.finalTranscript =
-              transcriptEvt.transcript || session.finalTranscript;
+            const trimmed = (transcriptEvt.transcript || "").trim();
+            if (trimmed) {
+              if (!session.finalTranscript) {
+                session.finalTranscript = trimmed;
+              } else if (trimmed.startsWith(session.finalTranscript)) {
+                session.finalTranscript = trimmed;
+              } else if (!session.finalTranscript.includes(trimmed)) {
+                session.finalTranscript =
+                  `${session.finalTranscript} ${trimmed}`.trim();
+              }
+            }
             session.interimTranscript = "";
             broadcast({
               type: "transcript",
@@ -352,6 +360,13 @@ export async function createTranscribeSession(options?: {
       if (!resolved) {
         resolved = true;
         clearTimeout(connectionTimer);
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        try {
+          ws.close();
+        } catch {}
         const fallbackSession = createMockFallbackSession(
           sessionId,
           listeners,
@@ -368,10 +383,30 @@ export async function createTranscribeSession(options?: {
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event: CloseEvent) => {
       session.isClosed = true;
-      broadcast({ type: "closed" });
-      activeSessions.delete(sessionId);
+      if (activeSessions.get(sessionId) === session) {
+        activeSessions.delete(sessionId);
+      }
+      const closeCode = event?.code ?? 1000;
+      const closeReason = event?.reason ?? "";
+      let userMessage = "Voice transcription connection closed.";
+      if (closeCode === 1008) {
+        userMessage =
+          "Meta API authentication failed. Please verify your META_MODEL_API_KEY.";
+      } else if (closeCode === 1013) {
+        userMessage =
+          "Meta API rate limit reached or server busy. Switched to fallback.";
+      } else if (closeCode === 1011) {
+        userMessage = "Meta Voice server error. Switched to fallback.";
+      }
+
+      broadcast({
+        type: "closed",
+        closeCode,
+        closeReason,
+        message: userMessage,
+      });
     };
   });
 }
@@ -387,6 +422,7 @@ function createMockFallbackSession(
     metaSessionId: `local_relay_${sessionId}`,
     ws: null,
     isMock: true,
+    provider: "browser_fallback",
     isClosed: false,
     finalTranscript: "",
     interimTranscript: "",
@@ -416,13 +452,15 @@ function createMockFallbackSession(
         transcript: output,
         final: true,
       });
-      broadcast({ type: "closed" });
+      broadcast({ type: "closed", closeCode: 1000 });
       return output;
     },
     close: () => {
       session.isClosed = true;
-      broadcast({ type: "closed" });
-      activeSessions.delete(sessionId);
+      broadcast({ type: "closed", closeCode: 1000 });
+      if (activeSessions.get(sessionId) === session) {
+        activeSessions.delete(sessionId);
+      }
     },
   };
 

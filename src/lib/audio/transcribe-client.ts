@@ -9,6 +9,10 @@
 export interface TranscribeClientCallbacks {
   onTranscriptDelta: (text: string, isFinal: boolean) => void;
   onAudioProgress?: (audioProcessedMs: number) => void;
+  onProviderChange?: (
+    provider: "meta_voice" | "browser_fallback",
+    details?: { reason?: string }
+  ) => void;
   onError?: (error: string) => void;
   onStateChange?: (
     state: "idle" | "connecting" | "listening" | "finishing" | "closed"
@@ -49,9 +53,17 @@ export class TranscribeClient {
   private latestInterimTranscript = "";
   private speechRecognition: SpeechRecognitionLike | null = null;
   private isMockRelay = false;
+  private activeProvider: "meta_voice" | "browser_fallback" | null = null;
+  private audioQueue: Uint8Array[] = [];
+  private isSendingAudio = false;
+  private isRecognitionRunning = false;
 
   constructor(callbacks: TranscribeClientCallbacks) {
     this.callbacks = callbacks;
+  }
+
+  public get provider(): "meta_voice" | "browser_fallback" | null {
+    return this.activeProvider;
   }
 
   public async start(): Promise<string> {
@@ -59,6 +71,7 @@ export class TranscribeClient {
     this.isClosed = false;
     this.accumulatedFinalTranscript = "";
     this.latestInterimTranscript = "";
+    this.audioQueue = [];
     this.callbacks.onStateChange?.("connecting");
 
     try {
@@ -80,6 +93,19 @@ export class TranscribeClient {
 
       this.sessionId = data.sessionId;
       this.isMockRelay = Boolean(data.isMock);
+      this.activeProvider = this.isMockRelay
+        ? "browser_fallback"
+        : "meta_voice";
+
+      this.callbacks.onProviderChange?.(
+        this.activeProvider,
+        this.isMockRelay
+          ? {
+              reason:
+                "Meta WebSocket unavailable; running browser speech engine",
+            }
+          : undefined
+      );
 
       if (!this.sessionId) {
         throw new Error("Missing session ID from server");
@@ -95,6 +121,17 @@ export class TranscribeClient {
 
         try {
           const payload = JSON.parse(event.data);
+          if (
+            (payload.provider === "meta_voice" ||
+              payload.provider === "browser_fallback") &&
+            payload.provider !== this.activeProvider
+          ) {
+            const nextProvider = payload.provider as
+              "meta_voice" | "browser_fallback";
+            this.activeProvider = nextProvider;
+            this.callbacks.onProviderChange?.(nextProvider);
+          }
+
           if (payload.type === "transcript") {
             if (payload.final) {
               this.accumulatedFinalTranscript = payload.transcript || "";
@@ -113,8 +150,18 @@ export class TranscribeClient {
           } else if (payload.type === "audioProgress") {
             this.callbacks.onAudioProgress?.(payload.audioProcessedMs || 0);
           } else if (payload.type === "error") {
-            this.callbacks.onError?.(payload.message || "Transcription error");
+            console.warn("Server transcribe SSE error event:", payload.message);
+            // If live Meta session encountered an error, switch to browser fallback seamlessly
+            this.switchToFallback(
+              payload.message || "Meta transcription service error"
+            );
           } else if (payload.type === "closed") {
+            if (payload.closeCode && payload.closeCode !== 1000) {
+              this.switchToFallback(
+                payload.message ||
+                  `Meta connection closed (${payload.closeCode})`
+              );
+            }
             this.eventSource?.close();
           }
         } catch (err) {
@@ -126,6 +173,10 @@ export class TranscribeClient {
         // SSE error or closure
         if (!this.isFinishing && !this.isClosed) {
           console.warn("Transcribe SSE connection dropped");
+          // If using Meta relay and SSE dropped, switch smoothly to browser speech fallback
+          if (!this.isMockRelay) {
+            this.switchToFallback("Server connection dropped");
+          }
         }
       };
 
@@ -147,7 +198,24 @@ export class TranscribeClient {
     }
   }
 
+  /**
+   * Switches from live Meta relay to local browser SpeechRecognition seamlessly
+   * preserving existing transcripts without data loss.
+   */
+  private switchToFallback(reason: string) {
+    if (this.isMockRelay || this.isClosed || this.isFinishing) return;
+    this.isMockRelay = true;
+    this.activeProvider = "browser_fallback";
+    console.warn(
+      `[TranscribeClient] Switching to browser SpeechRecognition: ${reason}`
+    );
+    this.callbacks.onProviderChange?.("browser_fallback", { reason });
+    this.initBrowserSpeechFallback();
+  }
+
   private initBrowserSpeechFallback() {
+    if (this.speechRecognition || typeof window === "undefined") return;
+
     try {
       const windowWithSpeech = window as unknown as {
         webkitSpeechRecognition?: new () => SpeechRecognitionLike;
@@ -190,11 +258,54 @@ export class TranscribeClient {
           }
         };
 
-        recognition.onerror = (err) => {
-          console.warn("Browser SpeechRecognition fallback notice:", err);
+        recognition.onerror = (err: unknown) => {
+          const errObj = err as { error?: string; message?: string };
+          const errorType = errObj?.error || "unknown";
+
+          // "no-speech" is normal when student pauses to think; do not treat as fatal error
+          if (errorType === "no-speech" || errorType === "aborted") {
+            return;
+          }
+
+          console.warn("Browser SpeechRecognition notice:", {
+            error: errorType,
+            message: errObj?.message || "",
+            session: this.sessionId,
+            activeProvider: this.activeProvider,
+          });
         };
 
-        recognition.start();
+        // Auto-restart recognition when browser stops during a conversational pause or silence
+        recognition.onend = () => {
+          this.isRecognitionRunning = false;
+          if (!this.isClosed && !this.isFinishing && this.isMockRelay) {
+            try {
+              recognition.start();
+              this.isRecognitionRunning = true;
+            } catch {
+              setTimeout(() => {
+                if (
+                  !this.isClosed &&
+                  !this.isFinishing &&
+                  this.isMockRelay &&
+                  !this.isRecognitionRunning
+                ) {
+                  try {
+                    recognition.start();
+                    this.isRecognitionRunning = true;
+                  } catch {}
+                }
+              }, 150);
+            }
+          }
+        };
+
+        try {
+          recognition.start();
+          this.isRecognitionRunning = true;
+        } catch (startErr) {
+          console.warn("SpeechRecognition start exception:", startErr);
+        }
         this.speechRecognition = recognition;
       }
     } catch (err) {
@@ -202,20 +313,59 @@ export class TranscribeClient {
     }
   }
 
-  public async sendAudioChunk(chunk: Uint8Array): Promise<void> {
+  public sendAudioChunk(chunk: Uint8Array): void {
     if (!this.sessionId || this.isClosed || this.isFinishing) return;
+    // Skip uploading audio chunks if in browser speech fallback mode
+    if (this.isMockRelay) return;
 
+    this.audioQueue.push(chunk);
+    this.flushAudioQueue();
+  }
+
+  private async flushAudioQueue(): Promise<void> {
+    if (
+      this.isSendingAudio ||
+      this.audioQueue.length === 0 ||
+      !this.sessionId ||
+      this.isClosed ||
+      this.isMockRelay
+    ) {
+      return;
+    }
+
+    this.isSendingAudio = true;
     try {
-      await fetch(
+      const chunksToSend = this.audioQueue.splice(0, this.audioQueue.length);
+      const totalLength = chunksToSend.reduce(
+        (acc, c) => acc + c.byteLength,
+        0
+      );
+      const merged = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const c of chunksToSend) {
+        merged.set(c, offset);
+        offset += c.byteLength;
+      }
+
+      const res = await fetch(
         `/api/transcribe/audio?sessionId=${encodeURIComponent(this.sessionId)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/octet-stream" },
-          body: chunk as unknown as BodyInit,
+          body: merged as unknown as BodyInit,
         }
       );
+
+      if (!res.ok && res.status === 404) {
+        this.switchToFallback("Server audio session expired");
+      }
     } catch (err) {
-      console.error("Audio chunk upload error:", err);
+      console.warn("Audio chunk upload error:", err);
+    } finally {
+      this.isSendingAudio = false;
+      if (this.audioQueue.length > 0 && !this.isClosed && !this.isMockRelay) {
+        this.flushAudioQueue();
+      }
     }
   }
 
@@ -241,6 +391,7 @@ export class TranscribeClient {
         this.speechRecognition.stop();
       } catch {}
       this.speechRecognition = null;
+      this.isRecognitionRunning = false;
     }
 
     if (!this.sessionId) {
@@ -285,6 +436,8 @@ export class TranscribeClient {
   public close(): void {
     this.isClosed = true;
     this.isFinishing = false;
+    this.isRecognitionRunning = false;
+    this.audioQueue = [];
 
     if (this.speechRecognition) {
       try {

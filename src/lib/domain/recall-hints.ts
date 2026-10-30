@@ -67,24 +67,65 @@ function tokenize(text: string): string[] {
 
 /**
  * Extracts a concise 1-4 word recall cue from a criterion name or sentence.
+ * Avoids cutting off meaningful concept words at colons or dashes.
  */
-function extractConciseCue(raw: string): string {
-  // Remove filler prefixes
-  const cleaned = raw
+export function extractConciseCue(raw: string): string {
+  let text = raw.trim();
+
+  // 1. Remove numbering prefixes: "1. ", "Step 1: ", "Criterion 1 - "
+  text = text.replace(
+    /^(step|criterion|point|item)?\s*\d+[\.\:\)\-–—]\s*/i,
+    ""
+  );
+
+  // 2. Remove generic academic boilerplate prefixes
+  text = text.replace(
+    /^(concept of|explanation of|definition of|understanding of|overview of|importance of|role of|mechanism of)\s+/i,
+    ""
+  );
+
+  // 3. Handle colon or dash separators:
+  // If formatted as "Category: Specific Detail", prefer the specific detail after the separator
+  // so multiple criteria sharing a category prefix (e.g. "DNS Resolution: Root query") don't collide.
+  if (/[:\-–—]/.test(text)) {
+    const parts = text
+      .split(/[:\-–—]/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length > 1) {
+      const afterSeparator = parts.slice(1).join(" ").trim();
+      // If the content after separator has meaningful words, use it; otherwise fall back to first part
+      if (afterSeparator.length >= 4) {
+        text = afterSeparator;
+      } else if (parts[0] && parts[0].length >= 4) {
+        text = parts[0];
+      }
+    }
+  }
+
+  // Remove secondary boilerplate that might have followed the separator
+  text = text
     .replace(
-      /^(concept of|explanation of|definition of|understanding of|overview of)\s+/i,
+      /^(concept of|explanation of|definition of|understanding of|overview of|importance of|role of|mechanism of)\s+/i,
       ""
     )
-    .replace(/[:\-–—].*$/, "")
     .trim();
 
-  // Split into words
-  const words = cleaned.split(/\s+/).filter(Boolean);
+  // 4. Split into words and limit to 1-4 words (concise cue)
+  const words = text.split(/\s+/).filter(Boolean);
   if (words.length <= 4) {
     return words.join(" ");
   }
 
-  // Pick first 3 significant words
+  // Filter out stop words to preserve the most salient keywords
+  const salient = words.filter((w) => !COMMON_STOP_WORDS.has(w.toLowerCase()));
+  if (salient.length >= 2 && salient.length <= 4) {
+    return salient.join(" ");
+  }
+  if (salient.length > 4) {
+    return salient.slice(0, 3).join(" ");
+  }
+
   return words.slice(0, 3).join(" ");
 }
 
@@ -102,6 +143,17 @@ function isConceptMentioned(
   for (const token of cueTokens) {
     if (transcriptTokens.has(token)) {
       matches++;
+    } else {
+      // Check partial/stem matches (e.g. "resolve" matches "resolver" or "resolving")
+      for (const t of transcriptTokens) {
+        if (
+          (token.length >= 4 && t.startsWith(token.slice(0, -1))) ||
+          (t.length >= 4 && token.startsWith(t.slice(0, -1)))
+        ) {
+          matches++;
+          break;
+        }
+      }
     }
   }
 
@@ -111,17 +163,21 @@ function isConceptMentioned(
 
 /**
  * Generates an answer-grounded recall hint when a student pauses.
- * Returns null if no grounded hint is possible or if max hints reached.
+ * Returns null if no grounded hint is possible or all concepts have been covered.
+ * Continues offering useful hints across the entire attempt without an arbitrary limit.
  */
 export function generateRecallHint({
   referenceAnswer = "",
   criteria = [],
   currentTranscript = "",
   previousHints = [],
-  maxHintsPerAttempt = 3,
+  maxHintsPerAttempt = Infinity,
 }: GenerateRecallHintParams): RecallHint | null {
-  // Guard: Cap maximum hints to avoid revealing the entire answer
-  if (previousHints.length >= maxHintsPerAttempt) {
+  // Optional cap: only enforced if explicitly passed as a finite number
+  if (
+    Number.isFinite(maxHintsPerAttempt) &&
+    previousHints.length >= maxHintsPerAttempt
+  ) {
     return null;
   }
 

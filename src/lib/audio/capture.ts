@@ -9,6 +9,7 @@ export interface AudioCaptureCallbacks {
   onAudioChunk?: (chunk: Uint8Array) => void;
   onVolumeChange?: (normalizedVolume: number) => void;
   onPauseStateChange?: (isPaused: boolean, pauseDurationSec: number) => void;
+  onDeviceDisconnected?: (deviceLabel: string) => void;
   onError?: (err: Error) => void;
 }
 
@@ -16,6 +17,48 @@ export interface AudioCaptureConfig {
   sampleRate?: number; // 24000 for Meta Voice Transcribe
   silenceThresholdRms?: number; // Volume threshold below which audio is considered silent
   pauseTriggerMs?: number; // 4000ms pause threshold
+  deviceId?: string; // Optional specific microphone input device ID (e.g. Bluetooth headset)
+}
+
+export interface AudioDeviceInfo {
+  deviceId: string;
+  label: string;
+  groupId?: string;
+  isDefault: boolean;
+  isBluetooth: boolean;
+}
+
+/**
+ * Enumerates available audio input devices (microphones) and identifies Bluetooth headsets.
+ */
+export async function getAudioInputDevices(): Promise<AudioDeviceInfo[]> {
+  if (
+    typeof window === "undefined" ||
+    !navigator?.mediaDevices?.enumerateDevices
+  ) {
+    return [];
+  }
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter((d) => d.kind === "audioinput");
+
+    return audioInputs.map((d, idx) => {
+      const label = d.label || `Microphone ${idx + 1}`;
+      const isBluetooth =
+        /bluetooth|hands-free|airpods|buds|wireless|headset/i.test(label);
+      return {
+        deviceId: d.deviceId,
+        label,
+        groupId: d.groupId,
+        isDefault: d.deviceId === "default" || idx === 0,
+        isBluetooth,
+      };
+    });
+  } catch (err) {
+    console.warn("Could not enumerate audio input devices:", err);
+    return [];
+  }
 }
 
 /**
@@ -53,6 +96,7 @@ export class AudioCaptureController {
   private config: Required<AudioCaptureConfig>;
 
   private isCapturing = false;
+  private activeDeviceLabel = "Default Microphone";
   private silenceStartMs: number | null = null;
   private isPausedReported = false;
   private pcmChunkBuffer: number[] = [];
@@ -64,6 +108,7 @@ export class AudioCaptureController {
       sampleRate: config?.sampleRate || 24000,
       silenceThresholdRms: config?.silenceThresholdRms || 0.008,
       pauseTriggerMs: config?.pauseTriggerMs || 4000,
+      deviceId: config?.deviceId || "",
     };
   }
 
@@ -80,15 +125,34 @@ export class AudioCaptureController {
     }
 
     try {
-      // 1. Request microphone access
+      // 1. Request microphone access with optional deviceId constraint
+      const audioConstraints: MediaTrackConstraints = {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+
+      if (this.config.deviceId && this.config.deviceId !== "default") {
+        audioConstraints.deviceId = { ideal: this.config.deviceId };
+      }
+
       this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+        audio: audioConstraints,
       });
+
+      // Identify active input device and listen for disconnects
+      const activeTrack = this.stream.getAudioTracks()[0];
+      if (activeTrack) {
+        this.activeDeviceLabel = activeTrack.label || "Microphone";
+        activeTrack.onended = () => {
+          console.warn(
+            "Active microphone track ended (device disconnected):",
+            this.activeDeviceLabel
+          );
+          this.callbacks.onDeviceDisconnected?.(this.activeDeviceLabel);
+        };
+      }
 
       // 2. Initialize AudioContext at target sample rate (browser handles hardware resampling)
       const AudioCtx =
@@ -241,5 +305,9 @@ export class AudioCaptureController {
 
   public get active(): boolean {
     return this.isCapturing;
+  }
+
+  public get deviceLabel(): string {
+    return this.activeDeviceLabel;
   }
 }

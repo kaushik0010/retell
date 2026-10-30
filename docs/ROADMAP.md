@@ -139,6 +139,11 @@ Create the spoken Practice Room with browser microphone capture, resilient WebSo
 - [x] Corrective Phase: Transcript loss on finish resolved via monotonic `TranscriptAccumulator`, interim token promotion, and safe snapshot fallbacks.
 - [x] Corrective Phase: Contextual recall cues replace generic pause nudges with 1–4 word hints grounded in study material, capped at 3 per attempt.
 - [x] Corrective Phase: Quiet-voice usability calibrated (`silenceThresholdRms: 0.008`) with waveform sensitivity scaling and clear UX guidance.
+- [x] Reliability Phase: Global session registry (`globalThis`) and dangling WebSocket cleanup eliminate 404/200 desynchronization.
+- [x] Reliability Phase: SpeechRecognition fallback auto-restart on pause/silence prevents permanent transcription death after pausing.
+- [x] Reliability Phase: Bluetooth headset detection and input device selector in Practice Room with disconnection safety.
+- [x] Reliability Phase: Unbounded contextual hints continue throughout long answers with distinct prefix-aware cue extraction.
+- [x] Reliability Phase: Truthful provider observability (`Meta Voice AI` vs `Browser Speech Engine`) in live room and attempt summary.
 
 ### Acceptance Criteria
 

@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
         sessionId: session.id,
         metaSessionId: session.metaSessionId,
         isMock: session.isMock,
+        provider: session.provider,
       });
 
       const unsubscribe = session.subscribe((event) => {

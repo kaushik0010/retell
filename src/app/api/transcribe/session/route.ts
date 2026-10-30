@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       sessionId: session.id,
       isMock: session.isMock,
       metaSessionId: session.metaSessionId,
+      provider: session.provider,
     });
   } catch (err: unknown) {
     const message =

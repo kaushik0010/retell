@@ -392,6 +392,33 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - 100% clean TypeScript (`tsc --noEmit`), ESLint, and Prettier checks.
     - Clean production Webpack build (`next build --webpack`).
 
+- [x] **`TASK-3.8` — Transcription Reliability Investigation, Lifecycle Fixes, Bluetooth Support & Unbounded Hints**
+  - **Server Lifecycle & 404/200 Root Cause Fix (`src/lib/providers/transcribe-session.ts`, `src/app/api/transcribe/*`):**
+    - Root cause of session 404s: In-memory `activeSessions` was module-scoped, allowing Next.js App Router chunks to isolate session maps. More critically, when Meta's WebSocket timed out at 4000ms, the dangling WebSocket remained active; upon subsequent OS-level abort, its `ws.onclose` fired and executed `activeSessions.delete(sessionId)`, wiping out the fallback session immediately before the browser requested `/api/transcribe/stream` and `/api/transcribe/audio`.
+    - Fix: Anchored `activeSessions` to `globalThis.__retellActiveSessions`. Detached all listeners and cleanly terminated timed-out WebSockets. Guarded `ws.onclose` so it only deletes its own session instance. Increased handshake connection timeout from 4000ms to 9000ms (matching Meta's 10-second allowance).
+    - Added structured close-code broadcasting (1000, 1008, 1011, 1013) with informative error messages.
+  - **SpeechRecognition Fallback Pause Recovery (`src/lib/audio/transcribe-client.ts`):**
+    - Root cause of transcription stopping after pause: When falling back to browser `SpeechRecognition`, Chrome terminates recognition after silence/pauses (`onend` / `"no-speech"`). Lacking an `onend` handler, recognition permanently died mid-practice.
+    - Fix: Added resilient `onend` auto-restart logic, non-fatal handling of `"no-speech"` pause events, and structured diagnostic logging.
+  - **Audio Pipeline & Delay Improvements (`src/lib/audio/transcribe-client.ts`):**
+    - Suppressed unnecessary audio chunk uploads to `/api/transcribe/audio` when local browser fallback is active, eliminating 12.5 redundant HTTP requests/sec and freeing CPU/network.
+    - Added queue-based chunk batching for live Meta relay: merges buffered audio frames and serializes HTTP requests, eliminating connection pool backpressure and delay.
+    - Implemented seamless mid-session fallback if Meta connection drops without discarding accumulated transcripts.
+  - **Bluetooth Microphone Support (`src/lib/audio/capture.ts`, `src/features/practice/PracticeRoomView.tsx`):**
+    - Added `getAudioInputDevices()` enumerating microphones with automatic Bluetooth headset identification (`/bluetooth|hands-free|airpods|buds|wireless|headset/i`).
+    - Added clean audio input device selector in the Practice Room idle state.
+    - Tracked active microphone label and added `track.onended` listener for device disconnects with graceful warning preservation.
+  - **Unbounded Contextual Recall Hints (`src/lib/domain/recall-hints.ts`):**
+    - Removed arbitrary `maxHintsPerAttempt: 3` cap; hints now continue sequentially across the entire answer until all concepts are addressed.
+    - Fixed `extractConciseCue`: eliminated aggressive truncation at colons/dashes that caused criteria with common prefixes (e.g. "DNS: Query" vs "DNS: Root") to collide.
+  - **Provider Observability (`src/features/practice/PracticeRoomView.tsx`):**
+    - Added truthful provider status pills: `🟢 Meta Voice AI` vs `🟡 Browser Speech Engine (Local)`. Never silently presents fallback as Meta transcription.
+    - Displayed active engine and microphone in the completed attempt summary card.
+  - **Testing & Verification:**
+    - 135 passing unit tests across 15 test files (including 9 new tests in `transcription-reliability.test.ts`).
+    - 100% clean TypeScript (`tsc --noEmit`), ESLint (`eslint`), and Prettier checks.
+    - Clean production Webpack build (`next build --webpack`).
+
 ---
 
 ## 2. In Progress Tasks
@@ -457,16 +484,16 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 6. Verification Results
 
-| Check                                | Command                   | Observed Result                                                                                                                                            | Status       |
-| ------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 124 passed across 14 test files (transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, multimodal-extraction, rubric, etc.) | **PASSED**   |
-| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                                             | **PASSED**   |
-| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                                                 | **PASSED**   |
-| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                                                  | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 10 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, APIs)                            | **PASSED**   |
-| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                           | **VERIFIED** |
-| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                           | **VERIFIED** |
-| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000                                   | **VERIFIED** |
+| Check                                | Command                   | Observed Result                                                                                                                                                                       | Status       |
+| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Vitest Unit Test Suite               | `pnpm run test`           | 135 passed across 15 test files (transcription-reliability, transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, multimodal-extraction, rubric, etc.) | **PASSED**   |
+| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                                                                        | **PASSED**   |
+| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                                                                            | **PASSED**   |
+| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                                                                             | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 10 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, APIs)                                                       | **PASSED**   |
+| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                      | **VERIFIED** |
+| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                      | **VERIFIED** |
+| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000                                                              | **VERIFIED** |
 
 ---
 

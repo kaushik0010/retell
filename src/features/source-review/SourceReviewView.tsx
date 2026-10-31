@@ -614,14 +614,23 @@ export function SourceReviewView({
           </div>
         </div>
 
-        {/* Practice Room Link */}
-        <Link
-          href={`/study/${studySet.id}/practice?questionId=${activeQuestion?.id || ""}`}
-          className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-xs transition sm:w-auto"
-        >
-          <span>Start practising</span>
-          <span>&rarr;</span>
-        </Link>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <Link
+            href={`/study/${studySet.id}/history?questionId=${activeQuestion?.id || ""}`}
+            className="border-brand-peach/80 hover:bg-brand-cream/60 text-brand-secondary hover:text-brand-ink inline-flex h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl border bg-white px-3.5 text-xs font-semibold shadow-2xs transition sm:w-auto"
+          >
+            <span>Past attempts</span>
+          </Link>
+
+          {/* Practice Room Link */}
+          <Link
+            href={`/study/${studySet.id}/practice?questionId=${activeQuestion?.id || ""}`}
+            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white shadow-xs transition sm:w-auto"
+          >
+            <span>Start practising</span>
+            <span>&rarr;</span>
+          </Link>
+        </div>
       </div>
 
       {/* Collapsible Source Material Accordion */}

@@ -38,6 +38,9 @@ describe("Navigation, Presets and Route Contracts", () => {
       practice: (id: string) => `/study/${id}/practice`,
       attemptReview: (studyId: string, attemptId: string) =>
         `/study/${studyId}/attempts/${attemptId}`,
+      history: (id: string) => `/study/${id}/history`,
+      compare: (id: string, a: string, b: string) =>
+        `/study/${id}/compare?a=${a}&b=${b}`,
     };
 
     expect(routes.home).toBe("/");
@@ -47,6 +50,10 @@ describe("Navigation, Presets and Route Contracts", () => {
     expect(routes.practice("test_123")).toBe("/study/test_123/practice");
     expect(routes.attemptReview("test_123", "att_456")).toBe(
       "/study/test_123/attempts/att_456"
+    );
+    expect(routes.history("test_123")).toBe("/study/test_123/history");
+    expect(routes.compare("test_123", "a1", "a2")).toBe(
+      "/study/test_123/compare?a=a1&b=a2"
     );
   });
 
@@ -89,11 +96,31 @@ describe("Navigation, Presets and Route Contracts", () => {
     expect(attemptMeta.title).toBe("Answer Review | Retell");
     expect(attemptMeta.description).toContain("set_test_123");
 
+    const generateHistoryMeta = (
+      await import("../../src/app/study/[id]/history/page")
+    ).generateMetadata;
+    const historyMeta = await generateHistoryMeta({
+      params: Promise.resolve({ id: "set_test_123" }),
+      searchParams: Promise.resolve({}),
+    });
+    expect(historyMeta.title).toBe("Attempt History | Retell");
+
+    const generateCompareMeta = (
+      await import("../../src/app/study/[id]/compare/page")
+    ).generateMetadata;
+    const compareMeta = await generateCompareMeta({
+      params: Promise.resolve({ id: "set_test_123" }),
+      searchParams: Promise.resolve({ a: "att_1", b: "att_2" }),
+    });
+    expect(compareMeta.title).toBe("Attempt Comparison | Retell");
+
     // Verify only homepage overrides layout title template with absolute title
     expect(typeof libraryMeta.title).toBe("string");
     expect(typeof addMeta.title).toBe("string");
     expect(typeof reviewMeta.title).toBe("string");
     expect(typeof practiceMeta.title).toBe("string");
     expect(typeof attemptMeta.title).toBe("string");
+    expect(typeof historyMeta.title).toBe("string");
+    expect(typeof compareMeta.title).toBe("string");
   }, 30000);
 });

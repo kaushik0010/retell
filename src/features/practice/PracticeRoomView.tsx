@@ -598,45 +598,55 @@ export function PracticeRoomView({
           </p>
         </div>
 
-        {/* Question Switcher (if multiple questions) */}
-        {studySet.questions.length > 1 && (
-          <div className="border-brand-peach/80 flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-2xs">
-            <button
-              type="button"
-              disabled={
-                activeQuestionIndex <= 0 || sessionState === "listening"
-              }
-              onClick={() =>
-                handleSwitchQuestion(
-                  studySet.questions[activeQuestionIndex - 1]!.id
-                )
-              }
-              className="text-brand-ink disabled:text-brand-secondary/40 hover:bg-brand-cream/60 cursor-pointer rounded p-1 text-xs font-bold transition disabled:cursor-not-allowed"
-              title="Previous question"
-            >
-              &larr;
-            </button>
-            <span className="text-brand-ink text-xs font-semibold">
-              Question {activeQuestionIndex + 1} of {studySet.questions.length}
-            </span>
-            <button
-              type="button"
-              disabled={
-                activeQuestionIndex >= studySet.questions.length - 1 ||
-                sessionState === "listening"
-              }
-              onClick={() =>
-                handleSwitchQuestion(
-                  studySet.questions[activeQuestionIndex + 1]!.id
-                )
-              }
-              className="text-brand-ink disabled:text-brand-secondary/40 hover:bg-brand-cream/60 cursor-pointer rounded p-1 text-xs font-bold transition disabled:cursor-not-allowed"
-              title="Next question"
-            >
-              &rarr;
-            </button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/study/${studySet.id}/history?questionId=${activeQuestion?.id || ""}`}
+            className="border-brand-peach/80 hover:bg-brand-cream/60 text-brand-secondary hover:text-brand-ink inline-flex items-center gap-1.5 rounded-xl border bg-white px-3 py-1.5 text-xs font-semibold shadow-2xs transition"
+          >
+            <span>Past attempts</span>
+          </Link>
+
+          {/* Question Switcher (if multiple questions) */}
+          {studySet.questions.length > 1 && (
+            <div className="border-brand-peach/80 flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-2xs">
+              <button
+                type="button"
+                disabled={
+                  activeQuestionIndex <= 0 || sessionState === "listening"
+                }
+                onClick={() =>
+                  handleSwitchQuestion(
+                    studySet.questions[activeQuestionIndex - 1]!.id
+                  )
+                }
+                className="text-brand-ink disabled:text-brand-secondary/40 hover:bg-brand-cream/60 cursor-pointer rounded p-1 text-xs font-bold transition disabled:cursor-not-allowed"
+                title="Previous question"
+              >
+                &larr;
+              </button>
+              <span className="text-brand-ink text-xs font-semibold">
+                Question {activeQuestionIndex + 1} of{" "}
+                {studySet.questions.length}
+              </span>
+              <button
+                type="button"
+                disabled={
+                  activeQuestionIndex >= studySet.questions.length - 1 ||
+                  sessionState === "listening"
+                }
+                onClick={() =>
+                  handleSwitchQuestion(
+                    studySet.questions[activeQuestionIndex + 1]!.id
+                  )
+                }
+                className="text-brand-ink disabled:text-brand-secondary/40 hover:bg-brand-cream/60 cursor-pointer rounded p-1 text-xs font-bold transition disabled:cursor-not-allowed"
+                title="Next question"
+              >
+                &rarr;
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Error Banner */}

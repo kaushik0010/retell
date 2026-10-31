@@ -9,7 +9,7 @@ import {
 } from "../domain/semantic-audit";
 
 const DB_NAME = "retell_db";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_NAME = "study_sets";
 const ATTEMPTS_STORE = "practice_attempts";
 const AUDITS_STORE = "semantic_audits";
@@ -75,7 +75,19 @@ function openDatabase(): Promise<IDBDatabase> {
       }
     };
 
-    request.onsuccess = () => resolve(request.result);
+    request.onblocked = () => {
+      console.warn(
+        "IndexedDB upgrade blocked: please close other Retell tabs."
+      );
+    };
+
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+      };
+      resolve(db);
+    };
     request.onerror = () =>
       reject(request.error || new Error("Failed to open IndexedDB"));
   });
@@ -101,8 +113,21 @@ export async function saveStudySet(studySet: StudySet): Promise<void> {
       const req = store.put(parsed);
 
       req.onsuccess = () => resolve();
-      req.onerror = () =>
-        reject(req.error || new Error("Failed to save study set"));
+      req.onerror = () => {
+        const err = req.error;
+        if (err?.name === "QuotaExceededError") {
+          reject(
+            new Error(
+              "Browser storage quota exceeded. Please delete old attempts or study sets to free space."
+            )
+          );
+        } else {
+          reject(err || new Error("Failed to save study set"));
+        }
+      };
+      tx.onabort = () => {
+        reject(tx.error || new Error("Storage transaction was aborted"));
+      };
       tx.oncomplete = () => db.close();
     } catch (err) {
       db.close();
@@ -279,8 +304,21 @@ export async function savePracticeAttempt(
       const req = store.put(parsed);
 
       req.onsuccess = () => resolve();
-      req.onerror = () =>
-        reject(req.error || new Error("Failed to save practice attempt"));
+      req.onerror = () => {
+        const err = req.error;
+        if (err?.name === "QuotaExceededError") {
+          reject(
+            new Error(
+              "Browser storage quota exceeded. Please delete old attempts or study sets to free space."
+            )
+          );
+        } else {
+          reject(err || new Error("Failed to save practice attempt"));
+        }
+      };
+      tx.onabort = () => {
+        reject(tx.error || new Error("Storage transaction was aborted"));
+      };
       tx.oncomplete = () => db.close();
     } catch (err) {
       db.close();
@@ -468,8 +506,23 @@ export async function saveSemanticAuditResult(
       const req = store.put(parsed);
 
       req.onsuccess = () => resolve();
-      req.onerror = () =>
-        reject(req.error || new Error("Failed to save semantic audit result"));
+      req.onerror = () => {
+        const err = req.error;
+        if (err?.name === "QuotaExceededError") {
+          reject(
+            new Error(
+              "Browser storage quota exceeded. Please delete old attempts or study sets to free space."
+            )
+          );
+        } else {
+          reject(
+            req.error || new Error("Failed to save semantic audit result")
+          );
+        }
+      };
+      tx.onabort = () => {
+        reject(tx.error || new Error("Storage transaction was aborted"));
+      };
       tx.oncomplete = () => db.close();
     } catch (err) {
       db.close();
@@ -679,4 +732,113 @@ export async function clearAllSemanticAudits(): Promise<void> {
       reject(err);
     }
   });
+}
+
+/**
+ * Retrieves all practice attempts for a specific question, sorted newest first.
+ */
+export async function getPracticeAttemptsByQuestion(
+  studySetId: string,
+  questionId: string
+): Promise<PracticeAttempt[]> {
+  return listPracticeAttempts(studySetId, questionId);
+}
+
+/**
+ * Retrieves the immediately preceding attempt for the same question, or null if none.
+ */
+export async function getPreviousPracticeAttempt(
+  currentAttemptId: string
+): Promise<PracticeAttempt | null> {
+  const current = await getPracticeAttempt(currentAttemptId);
+  if (!current) return null;
+
+  const allAttempts = await getPracticeAttemptsByQuestion(
+    current.studySetId,
+    current.questionId
+  );
+
+  // allAttempts is sorted newest first
+  const currentIndex = allAttempts.findIndex((a) => a.id === currentAttemptId);
+  if (currentIndex === -1 || currentIndex >= allAttempts.length - 1) {
+    return null;
+  }
+
+  // The attempt created immediately before current is at currentIndex + 1
+  return allAttempts[currentIndex + 1] ?? null;
+}
+
+/**
+ * Loads an attempt and its associated semantic audit result together.
+ */
+export async function getAttemptWithAudit(attemptId: string): Promise<{
+  attempt: PracticeAttempt;
+  audit: SemanticAuditResult | null;
+} | null> {
+  const attempt = await getPracticeAttempt(attemptId);
+  if (!attempt) return null;
+
+  let audit: SemanticAuditResult | null = null;
+  if (attempt.auditId) {
+    audit = await getSemanticAuditResult(attempt.auditId);
+  }
+  if (!audit) {
+    audit = await getSemanticAuditByAttempt(attemptId);
+  }
+
+  return { attempt, audit };
+}
+
+/**
+ * Diagnostic health check of the local-first storage subsystem.
+ */
+export async function getStorageDiagnostics(): Promise<{
+  isSupported: boolean;
+  usingFallback: boolean;
+  studySetCount: number;
+  attemptCount: number;
+  auditCount: number;
+  quotaEstimate?: {
+    usageBytes: number;
+    quotaBytes: number;
+    usageFormatted: string;
+  };
+}> {
+  const isSupported = isIndexedDBSupported();
+  const studySets = await listStudySets();
+  const attempts = await listPracticeAttempts();
+  const audits = await listSemanticAudits();
+
+  let quotaEstimate:
+    | { usageBytes: number; quotaBytes: number; usageFormatted: string }
+    | undefined;
+
+  if (
+    typeof navigator !== "undefined" &&
+    navigator.storage &&
+    navigator.storage.estimate
+  ) {
+    try {
+      const estimate = await navigator.storage.estimate();
+      const usage = estimate.usage || 0;
+      const quota = estimate.quota || 0;
+      const mb = (usage / (1024 * 1024)).toFixed(2);
+      quotaEstimate = {
+        usageBytes: usage,
+        quotaBytes: quota,
+        usageFormatted: `${mb} MB`,
+      };
+    } catch {
+      // Storage estimate may be restricted
+    }
+  }
+
+  return {
+    isSupported,
+    usingFallback: !isSupported,
+    studySetCount: studySets.length,
+    attemptCount: attempts.length,
+    auditCount: audits.length,
+    quotaEstimate,
+  };
 }

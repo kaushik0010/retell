@@ -501,33 +501,51 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Expanded `tests/unit/pause-hints-lifecycle.test.ts` (17 tests covering Scenarios 1 through 17).
     - 184 passing unit tests across 18 test files in Vitest (`pnpm run test`).
 
+- [x] **`TASK-4.6` & `TASK-5.1` – `TASK-5.4` — Attempt History, Progress Comparison, IndexedDB Resilience & Complete Core Screens (Day 5)**
+  - **Attempt-to-Attempt Progression & Comparison (`src/lib/domain/attempt-comparison.ts`):**
+    - Built deterministic conceptual transition comparator: `retained`, `improved`, `partial_progress`, `regressed`, `new_misconception`, `still_missing`, and `still_incorrect`.
+    - Implemented strict scope compatibility enforcement (`checkScopeCompatibility`): accepts whole-answer vs whole-answer and matching paragraph indices; rejects cross-scope combinations with actionable student guidance.
+    - Added transparent progress calculations (mandatory criteria only; optional details never skew core metrics).
+  - **Attempt History & Comparison Interfaces (`src/features/history/`):**
+    - `AttemptHistoryView.tsx`: Question-scoped history with relative timestamps, duration, word counts, scope badges, and multi-attempt selection for side-by-side comparison.
+    - `AttemptComparisonView.tsx`: Progress summary banner with net progress pills, side-by-side attempt cards, and point-by-point transcript evidence comparisons.
+    - Integrated history and comparison entry points into `AnswerReviewView.tsx`, `PracticeRoomView.tsx`, `SourceReviewView.tsx`, and `LibraryView.tsx`.
+    - Canonical routes: `/study/:id/history`, `/study/:id/compare?a=:id&b=:id`, and `/study/:id/attempts`.
+  - **IndexedDB Storage Resilience (`src/lib/storage/study-store.ts`):**
+    - Upgraded database schema to version 4 with transaction rollback protection and quota overflow detection.
+    - Added blocked/versionchange connection safeguards.
+    - Added helper query methods: `getPracticeAttemptsByQuestion`, `getPreviousPracticeAttempt`, `getAttemptWithAudit`, and `getStorageDiagnostics`.
+  - **Accessibility & Responsive Polish:**
+    - Live transcript screen reader announcements via `role="region"` and `aria-live="polite"`.
+    - Contextual pause hints with `role="status"` and `aria-live="polite"`.
+    - Fully responsive layouts audited across 390px (mobile), 768px (tablet), and 1440px (desktop) with zero horizontal overflow.
+  - **Verification Suite:**
+    - Added `tests/unit/attempt-comparison.test.ts` (13 tests).
+    - Added `tests/unit/attempt-history.test.ts` (4 tests).
+    - Added `tests/unit/storage-resilience.test.ts` (5 tests).
+    - Added `tests/unit/day5-e2e-workflow.test.ts` (complete student learning journey).
+    - 208 passing unit tests across 22 test files in Vitest.
+
 ---
 
 ## 2. In Progress Tasks
 
-- _None (Targeted Fix completed; ready for Day 5 IndexedDB, Polish & Accessibility)_
+- _None (Day 5 Core Experience, Attempt History & IndexedDB Resilience completed; ready for Day 6 Evaluation, Benchmarks & Deployment)_
 
 ---
 
 ## 3. Next Tasks
 
-### Day 5: Complete Core Screens, IndexedDB Persistence, Reliability & Responsive UI
+### Day 6: Evaluation, Deployment, Provider Comparison & Demo Preparation
 
-- [ ] `TASK-5.1` — Complete client-side IndexedDB repository (`src/lib/storage`) with full attempt-to-attempt comparison and history logs.
-- [ ] `TASK-5.2` — Responsive UI audit at 390px, 768px, and 1440px.
-- [ ] `TASK-5.3` — Keyboard navigation, ARIA live regions, and contrast verification.
-- [ ] `TASK-5.4` — Error boundaries and offline storage safeguards.
+- [ ] `TASK-6.1` — Production deployment to Vercel.
+- [ ] `TASK-6.2` — Meta vs Baseten latency and accuracy comparison benchmarks.
+- [ ] `TASK-6.3` — Playwright end-to-end automated tests.
+- [ ] `TASK-6.4` — Structured demo script creation.
 
 ---
 
 ## 4. Remaining Tasks
-
-### Day 5: IndexedDB, Polish & Accessibility
-
-- [ ] `TASK-5.1` — Complete client-side IndexedDB repository (`src/lib/storage`).
-- [ ] `TASK-5.2` — Responsive UI audit at 390px, 768px, and 1440px.
-- [ ] `TASK-5.3` — Keyboard navigation, ARIA live regions, and contrast verification.
-- [ ] `TASK-5.4` — Error boundaries and offline storage safeguards.
 
 ### Day 6: Evaluation & Deployment
 
@@ -535,6 +553,10 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 - [ ] `TASK-6.2` — Meta vs Baseten latency and accuracy comparison benchmarks.
 - [ ] `TASK-6.3` — Playwright end-to-end automated tests.
 - [ ] `TASK-6.4` — Structured demo script creation.
+
+### November 2 – 4: Submission Preparation, Polish & Video
+
+- Rehearse live demo walkthrough, record 3-minute video, Devpost submission.
 
 ---
 
@@ -549,23 +571,23 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 6. Verification Results
 
-| Check                                | Command                   | Observed Result                                                                                                                                                                                                  | Status       |
-| ------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 184 passed across 18 test files (paragraph-scope-isolation, pause-hints-lifecycle, transcription-reliability, transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, rubric, etc.) | **PASSED**   |
-| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                                                                                                   | **PASSED**   |
-| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                                                                                                       | **PASSED**   |
-| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                                                                                                        | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 16 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, Study/Attempts, APIs)                                                                  | **PASSED**   |
-| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                                                 | **VERIFIED** |
-| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                                                 | **VERIFIED** |
-| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000                                                                                         | **VERIFIED** |
+| Check                                | Command                   | Observed Result                                                                                                                                                                                                                                                          | Status       |
+| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| Vitest Unit Test Suite               | `pnpm run test`           | 208 passed across 22 test files (attempt-comparison, attempt-history, storage-resilience, day5-e2e-workflow, paragraph-scope-isolation, pause-hints-lifecycle, transcription-reliability, transcript-accumulator, recall-hints, practice-session, storage, domain, etc.) | **PASSED**   |
+| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                                                                                                                                                           | **PASSED**   |
+| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                                                                                                                                                               | **PASSED**   |
+| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                                                                                                                                                                | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 19 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, Study/Attempts, Study/History, Study/Compare, APIs)                                                                                            | **PASSED**   |
+| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                                                                                                         | **VERIFIED** |
+| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                                                                                                         | **VERIFIED** |
+| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000                                                                                                                                                 | **VERIFIED** |
 
 ---
 
 ## 7. Latest Git Commit
 
-- **Latest Commit:** `HEAD` — `fix: simplify practice room ui, update hint presentation to hint, and improve meta auth diagnostics`
-- **Previous Commit:** `a1f6027` — `fix: practice room session persistence, auto-restart speech recognition, and diagnostic observability`
+- **Latest Commit:** `HEAD` — `fix: isolate paragraph audits and restore repeated hints` (hash `4cbc48b`)
+- **Previous Commit:** `ab86afc` — `fix: improve contextual pause hints and transcription reliability`
 
 ---
 

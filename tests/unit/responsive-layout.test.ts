@@ -99,6 +99,33 @@ describe("Task 7 — Responsive Layout and Section Scrolling Verification", () =
     expect(source).not.toContain("w-screen");
   });
 
+  it("verifies AttemptComparisonView and AttemptHistoryView responsive layout and accessibility guards", () => {
+    const comparisonSource = readComponent(
+      "features/history/AttemptComparisonView.tsx"
+    );
+    const historySource = readComponent(
+      "features/history/AttemptHistoryView.tsx"
+    );
+    const transcriptSource = readComponent(
+      "features/practice/LiveTranscript.tsx"
+    );
+
+    // Attempt comparison stacks on mobile and splits on desktop
+    expect(comparisonSource).toContain("grid-cols-1");
+    expect(comparisonSource).toContain("md:grid-cols-2");
+    expect(comparisonSource).toContain("flex-col");
+    expect(comparisonSource).toContain("sm:flex-row");
+
+    // Attempt history has responsive flex-wrap and responsive actions
+    expect(historySource).toContain("flex-col");
+    expect(historySource).toContain("sm:flex-row");
+    expect(historySource).toContain("sticky top-4");
+
+    // Live transcript includes ARIA live region for screen readers
+    expect(transcriptSource).toContain('aria-live="polite"');
+    expect(transcriptSource).toContain('role="region"');
+  });
+
   it("verifies globals.css does not use prohibited global overflow-x-hidden hack", () => {
     const globals = fs.readFileSync(
       path.resolve(__dirname, "../../src/app/globals.css"),

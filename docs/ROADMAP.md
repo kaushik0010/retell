@@ -173,7 +173,7 @@ Implement the semantic evaluation engine that assesses spoken transcripts agains
 | `TASK-4.3` | Implement concept status visualizer (`covered`, `partially_covered`, `missing`, `incorrect`)        | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
 | `TASK-4.4` | Implement retry practice flow preserving previous attempts with local IndexedDB persistence         | **Completed** | [Section 7, 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                  |
 | `TASK-4.5` | Implement paragraph-level answer scoping and evaluation for multi-paragraph answers                 | **Completed** | [Section 6, 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                  |
-| `TASK-4.6` | Build Attempt-to-Attempt Progression & Comparison view                                              | Pending       | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
+| `TASK-4.6` | Build Attempt-to-Attempt Progression & Comparison view                                              | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#7-ai-provider-layer) |
 
 ### Key Milestones Completed
 
@@ -210,18 +210,28 @@ Wire up the complete end-to-end user journey, finalize local IndexedDB persisten
 
 ### Tasks & Status
 
-| Task ID    | Task Description                                                                           | Status  | Implementation Plan Ref                                                                                          |
-| ---------- | ------------------------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| `TASK-5.1` | Complete client-side IndexedDB repository (`src/lib/storage`) with Dexie or raw IDB        | Pending | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)         |
-| `TASK-5.2` | Polish responsive layouts at 390px (mobile), 768px (tablet), and 1440px (desktop)          | Pending | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)      |
-| `TASK-5.3` | Implement keyboard navigation, ARIA live regions for transcripts, and high-contrast checks | Pending | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)      |
-| `TASK-5.4` | Add comprehensive error boundaries, retry buttons, and offline storage safeguards          | Pending | [Section 9](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#9-error-handling-and-resilience) |
+| Task ID    | Task Description                                                                           | Status        | Implementation Plan Ref                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `TASK-5.1` | Complete client-side IndexedDB repository (`src/lib/storage`) with Dexie or raw IDB        | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)         |
+| `TASK-5.2` | Polish responsive layouts at 390px (mobile), 768px (tablet), and 1440px (desktop)          | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)      |
+| `TASK-5.3` | Implement keyboard navigation, ARIA live regions for transcripts, and high-contrast checks | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)      |
+| `TASK-5.4` | Add comprehensive error boundaries, retry buttons, and offline storage safeguards          | **Completed** | [Section 9](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#9-error-handling-and-resilience) |
+
+### Key Milestones Completed
+
+- [x] Complete Attempt History view (`/study/:id/history`) displaying past attempts by question with relative timestamps, word count, duration, scope pills, and evaluation outcomes.
+- [x] Deterministic Attempt Comparison engine (`compareAttempts` in `src/lib/domain/attempt-comparison.ts`) tracking concept transitions: retained, improved, partial progress, regressed, and new misconceptions.
+- [x] Scope-aware comparison compatibility enforcement: guarantees only comparable scopes (whole-answer vs whole-answer, or matching paragraph indices) are compared, preventing misleading cross-scope comparisons.
+- [x] Responsive Comparison View (`/study/:id/compare`) with progress summary banner, side-by-side or stacked attempt cards, and concept-by-concept transcript evidence citations.
+- [x] Resilient IndexedDB architecture (v4) with quota overflow handling, blocked/versionchange connection safeguards, transaction rollback safety, and diagnostic health checks.
+- [x] Accessibility features: `role="region"`, `aria-live="polite"` live transcript updates, `role="status"` pause hints, and touch targets conforming to WCAG 2.1 AA.
+- [x] Complete end-to-end multi-attempt progression journey automated test suite (`tests/unit/day5-e2e-workflow.test.ts`).
 
 ### Acceptance Criteria
 
-- Refreshing the browser preserves all study sets, rubrics, and attempts.
-- No horizontal scrolling or broken components at 390px width.
-- Screen readers receive live transcript updates via `aria-live`.
+- [x] Refreshing the browser preserves all study sets, rubrics, attempts, and audit results in local IndexedDB.
+- [x] Zero horizontal scrolling or broken components at 390px, 768px, and 1440px width.
+- [x] Screen readers receive live transcript updates via `aria-live="polite"`.
 
 ---
 

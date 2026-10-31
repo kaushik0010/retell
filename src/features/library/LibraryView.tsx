@@ -255,20 +255,23 @@ export function LibraryView() {
                       <ChevronRightIcon className="h-3 w-3" />
                     </Link>
 
-                    {/* Honest affordance for Practice Room */}
-                    <button
-                      type="button"
-                      disabled
-                      title="The Spoken Practice Room unlocks in Day 3. Review your points first!"
+                    <Link
+                      href={`/study/${set.id}/practice`}
                       onClick={(e) => e.stopPropagation()}
-                      className="border-brand-peach/80 bg-brand-cream/60 text-brand-secondary inline-flex h-8 cursor-not-allowed items-center justify-center gap-1 rounded-lg border px-3 text-xs font-semibold opacity-75 shadow-2xs"
+                      className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-white shadow-2xs transition"
                     >
-                      <PlayIcon className="text-brand-secondary h-3 w-3" />
+                      <PlayIcon className="h-3 w-3" />
                       <span>Practise</span>
-                      <span className="bg-brand-peach/60 py-0.2 text-brand-secondary rounded px-1 text-[9px] font-bold">
-                        Day 3
-                      </span>
-                    </button>
+                    </Link>
+
+                    <Link
+                      href={`/study/${set.id}/history`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="border-brand-peach text-brand-secondary hover:text-brand-ink inline-flex h-8 cursor-pointer items-center justify-center rounded-lg border px-2.5 text-xs font-semibold transition"
+                      title="View past practice attempts"
+                    >
+                      <span>History</span>
+                    </Link>
                   </div>
                 </div>
               </div>

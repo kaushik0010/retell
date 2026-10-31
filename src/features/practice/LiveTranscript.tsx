@@ -58,7 +58,10 @@ export function LiveTranscript({
       <div
         ref={containerRef}
         tabIndex={0}
+        role="region"
         aria-label="Spoken transcript"
+        aria-live="polite"
+        aria-atomic="false"
         className="max-h-[220px] min-h-[110px] overflow-y-auto pr-1 text-sm leading-relaxed"
       >
         {!hasWords ? (

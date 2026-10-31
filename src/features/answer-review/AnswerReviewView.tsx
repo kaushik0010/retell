@@ -12,7 +12,11 @@ import {
   SemanticAuditResult,
   CRITERION_STATUS_META,
 } from "@/lib/domain/semantic-audit";
-import { saveSemanticAuditResult } from "@/lib/storage/study-store";
+import {
+  saveSemanticAuditResult,
+  getPreviousPracticeAttempt,
+} from "@/lib/storage/study-store";
+import { checkScopeCompatibility } from "@/lib/domain/attempt-comparison";
 import {
   extractParagraphs,
   resolvePracticeScope,
@@ -33,6 +37,24 @@ export function AnswerReviewView({
   const [isAuditing, setIsAuditing] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
+  const [previousAttempt, setPreviousAttempt] =
+    useState<PracticeAttempt | null>(null);
+
+  // Check for previous attempt to enable progress comparison
+  React.useEffect(() => {
+    let mounted = true;
+    getPreviousPracticeAttempt(attempt.id)
+      .then((prev) => {
+        if (mounted) setPreviousAttempt(prev);
+      })
+      .catch((err) => {
+        console.warn("Failed to check for previous attempt:", err);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [attempt.id]);
 
   // Identify active question
   const questionIndex = studySet.questions.findIndex(
@@ -590,6 +612,37 @@ export function AnswerReviewView({
             )}
           </div>
 
+          {/* Comparison with Previous Attempt Card */}
+          {previousAttempt &&
+            checkScopeCompatibility(previousAttempt, attempt).compatible && (
+              <div className="border-brand-peach/80 bg-brand-cream/50 flex flex-col gap-3 rounded-2xl border p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-brand-tomato rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider text-white uppercase">
+                      Learning Progress
+                    </span>
+                    <span className="text-brand-secondary text-xs">
+                      Earlier attempt found
+                    </span>
+                  </div>
+                  <h4 className="font-heading text-brand-ink mt-1 text-sm font-bold">
+                    Compare this attempt with your previous response
+                  </h4>
+                  <p className="text-brand-secondary mt-0.5 text-xs">
+                    See which concepts you maintained, improved, or still need
+                    to review.
+                  </p>
+                </div>
+
+                <Link
+                  href={`/study/${studySet.id}/compare?a=${previousAttempt.id}&b=${attempt.id}`}
+                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-xs transition"
+                >
+                  <span>Compare progress &rarr;</span>
+                </Link>
+              </div>
+            )}
+
           {/* Section F: Suggested Next Improvement */}
           {audit.overall.suggestedNextImprovement && (
             <div className="border-brand-peach/80 bg-brand-cream/40 rounded-2xl border p-5 shadow-xs">
@@ -611,7 +664,14 @@ export function AnswerReviewView({
               <span>↻ Practise this question again</span>
             </Link>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/study/${studySet.id}/history?questionId=${attempt.questionId}`}
+                className="border-brand-peach/80 text-brand-secondary hover:text-brand-ink inline-flex cursor-pointer items-center justify-center rounded-xl border px-4 py-2.5 text-xs font-semibold transition"
+              >
+                <span>Attempt history</span>
+              </Link>
+
               <Link
                 href={`/review/${studySet.id}`}
                 className="border-brand-peach/80 text-brand-secondary hover:text-brand-ink inline-flex cursor-pointer items-center justify-center rounded-xl border px-4 py-2.5 text-xs font-semibold transition"

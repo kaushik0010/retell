@@ -203,6 +203,11 @@ export function PracticeRoomView({
           ) {
             return;
           }
+          // Notify capture controller to debounce silence / reset pause timer when student is speaking
+          captureControllerRef.current?.notifySpeechActivity();
+          setIsPaused(false);
+          setCurrentHint(null);
+
           accumulatorRef.current.update(text, isFinal);
           setTranscript(accumulatorRef.current.finalizedText);
           setInterimText(accumulatorRef.current.interimText);
@@ -250,6 +255,13 @@ export function PracticeRoomView({
             );
           },
           onPauseStateChange: (paused) => {
+            if (
+              isFinishingRef.current ||
+              sessionState === "finishing" ||
+              sessionState === "completed"
+            ) {
+              return;
+            }
             setIsPaused(paused);
 
             if (paused) {
@@ -262,6 +274,10 @@ export function PracticeRoomView({
                 criteria: activeRubric?.criteria,
                 currentTranscript: currentFullText,
                 previousHints: previousHintsRef.current,
+                scopedParagraphIndex:
+                  selectedParagraphIndex !== null
+                    ? selectedParagraphIndex
+                    : undefined,
               });
 
               if (hint) {
@@ -315,6 +331,8 @@ export function PracticeRoomView({
     }
     isFinishingRef.current = true;
     setSessionState("finishing");
+    setIsPaused(false);
+    setCurrentHint(null);
 
     if (timerRef.current) {
       clearInterval(timerRef.current);

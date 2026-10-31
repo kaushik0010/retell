@@ -99,6 +99,8 @@ export class AudioCaptureController {
   private activeDeviceLabel = "Default Microphone";
   private silenceStartMs: number | null = null;
   private isPausedReported = false;
+  private consecutiveVoiceFrames = 0;
+  private consecutiveSilentFrames = 0;
   private pcmChunkBuffer: number[] = [];
   private readonly targetChunkSamples = 1920; // 80ms at 24kHz (1920 samples * 2 bytes = 3840 bytes)
 
@@ -190,9 +192,18 @@ export class AudioCaptureController {
         // Pause / Silence Monitoring
         const now = Date.now();
         if (rms < this.config.silenceThresholdRms) {
-          if (this.silenceStartMs === null) {
-            this.silenceStartMs = now;
-          } else {
+          this.consecutiveVoiceFrames = 0;
+          this.consecutiveSilentFrames++;
+
+          // Require at least 2 consecutive silent frames (~170ms) to confirm silence onset
+          if (
+            this.silenceStartMs === null &&
+            this.consecutiveSilentFrames >= 2
+          ) {
+            this.silenceStartMs = now - this.consecutiveSilentFrames * 85;
+          }
+
+          if (this.silenceStartMs !== null) {
             const silentDuration = now - this.silenceStartMs;
             if (
               silentDuration >= this.config.pauseTriggerMs &&
@@ -206,12 +217,19 @@ export class AudioCaptureController {
             }
           }
         } else {
-          // Voice detected again
-          if (this.isPausedReported) {
-            this.isPausedReported = false;
-            this.callbacks.onPauseStateChange?.(false, 0);
+          // Sound detected
+          this.consecutiveSilentFrames = 0;
+          this.consecutiveVoiceFrames++;
+
+          // Require sustained voice energy (at least 2 consecutive frames ~170ms)
+          // to break silence and resume speech state, preventing tiny noise spikes from resetting pause
+          if (this.consecutiveVoiceFrames >= 2) {
+            if (this.isPausedReported) {
+              this.isPausedReported = false;
+              this.callbacks.onPauseStateChange?.(false, 0);
+            }
+            this.silenceStartMs = null;
           }
-          this.silenceStartMs = null;
         }
 
         // Convert Float32 to 16-bit signed PCM
@@ -300,7 +318,23 @@ export class AudioCaptureController {
 
     this.silenceStartMs = null;
     this.isPausedReported = false;
+    this.consecutiveVoiceFrames = 0;
+    this.consecutiveSilentFrames = 0;
     this.callbacks.onVolumeChange?.(0);
+  }
+
+  /**
+   * Directly notifies audio controller of confirmed speech activity
+   * (e.g. from speech recognition transcription events) to ensure pause state resets.
+   */
+  public notifySpeechActivity(): void {
+    this.consecutiveSilentFrames = 0;
+    this.consecutiveVoiceFrames = 3;
+    if (this.isPausedReported) {
+      this.isPausedReported = false;
+      this.callbacks.onPauseStateChange?.(false, 0);
+    }
+    this.silenceStartMs = null;
   }
 
   public get active(): boolean {

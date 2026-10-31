@@ -12,6 +12,7 @@ export interface GenerateRecallHintParams {
   currentTranscript: string;
   previousHints?: string[];
   maxHintsPerAttempt?: number;
+  scopedParagraphIndex?: number | null;
 }
 
 const COMMON_STOP_WORDS = new Set([
@@ -46,12 +47,13 @@ const COMMON_STOP_WORDS = new Set([
   "where",
   "than",
   "then",
-  "concept",
-  "explanation",
-  "definition",
-  "understanding",
-  "importance",
-  "overview",
+  "into",
+  "onto",
+  "also",
+  "over",
+  "each",
+  "both",
+  "under",
 ]);
 
 /**
@@ -63,6 +65,40 @@ function tokenize(text: string): string[] {
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter((w) => w.length > 2 && !COMMON_STOP_WORDS.has(w));
+}
+
+/**
+ * Extracts a normalized stem for common English morphological suffixes.
+ */
+function getStem(word: string): string {
+  let s = word
+    .toLowerCase()
+    .replace(/(ing|ed|es|s|tion|ation|ution|ly|ment|ive|al|er)$/, "");
+  if (s.endsWith("u") && (s.endsWith("solu") || s.endsWith("evolu"))) {
+    s = s.slice(0, -1) + "v";
+  }
+  return s;
+}
+
+/**
+ * Checks whether two words share a common stem or match exactly.
+ */
+function isWordMatch(tokenA: string, tokenB: string): boolean {
+  if (tokenA === tokenB) return true;
+  if (tokenA.length >= 3 && tokenB.length >= 3) {
+    const stemA = getStem(tokenA);
+    const stemB = getStem(tokenB);
+    if (stemA.length >= 3 && stemB.length >= 3) {
+      if (stemA === stemB) return true;
+      if (
+        (stemA.length >= 4 && stemB.startsWith(stemA)) ||
+        (stemB.length >= 4 && stemA.startsWith(stemB))
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**
@@ -150,22 +186,75 @@ function isConceptMentioned(
   for (const token of cueTokens) {
     if (transcriptTokens.has(token)) {
       matches++;
-    } else {
-      // Check partial/stem matches (e.g. "resolve" matches "resolver" or "resolving")
-      for (const t of transcriptTokens) {
-        if (
-          (token.length >= 4 && t.startsWith(token.slice(0, -1))) ||
-          (t.length >= 4 && token.startsWith(t.slice(0, -1)))
-        ) {
-          matches++;
-          break;
-        }
+      continue;
+    }
+
+    // Check stem matches (e.g. "resolve" matches "resolver" or "resolving")
+    for (const t of transcriptTokens) {
+      if (isWordMatch(token, t)) {
+        matches++;
+        break;
       }
     }
   }
 
-  // If majority of key tokens appear, consider covered
-  return matches >= Math.ceil(cueTokens.length * 0.6);
+  // For 1-word cues, require full match
+  if (cueTokens.length === 1) {
+    return matches >= 1;
+  }
+
+  // For multi-word cues, require at least 50% overlap
+  return matches >= Math.ceil(cueTokens.length * 0.5);
+}
+
+/**
+ * Computes the keyword match score between a criterion and a target text.
+ */
+function getCriterionParagraphScore(
+  criterion: RubricCriterion,
+  paragraphText: string
+): number {
+  const targetTokens = new Set(tokenize(paragraphText));
+  const criterionTokens = tokenize(
+    `${criterion.name} ${criterion.description} ${criterion.satisfactoryDemonstration}`
+  );
+
+  let score = 0;
+  for (const token of criterionTokens) {
+    if (targetTokens.has(token)) {
+      score++;
+      continue;
+    }
+    for (const t of targetTokens) {
+      if (isWordMatch(token, t)) {
+        score++;
+        break;
+      }
+    }
+  }
+  return score;
+}
+
+/**
+ * Checks if a criterion is relevant to the target reference text (e.g., when scoped to a paragraph).
+ */
+function isCriterionRelevantToTarget(
+  criterion: RubricCriterion,
+  targetParagraph: string,
+  allParagraphs: string[]
+): boolean {
+  if (allParagraphs.length <= 1) return true;
+
+  const targetScore = getCriterionParagraphScore(criterion, targetParagraph);
+  if (targetScore === 0) return false;
+
+  let maxScore = 0;
+  for (const p of allParagraphs) {
+    const s = getCriterionParagraphScore(criterion, p);
+    if (s > maxScore) maxScore = s;
+  }
+
+  return targetScore >= maxScore;
 }
 
 /**
@@ -179,6 +268,7 @@ export function generateRecallHint({
   currentTranscript = "",
   previousHints = [],
   maxHintsPerAttempt = Infinity,
+  scopedParagraphIndex = null,
 }: GenerateRecallHintParams): RecallHint | null {
   // Optional cap: only enforced if explicitly passed as a finite number
   if (
@@ -191,9 +281,32 @@ export function generateRecallHint({
   const transcriptTokens = new Set(tokenize(currentTranscript));
   const seenCues = new Set(previousHints.map((h) => h.toLowerCase().trim()));
 
+  // If practicing a specific paragraph, determine the target paragraph text
+  const paragraphs = referenceAnswer
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  const targetParagraphText =
+    typeof scopedParagraphIndex === "number" &&
+    scopedParagraphIndex >= 0 &&
+    paragraphs[scopedParagraphIndex]
+      ? paragraphs[scopedParagraphIndex]!
+      : referenceAnswer;
+
+  // If practicing a specific paragraph, filter criteria relevant to that target
+  const effectiveCriteria =
+    typeof scopedParagraphIndex === "number" &&
+    scopedParagraphIndex >= 0 &&
+    targetParagraphText.trim().length > 0
+      ? criteria.filter((c) =>
+          isCriterionRelevantToTarget(c, targetParagraphText, paragraphs)
+        )
+      : criteria;
+
   // 1. Try deriving next cue from Rubric Criteria
-  if (criteria && criteria.length > 0) {
-    for (const criterion of criteria) {
+  if (effectiveCriteria && effectiveCriteria.length > 0) {
+    for (const criterion of effectiveCriteria) {
       const cue = extractConciseCue(criterion.name);
       if (!cue || cue.length < 3) continue;
 
@@ -208,15 +321,15 @@ export function generateRecallHint({
         };
       }
     }
-    // All provided rubric criteria have been addressed
+    // All provided rubric criteria have either been mentioned or hinted
     return null;
   }
 
-  // 2. Fallback: derive next cue from Reference Answer sentences when no criteria exist
+  // 2. Fallback: derive next cue from Reference Answer sentences ONLY when no criteria exist
   const cleanAnswer = referenceAnswer.trim();
   if (cleanAnswer.length >= 10) {
     const sentences = cleanAnswer
-      .split(/(?<=[.?!])\s+/)
+      .split(/(?<=[.?!])\s+|\n+/)
       .map((s) => s.trim())
       .filter((s) => s.length > 8);
 

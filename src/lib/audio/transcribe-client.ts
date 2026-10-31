@@ -334,8 +334,9 @@ export class TranscribeClient {
     }
 
     this.isSendingAudio = true;
+    let chunksToSend: Uint8Array[] = [];
     try {
-      const chunksToSend = this.audioQueue.splice(0, this.audioQueue.length);
+      chunksToSend = this.audioQueue.splice(0, this.audioQueue.length);
       const totalLength = chunksToSend.reduce(
         (acc, c) => acc + c.byteLength,
         0
@@ -361,6 +362,15 @@ export class TranscribeClient {
       }
     } catch (err) {
       console.warn("Audio chunk upload error:", err);
+      // If upload transiently failed, restore unsent audio chunks so audio duration is not dropped
+      if (
+        chunksToSend.length > 0 &&
+        !this.isClosed &&
+        !this.isMockRelay &&
+        this.audioQueue.length < 50
+      ) {
+        this.audioQueue.unshift(...chunksToSend);
+      }
     } finally {
       this.isSendingAudio = false;
       if (this.audioQueue.length > 0 && !this.isClosed && !this.isMockRelay) {
@@ -401,7 +411,7 @@ export class TranscribeClient {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const res = await fetch(
         `/api/transcribe/finish?sessionId=${encodeURIComponent(this.sessionId)}`,

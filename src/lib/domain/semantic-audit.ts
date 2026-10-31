@@ -209,7 +209,7 @@ export const SemanticAuditRequestSchema = z.object({
   questionId: z.string().min(1, "Question ID is required"),
   question: z.string().min(3, "Question is required"),
   referenceAnswer: z.string().min(5, "Reference answer is required"),
-  transcript: z.string().min(1, "Spoken transcript is required"),
+  transcript: z.string().default(""),
   criteria: z
     .array(
       z.object({
@@ -222,7 +222,7 @@ export const SemanticAuditRequestSchema = z.object({
         orderIndex: z.number().int().default(0),
       })
     )
-    .min(1, "At least one criterion is required for evaluation"),
+    .default([]),
   scope: AttemptScopeSchema.optional(),
   mockFallback: z.boolean().optional(),
 });

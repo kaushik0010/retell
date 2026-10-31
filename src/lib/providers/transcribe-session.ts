@@ -126,6 +126,11 @@ export async function createTranscribeSession(options?: {
   return new Promise<TranscribeSession>((resolve) => {
     let resolved = false;
     let ws: WebSocket;
+    let audioBytesReceived = 0;
+    let audioBytesForwarded = 0;
+    let audioFramesForwarded = 0;
+    const sessionStartTime = Date.now();
+    const FRAME_SIZE = 3840; // 80ms frame at 24kHz 16-bit mono PCM (24000 samples/s * 2 bytes/sample * 0.08s)
 
     try {
       ws = new WebSocket(provider.endpoint);
@@ -191,9 +196,27 @@ export async function createTranscribeSession(options?: {
       broadcast,
       sendAudio: (chunk) => {
         session.lastActivityAt = Date.now();
+        const bytes =
+          chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+        audioBytesReceived += bytes.byteLength;
+
         if (ws.readyState === WebSocket.OPEN) {
           try {
-            ws.send(chunk);
+            if (bytes.byteLength <= FRAME_SIZE) {
+              ws.send(bytes);
+              audioBytesForwarded += bytes.byteLength;
+              audioFramesForwarded += 1;
+            } else {
+              let offset = 0;
+              while (offset < bytes.byteLength) {
+                const end = Math.min(offset + FRAME_SIZE, bytes.byteLength);
+                const slice = bytes.subarray(offset, end);
+                ws.send(slice);
+                audioBytesForwarded += slice.byteLength;
+                audioFramesForwarded += 1;
+                offset = end;
+              }
+            }
           } catch (err) {
             console.error(
               "[TranscribeSession] Failed to send audio chunk to Meta WS:",
@@ -413,14 +436,24 @@ export async function createTranscribeSession(options?: {
 
     ws.onclose = (event: CloseEvent) => {
       session.isClosed = true;
-      if (activeSessions.get(sessionId) === session) {
-        activeSessions.delete(sessionId);
-      }
+      // Retain session in activeSessions for 60s grace period so late audio uploads
+      // and client /api/transcribe/finish requests receive clean responses instead of 404
+      setTimeout(() => {
+        if (activeSessions.get(sessionId) === session) {
+          activeSessions.delete(sessionId);
+        }
+      }, 60000).unref?.();
+
       const closeCode = event?.code ?? 1000;
       const closeReason = event?.reason ?? "";
+      const elapsedSeconds = Math.max(
+        1,
+        (Date.now() - sessionStartTime) / 1000
+      );
+      const ingressRatio = audioBytesForwarded / (48000 * elapsedSeconds);
 
       console.info(
-        `[TranscribeSession] Meta WebSocket closed for session ${sessionId}: code=${closeCode}, reason="${closeReason}", wasClean=${Boolean(event?.wasClean)}`
+        `[TranscribeSession] Meta WebSocket closed for session ${sessionId}: code=${closeCode}, reason="${closeReason}", wasClean=${Boolean(event?.wasClean)}, bytesReceived=${audioBytesReceived}, bytesForwarded=${audioBytesForwarded}, frames=${audioFramesForwarded}, elapsed=${elapsedSeconds.toFixed(1)}s, ingressRatio=${ingressRatio.toFixed(2)}x`
       );
 
       let userMessage = "Voice transcription connection closed.";

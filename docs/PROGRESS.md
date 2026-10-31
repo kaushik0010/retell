@@ -467,11 +467,28 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
     - Clean Prettier code formatting verified across all files (`prettier --check .`).
     - Clean Next.js Webpack production build (`next build --webpack`) with all 11 routes.
 
+- [x] **`TASK-4.2` — Contextual Pause Hints Reliability & Sequential Recall Engine**
+  - Explicit **"Hint:"** prompt label (purged all occurrences of "Recall cue").
+  - Concise 1–3 word recall cues derived from source rubric criteria and reference answer.
+  - Multi-signal pause detection: 80ms PCM frame debouncing (RMS 0.008) combined with external speech transcription updates (`notifySpeechActivity`), ensuring pause detection reliably reaches 4 seconds without premature cancellation by room noise or quiet speaking.
+  - Sequential hinting without arbitrary 3-hint ceiling: subsequent pauses after speaking present the next uncovered concept without repeating previous hints.
+  - Paragraph-level practice scoping: dynamically matches criteria to paragraph text so students practicing paragraph 2 are not hinted paragraph 0 concepts.
+  - Instant dismissal on speech resume or manual click.
+  - Clean state cleanup on attempt finish, cancel, or question switch.
+
+- [x] **`TASK-4.3` — Meta Voice Real-Time Audio Ingress & Session Stability**
+  - Sliced incoming PCM 24kHz mono audio buffers into 80ms frames (3,840 bytes) on server relay before forwarding to Meta WebSocket.
+  - Prevented `code=1008, reason="Ingress below real-time"` errors by restoring unsent audio chunks into client upload queue during transient network drops, guaranteeing uninterrupted real-time audio duration.
+  - Added 60-second session retention grace period in `activeSessions` upon WebSocket close, eliminating `/api/transcribe/finish` HTTP 404s.
+  - Extended client finalization timeout to 6000ms, eliminating client-side abort errors (`AbortError: The user aborted a request`).
+  - Relaxed `SemanticAuditRequestSchema` defaults (`transcript: z.string().default("")`, `criteria: z.array(...).default([])`), eliminating HTTP 400 Bad Request on empty attempts and auto-synthesizing baseline criteria when rubrics are unconfigured.
+  - Created 15-scenario automated unit test suite in `tests/unit/pause-hints-lifecycle.test.ts`.
+
 ---
 
 ## 2. In Progress Tasks
 
-- _None (Day 4 completed; ready for Day 5 IndexedDB, Polish & Accessibility)_
+- _None (Reliability Phase & Day 4 completed; ready for Day 5 IndexedDB, Polish & Accessibility)_
 
 ---
 
@@ -517,11 +534,11 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 | Check                                | Command                   | Observed Result                                                                                                                                                                       | Status       |
 | ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 141 passed across 15 test files (transcription-reliability, transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, multimodal-extraction, rubric, etc.) | **PASSED**   |
+| Vitest Unit Test Suite               | `pnpm run test`           | 172 passed across 17 test files (pause-hints-lifecycle, transcription-reliability, transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, rubric, etc.) | **PASSED**   |
 | TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                                                                        | **PASSED**   |
 | ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                                                                            | **PASSED**   |
 | Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                                                                             | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 10 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, APIs)                                                       | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 16 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, Study/Attempts, APIs)                                       | **PASSED**   |
 | Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                      | **VERIFIED** |
 | Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                      | **VERIFIED** |
 | Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000                                                              | **VERIFIED** |

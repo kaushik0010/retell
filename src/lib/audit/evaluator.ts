@@ -60,7 +60,7 @@ export async function evaluateStudentAnswer(
 
   // Determine target text based on scope
   let effectiveReference = referenceAnswer;
-  const effectiveCriteria = criteria;
+  let effectiveCriteria = criteria;
 
   if (scope.type === "paragraph" && typeof scope.paragraphIndex === "number") {
     const paragraphs = extractParagraphs(referenceAnswer);
@@ -71,8 +71,30 @@ export async function evaluateStudentAnswer(
     }
   }
 
-  // If mock fallback requested or provider is not configured, run deterministic evaluation
-  if (mockFallback || !provider.isConfigured()) {
+  // Synthesize baseline criteria from reference answer if rubric criteria are empty
+  if (!effectiveCriteria || effectiveCriteria.length === 0) {
+    const sentences = effectiveReference
+      .split(/(?<=[.?!])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 5);
+    const chosen = sentences.length > 0 ? sentences : [effectiveReference];
+    effectiveCriteria = chosen.map((sent, idx) => ({
+      id: `crit_auto_${idx + 1}`,
+      name: sent.length > 60 ? `${sent.slice(0, 57)}...` : sent,
+      category: "essential_concept" as const,
+      description: sent,
+      satisfactoryDemonstration: sent,
+      isMandatory: true,
+      orderIndex: idx,
+    }));
+  }
+
+  // If empty speech (< 3 chars), mock fallback requested, or provider is not configured, run deterministic evaluation
+  if (
+    transcript.trim().length < 3 ||
+    mockFallback ||
+    !provider.isConfigured()
+  ) {
     return evaluateDeterministically({
       attemptId,
       studySetId,
@@ -355,14 +377,8 @@ export function evaluateDeterministically(params: {
   criteria: RubricCriterion[];
   scope: AttemptScope;
 }): SemanticAuditResult {
-  const {
-    attemptId,
-    studySetId,
-    questionId,
-    transcript,
-    criteria,
-    scope,
-  } = params;
+  const { attemptId, studySetId, questionId, transcript, criteria, scope } =
+    params;
 
   const now = new Date().toISOString();
   const cleanTranscript = transcript.trim();

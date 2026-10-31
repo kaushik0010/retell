@@ -12,6 +12,12 @@ import {
 } from "../domain/semantic-audit";
 import { RubricCriterion } from "../domain/study-set";
 import { getReasoningProvider } from "../providers";
+import {
+  extractParagraphs,
+  resolvePracticeScope,
+} from "../domain/paragraph-scope";
+
+export { extractParagraphs };
 
 export interface EvaluateAnswerParams {
   attemptId: string;
@@ -23,16 +29,6 @@ export interface EvaluateAnswerParams {
   criteria: RubricCriterion[];
   scope?: AttemptScope;
   mockFallback?: boolean;
-}
-
-/**
- * Splits multi-paragraph answers into cleaned paragraph slices.
- */
-export function extractParagraphs(text: string): string[] {
-  return text
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
 }
 
 /**
@@ -58,18 +54,23 @@ export async function evaluateStudentAnswer(
 
   const provider = getReasoningProvider();
 
-  // Determine target text based on scope
-  let effectiveReference = referenceAnswer;
-  let effectiveCriteria = criteria;
+  // Authoritatively resolve reference answer, criteria, and scope
+  const resolvedScope = resolvePracticeScope({
+    referenceAnswer,
+    criteria,
+    scope,
+  });
 
-  if (scope.type === "paragraph" && typeof scope.paragraphIndex === "number") {
-    const paragraphs = extractParagraphs(referenceAnswer);
-    if (paragraphs[scope.paragraphIndex]) {
-      effectiveReference = paragraphs[scope.paragraphIndex]!;
-      scope.totalParagraphs = paragraphs.length;
-      scope.targetText = effectiveReference;
-    }
-  }
+  const effectiveReference = resolvedScope.paragraphText;
+  let effectiveCriteria = resolvedScope.criteria;
+
+  const effectiveScope: AttemptScope = {
+    ...scope,
+    type: resolvedScope.isParagraph ? "paragraph" : "whole_answer",
+    paragraphIndex: resolvedScope.paragraphIndex,
+    totalParagraphs: resolvedScope.totalParagraphs,
+    targetText: resolvedScope.paragraphText,
+  };
 
   // Synthesize baseline criteria from reference answer if rubric criteria are empty
   if (!effectiveCriteria || effectiveCriteria.length === 0) {
@@ -103,7 +104,7 @@ export async function evaluateStudentAnswer(
       referenceAnswer: effectiveReference,
       transcript,
       criteria: effectiveCriteria,
-      scope,
+      scope: effectiveScope,
     });
   }
 
@@ -129,8 +130,8 @@ FAIR EXAMINER RULES:
    Every covered, partially covered, or incorrect evaluation MUST cite actual transcript words in "transcriptEvidence" if present. NEVER hallucinate quotes.
 8. SCOPE COMPLIANCE:
    ${
-     scope.type === "paragraph"
-       ? `The student is practicing ONLY Paragraph ${(scope.paragraphIndex ?? 0) + 1} of this answer. Evaluate understanding of ONLY this paragraph's content. DO NOT mark concepts from other paragraphs as missing!`
+     effectiveScope.type === "paragraph"
+       ? `The student is practicing ONLY Paragraph ${(effectiveScope.paragraphIndex ?? 0) + 1} of this answer. Evaluate understanding of ONLY this paragraph's content. Under "whatNeedsAttention", list ONLY missing or incomplete concepts that belong to this paragraph. DO NOT mention or mark missing any concepts from other paragraphs!`
        : "The student is practicing the complete answer."
    }
 
@@ -166,7 +167,7 @@ Return ONLY valid JSON matching this schema:
   const userPrompt = `QUESTION:
 ${question}
 
-APPROVED IMPORTANT POINTS (RUBRIC CRITERIA):
+APPROVED IMPORTANT POINTS (${effectiveScope.type === "paragraph" ? `RUBRIC CRITERIA FOR PARAGRAPH ${(effectiveScope.paragraphIndex ?? 0) + 1}` : "RUBRIC CRITERIA"}):
 ${effectiveCriteria
   .map(
     (c) =>
@@ -175,7 +176,7 @@ ${effectiveCriteria
   )
   .join("\n")}
 
-REFERENCE ANSWER:
+REFERENCE ANSWER FOR EVALUATION:
 ${effectiveReference}
 
 STUDENT SPOKEN TRANSCRIPT:
@@ -209,7 +210,7 @@ Evaluate the student's conceptual understanding now in valid JSON.`;
         referenceAnswer: effectiveReference,
         transcript,
         criteria: effectiveCriteria,
-        scope,
+        scope: effectiveScope,
       });
     }
 
@@ -219,7 +220,7 @@ Evaluate the student's conceptual understanding now in valid JSON.`;
       studySetId,
       questionId,
       criteria: effectiveCriteria,
-      scope,
+      scope: effectiveScope,
       llmOutput: data,
       transcript,
     });
@@ -236,7 +237,7 @@ Evaluate the student's conceptual understanding now in valid JSON.`;
       referenceAnswer: effectiveReference,
       transcript,
       criteria: effectiveCriteria,
-      scope,
+      scope: effectiveScope,
     });
   }
 }

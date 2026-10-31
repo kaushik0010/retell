@@ -185,6 +185,7 @@ Implement the semantic evaluation engine that assesses spoken transcripts agains
 - [x] Local-first storage safety — student practice attempts are saved to IndexedDB _before_ triggering async evaluation, ensuring zero transcript loss on network drops or provider timeouts.
 - [x] Canonical Answer Review route at `/study/:id/attempts/:attemptId` with SEO page metadata and seamless practice-to-review transition.
 - [x] Paragraph-level practice support — multi-paragraph questions can be practiced by individual paragraph with scoped evaluation without penalizing unselected paragraphs.
+- [x] Strict paragraph scope isolation and reliable repeated pause hints — rubric criteria and reference text are strictly scoped to the practiced paragraph, and pause detection resets cleanly on speech resumption for consecutive hints.
 - [x] 12-scenario evaluation test suite (`tests/unit/semantic-audit.test.ts`) validating exact matches, paraphrasing, partial answers, omissions, contradictions, keyword stuffing rejection, acoustic imperfections, and resilient storage retries.
 
 ### Acceptance Criteria

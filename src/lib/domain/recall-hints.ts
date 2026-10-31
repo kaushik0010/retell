@@ -1,4 +1,8 @@
 import { RubricCriterion } from "./study-set";
+import {
+  extractParagraphs,
+  filterCriteriaForParagraph,
+} from "./paragraph-scope";
 
 export interface RecallHint {
   cue: string;
@@ -203,58 +207,13 @@ function isConceptMentioned(
     return matches >= 1;
   }
 
-  // For multi-word cues, require at least 50% overlap
-  return matches >= Math.ceil(cueTokens.length * 0.5);
-}
-
-/**
- * Computes the keyword match score between a criterion and a target text.
- */
-function getCriterionParagraphScore(
-  criterion: RubricCriterion,
-  paragraphText: string
-): number {
-  const targetTokens = new Set(tokenize(paragraphText));
-  const criterionTokens = tokenize(
-    `${criterion.name} ${criterion.description} ${criterion.satisfactoryDemonstration}`
-  );
-
-  let score = 0;
-  for (const token of criterionTokens) {
-    if (targetTokens.has(token)) {
-      score++;
-      continue;
-    }
-    for (const t of targetTokens) {
-      if (isWordMatch(token, t)) {
-        score++;
-        break;
-      }
-    }
-  }
-  return score;
-}
-
-/**
- * Checks if a criterion is relevant to the target reference text (e.g., when scoped to a paragraph).
- */
-function isCriterionRelevantToTarget(
-  criterion: RubricCriterion,
-  targetParagraph: string,
-  allParagraphs: string[]
-): boolean {
-  if (allParagraphs.length <= 1) return true;
-
-  const targetScore = getCriterionParagraphScore(criterion, targetParagraph);
-  if (targetScore === 0) return false;
-
-  let maxScore = 0;
-  for (const p of allParagraphs) {
-    const s = getCriterionParagraphScore(criterion, p);
-    if (s > maxScore) maxScore = s;
+  // For 2-word cues, require BOTH words to match
+  if (cueTokens.length === 2) {
+    return matches >= 2;
   }
 
-  return targetScore >= maxScore;
+  // For 3+ word cues, require at least 2 matches (>= 66% overlap)
+  return matches >= Math.min(cueTokens.length, 2);
 }
 
 /**
@@ -281,28 +240,18 @@ export function generateRecallHint({
   const transcriptTokens = new Set(tokenize(currentTranscript));
   const seenCues = new Set(previousHints.map((h) => h.toLowerCase().trim()));
 
-  // If practicing a specific paragraph, determine the target paragraph text
-  const paragraphs = referenceAnswer
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
+  const paragraphs = extractParagraphs(referenceAnswer);
+  const isParagraphScope =
+    typeof scopedParagraphIndex === "number" && scopedParagraphIndex >= 0;
 
-  const targetParagraphText =
-    typeof scopedParagraphIndex === "number" &&
-    scopedParagraphIndex >= 0 &&
-    paragraphs[scopedParagraphIndex]
+  const targetText =
+    isParagraphScope && paragraphs[scopedParagraphIndex]
       ? paragraphs[scopedParagraphIndex]!
       : referenceAnswer;
 
-  // If practicing a specific paragraph, filter criteria relevant to that target
-  const effectiveCriteria =
-    typeof scopedParagraphIndex === "number" &&
-    scopedParagraphIndex >= 0 &&
-    targetParagraphText.trim().length > 0
-      ? criteria.filter((c) =>
-          isCriterionRelevantToTarget(c, targetParagraphText, paragraphs)
-        )
-      : criteria;
+  const effectiveCriteria = isParagraphScope
+    ? filterCriteriaForParagraph(criteria, paragraphs, scopedParagraphIndex)
+    : criteria;
 
   // 1. Try deriving next cue from Rubric Criteria
   if (effectiveCriteria && effectiveCriteria.length > 0) {
@@ -326,7 +275,7 @@ export function generateRecallHint({
   }
 
   // 2. Fallback: derive next cue from Reference Answer sentences ONLY when no criteria exist
-  const cleanAnswer = referenceAnswer.trim();
+  const cleanAnswer = targetText.trim();
   if (cleanAnswer.length >= 10) {
     const sentences = cleanAnswer
       .split(/(?<=[.?!])\s+|\n+/)

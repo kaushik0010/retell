@@ -365,4 +365,65 @@ describe("Pause Hints Lifecycle & Contextual Recall Engine Test Suite", () => {
     );
     expect(hiddenMarkup).toBe("");
   });
+
+  // Scenario 16: More than three qualifying pauses continue while uncovered concepts remain
+  it("Scenario 16: continues delivering unique hints for 4th and subsequent pauses without an arbitrary limit", () => {
+    const extendedCriteria: RubricCriterion[] = [
+      ...sampleCriteria,
+      {
+        id: "crit_dns_security",
+        category: "essential_concept",
+        name: "DNSSEC Validation",
+        description: "Cryptographic signatures prevent DNS spoofing.",
+        satisfactoryDemonstration: "Explains DNSSEC cryptographic protection.",
+        isMandatory: false,
+        orderIndex: 4,
+      },
+    ];
+
+    const previousHints = [
+      "Domain Name Resolution",
+      "Recursive Query Process",
+      "DNS Record Caching",
+      "Authoritative Nameserver Response",
+    ];
+
+    const hint = generateRecallHint({
+      referenceAnswer: sampleAnswer,
+      criteria: extendedCriteria,
+      currentTranscript:
+        "I covered resolution, hierarchy, caching, and authoritative server.",
+      previousHints,
+    });
+
+    expect(hint).not.toBeNull();
+    expect(hint?.cue).toBe("DNSSEC Validation");
+    expect(previousHints.includes(hint!.cue)).toBe(false);
+  });
+
+  // Scenario 17: Multiple audio/transcript events during one pause do not create duplicate hints
+  it("Scenario 17: repeated pause checks during the same silence interval do not duplicate hints", () => {
+    const previousHints: string[] = [];
+
+    // First check during pause interval
+    const hint1 = generateRecallHint({
+      referenceAnswer: sampleAnswer,
+      criteria: sampleCriteria,
+      currentTranscript: "",
+      previousHints,
+    });
+    expect(hint1).not.toBeNull();
+    previousHints.push(hint1!.cue);
+
+    // Second check during same pause without speech (previousHints now has hint1)
+    const hint2 = generateRecallHint({
+      referenceAnswer: sampleAnswer,
+      criteria: sampleCriteria,
+      currentTranscript: "",
+      previousHints,
+    });
+    expect(hint2).not.toBeNull();
+    expect(hint2?.cue).not.toBe(hint1?.cue);
+    expect(hint2?.cue).toBe("Recursive Query Process");
+  });
 });

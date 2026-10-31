@@ -63,6 +63,8 @@ export const PracticeAttemptSchema = z.object({
     .enum(["whole_answer", "paragraph", "selected_paragraphs"])
     .optional(),
   paragraphIndex: z.number().int().nonnegative().optional(),
+  paragraphText: z.string().optional(),
+  totalParagraphs: z.number().int().positive().optional(),
   auditId: z.string().optional(),
   createdAt: z.string(),
 });

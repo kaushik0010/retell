@@ -221,13 +221,13 @@ export class AudioCaptureController {
           this.consecutiveSilentFrames = 0;
           this.consecutiveVoiceFrames++;
 
-          // Require sustained voice energy (at least 2 consecutive frames ~170ms)
-          // to break silence and resume speech state, preventing tiny noise spikes from resetting pause
-          if (this.consecutiveVoiceFrames >= 2) {
-            if (this.isPausedReported) {
-              this.isPausedReported = false;
-              this.callbacks.onPauseStateChange?.(false, 0);
-            }
+          // If a pause hint was active, any voice frame clears the pause state immediately
+          if (this.isPausedReported && this.consecutiveVoiceFrames >= 1) {
+            this.isPausedReported = false;
+            this.silenceStartMs = null;
+            this.callbacks.onPauseStateChange?.(false, 0);
+          } else if (this.consecutiveVoiceFrames >= 2) {
+            // Sustained voice energy breaks silence and resets pause timer
             this.silenceStartMs = null;
           }
         }

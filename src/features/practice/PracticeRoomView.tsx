@@ -22,6 +22,7 @@ import { AudioCaptureController } from "@/lib/audio/capture";
 import { TranscribeClient } from "@/lib/audio/transcribe-client";
 import { TranscriptAccumulator } from "@/lib/audio/transcript-accumulator";
 import { generateRecallHint } from "@/lib/domain/recall-hints";
+import { resolvePracticeScope } from "@/lib/domain/paragraph-scope";
 import { WaveformVisualizer } from "./WaveformVisualizer";
 import { LiveTranscript } from "./LiveTranscript";
 import { ContextualHint } from "./ContextualHint";
@@ -234,11 +235,21 @@ export function PracticeRoomView({
       await client.start();
       transcribeClientRef.current = client;
 
-      // Effective reference answer for hints (whole answer or targeted paragraph)
-      const targetHintReference =
-        selectedParagraphIndex !== null && paragraphs[selectedParagraphIndex]
-          ? paragraphs[selectedParagraphIndex]
-          : activeQuestion?.referenceAnswer;
+      // Authoritatively resolve scoped reference answer and criteria for hints
+      const isParagraphScope = selectedParagraphIndex !== null;
+      const resolvedScope = resolvePracticeScope({
+        referenceAnswer: activeQuestion?.referenceAnswer || "",
+        criteria: activeRubric?.criteria || [],
+        scope: isParagraphScope
+          ? {
+              type: "paragraph",
+              paragraphIndex: selectedParagraphIndex,
+            }
+          : undefined,
+      });
+
+      const targetHintReference = resolvedScope.paragraphText;
+      const targetHintCriteria = resolvedScope.criteria;
 
       // 2. Start browser audio capture using browser-provided default microphone (with quiet-voice threshold 0.008)
       const capture = new AudioCaptureController(
@@ -265,13 +276,13 @@ export function PracticeRoomView({
             setIsPaused(paused);
 
             if (paused) {
-              // Generate source-grounded recall hint from reference answer and rubric
+              // Generate source-grounded recall hint from scoped reference answer and criteria
               // No arbitrary 3-hint ceiling: hints continue sequentially throughout the attempt
               const currentFullText =
                 accumulatorRef.current.getFullTranscript();
               const hint = generateRecallHint({
                 referenceAnswer: targetHintReference,
-                criteria: activeRubric?.criteria,
+                criteria: targetHintCriteria,
                 currentTranscript: currentFullText,
                 previousHints: previousHintsRef.current,
                 scopedParagraphIndex:
@@ -371,6 +382,18 @@ export function PracticeRoomView({
     const finalWordCount = calculateWordCount(fullTranscript);
 
     // 5. Persist attempt record to IndexedDB FIRST so student speech is guaranteed safe
+    const isParagraphScope = selectedParagraphIndex !== null;
+    const resolvedScope = resolvePracticeScope({
+      referenceAnswer: activeQuestion.referenceAnswer,
+      criteria: activeRubric?.criteria || [],
+      scope: isParagraphScope
+        ? {
+            type: "paragraph",
+            paragraphIndex: selectedParagraphIndex,
+          }
+        : undefined,
+    });
+
     const attempt: PracticeAttempt = {
       id: createAttemptId(),
       studySetId: studySet.id,
@@ -379,9 +402,11 @@ export function PracticeRoomView({
       wordCount: finalWordCount,
       durationSeconds: finalDuration,
       status: "completed",
-      scope: selectedParagraphIndex !== null ? "paragraph" : "whole_answer",
+      scope: isParagraphScope ? "paragraph" : "whole_answer",
       paragraphIndex:
         selectedParagraphIndex !== null ? selectedParagraphIndex : undefined,
+      paragraphText: isParagraphScope ? resolvedScope.paragraphText : undefined,
+      totalParagraphs: resolvedScope.totalParagraphs,
       createdAt: new Date().toISOString(),
     };
 
@@ -408,12 +433,14 @@ export function PracticeRoomView({
           studySetId: studySet.id,
           questionId: activeQuestion.id,
           question: activeQuestion.question,
-          referenceAnswer: activeQuestion.referenceAnswer,
+          referenceAnswer: resolvedScope.paragraphText,
           transcript: fullTranscript,
-          criteria: activeRubric?.criteria || [],
+          criteria: resolvedScope.criteria,
           scope: {
             type: attempt.scope,
             paragraphIndex: attempt.paragraphIndex,
+            totalParagraphs: resolvedScope.totalParagraphs,
+            targetText: resolvedScope.paragraphText,
           },
         }),
       });
@@ -451,6 +478,20 @@ export function PracticeRoomView({
       setIsRetryingAudit(true);
       setAuditNotice(null);
 
+      const isParagraphScope =
+        lastSavedAttempt.scope === "paragraph" &&
+        typeof lastSavedAttempt.paragraphIndex === "number";
+      const resolvedScope = resolvePracticeScope({
+        referenceAnswer: activeQuestion.referenceAnswer,
+        criteria: activeRubric?.criteria || [],
+        scope: isParagraphScope
+          ? {
+              type: "paragraph",
+              paragraphIndex: lastSavedAttempt.paragraphIndex,
+            }
+          : undefined,
+      });
+
       const auditRes = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -459,12 +500,14 @@ export function PracticeRoomView({
           studySetId: studySet.id,
           questionId: activeQuestion.id,
           question: activeQuestion.question,
-          referenceAnswer: activeQuestion.referenceAnswer,
+          referenceAnswer: resolvedScope.paragraphText,
           transcript: lastSavedAttempt.transcript,
-          criteria: activeRubric?.criteria || [],
+          criteria: resolvedScope.criteria,
           scope: {
-            type: lastSavedAttempt.scope,
+            type: lastSavedAttempt.scope || "whole_answer",
             paragraphIndex: lastSavedAttempt.paragraphIndex,
+            totalParagraphs: resolvedScope.totalParagraphs,
+            targetText: resolvedScope.paragraphText,
           },
         }),
       });

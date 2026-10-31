@@ -13,6 +13,10 @@ import {
   CRITERION_STATUS_META,
 } from "@/lib/domain/semantic-audit";
 import { saveSemanticAuditResult } from "@/lib/storage/study-store";
+import {
+  extractParagraphs,
+  resolvePracticeScope,
+} from "@/lib/domain/paragraph-scope";
 
 interface AnswerReviewViewProps {
   studySet: StudySet;
@@ -48,6 +52,17 @@ export function AnswerReviewView({
       setIsAuditing(true);
       setAuditError(null);
 
+      const resolvedScope = resolvePracticeScope({
+        referenceAnswer: activeQuestion.referenceAnswer,
+        criteria: activeRubric?.criteria || [],
+        scope: attempt.scope
+          ? {
+              type: attempt.scope,
+              paragraphIndex: attempt.paragraphIndex,
+            }
+          : undefined,
+      });
+
       const res = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -56,15 +71,15 @@ export function AnswerReviewView({
           studySetId: studySet.id,
           questionId: activeQuestion.id,
           question: activeQuestion.question,
-          referenceAnswer: activeQuestion.referenceAnswer,
+          referenceAnswer: resolvedScope.paragraphText,
           transcript: attempt.transcript,
-          criteria: activeRubric?.criteria || [],
-          scope: attempt.scope
-            ? {
-                type: attempt.scope,
-                paragraphIndex: attempt.paragraphIndex,
-              }
-            : undefined,
+          criteria: resolvedScope.criteria,
+          scope: {
+            type: attempt.scope || "whole_answer",
+            paragraphIndex: attempt.paragraphIndex,
+            totalParagraphs: resolvedScope.totalParagraphs,
+            targetText: resolvedScope.paragraphText,
+          },
         }),
       });
 
@@ -553,10 +568,21 @@ export function AnswerReviewView({
                 {showReferenceAnswer && (
                   <div className="bg-brand-cream/60 text-brand-ink border-brand-peach/60 mt-3 rounded-xl border p-4 text-xs leading-relaxed">
                     <p className="font-semibold text-stone-700">
-                      Original Reference Answer from Notes:
+                      {attempt.scope === "paragraph" &&
+                      typeof attempt.paragraphIndex === "number"
+                        ? `Reference Answer for Paragraph ${attempt.paragraphIndex + 1}:`
+                        : "Original Reference Answer from Notes:"}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap">
-                      {activeQuestion.referenceAnswer}
+                      {attempt.scope === "paragraph" &&
+                      typeof attempt.paragraphIndex === "number"
+                        ? attempt.paragraphText ||
+                          audit?.scope.targetText ||
+                          extractParagraphs(activeQuestion.referenceAnswer)[
+                            attempt.paragraphIndex
+                          ] ||
+                          activeQuestion.referenceAnswer
+                        : activeQuestion.referenceAnswer}
                     </p>
                   </div>
                 )}

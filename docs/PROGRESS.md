@@ -484,11 +484,28 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
   - Relaxed `SemanticAuditRequestSchema` defaults (`transcript: z.string().default("")`, `criteria: z.array(...).default([])`), eliminating HTTP 400 Bad Request on empty attempts and auto-synthesizing baseline criteria when rubrics are unconfigured.
   - Created 15-scenario automated unit test suite in `tests/unit/pause-hints-lifecycle.test.ts`.
 
+- [x] **`TASK-4.4` — Strict Paragraph Scope Isolation & Repeated Pause Hints Architecture**
+  - **Authoritative Paragraph Scope Isolation (`src/lib/domain/paragraph-scope.ts`):**
+    - Built canonical paragraph-scoping engine that maps criteria to paragraphs using keyword-stem overlap scoring.
+    - Scopes reference answer, criteria, and evaluation targets strictly to the selected paragraph.
+    - Updated `PracticeAttemptSchema` (`paragraphText`, `totalParagraphs`) so attempts preserve their exact paragraph context across storage and reloads.
+    - Updated `evaluator.ts` so paragraph practice evaluates ONLY the selected paragraph; zero criteria from other paragraphs appear in `criteriaEvaluations`, `whatNeedsAttention`, or overall counts.
+    - Updated `AnswerReviewView.tsx` so collapsible reference answer and feedback cards show ONLY the selected paragraph's reference text and criteria.
+    - Guarded against missing or invalid paragraph metadata with explicit recoverable errors instead of silent full-answer fallback.
+  - **Repeated Contextual Pause Hints:**
+    - Fixed 2-word cue token overlap requirement (`matches >= 2`) in `isConceptMentioned()`, eliminating false-positive concept coverage matches from single common words.
+    - Armed pause detection for immediate reset on any voice activity (`this.isPausedReported && consecutiveVoiceFrames >= 1`), ensuring subsequent pauses after speaking reliably fire new hints.
+    - Eliminated duplicate hints and enforced strictly sequential cues without arbitrary limits.
+  - **Regression Test Suites:**
+    - Added `tests/unit/paragraph-scope-isolation.test.ts` (10 tests covering Scenarios A through J).
+    - Expanded `tests/unit/pause-hints-lifecycle.test.ts` (17 tests covering Scenarios 1 through 17).
+    - 184 passing unit tests across 18 test files in Vitest (`pnpm run test`).
+
 ---
 
 ## 2. In Progress Tasks
 
-- _None (Reliability Phase & Day 4 completed; ready for Day 5 IndexedDB, Polish & Accessibility)_
+- _None (Targeted Fix completed; ready for Day 5 IndexedDB, Polish & Accessibility)_
 
 ---
 
@@ -532,16 +549,16 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 6. Verification Results
 
-| Check                                | Command                   | Observed Result                                                                                                                                                                       | Status       |
-| ------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Vitest Unit Test Suite               | `pnpm run test`           | 172 passed across 17 test files (pause-hints-lifecycle, transcription-reliability, transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, rubric, etc.) | **PASSED**   |
-| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                                                                        | **PASSED**   |
-| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                                                                            | **PASSED**   |
-| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                                                                             | **PASSED**   |
-| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 16 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, Study/Attempts, APIs)                                       | **PASSED**   |
-| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                      | **VERIFIED** |
-| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                      | **VERIFIED** |
-| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000                                                              | **VERIFIED** |
+| Check                                | Command                   | Observed Result                                                                                                                                                                                                  | Status       |
+| ------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Vitest Unit Test Suite               | `pnpm run test`           | 184 passed across 18 test files (paragraph-scope-isolation, pause-hints-lifecycle, transcription-reliability, transcript-accumulator, recall-hints, practice-session, storage, domain, navigation, rubric, etc.) | **PASSED**   |
+| TypeScript Validation                | `pnpm run type-check`     | Zero errors across all `.ts` and `.tsx` files (`tsc --noEmit`)                                                                                                                                                   | **PASSED**   |
+| ESLint Code Quality                  | `pnpm run lint`           | Zero errors, zero warnings                                                                                                                                                                                       | **PASSED**   |
+| Prettier Formatting                  | `pnpm run format:check`   | All files conform to formatting standards                                                                                                                                                                        | **PASSED**   |
+| Production Build                     | `pnpm run build`          | Webpack build compiled successfully; 16 routes registered (Home, Library, Add Material, Review, Practice, Study/Practice, Study/Attempts, APIs)                                                                  | **PASSED**   |
+| Live Meta Reasoning Smoke Test       | `pnpm run test:providers` | HTTP 200, 2336ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                                                 | **VERIFIED** |
+| Live Baseten Reasoning Smoke Test    | `pnpm run test:providers` | HTTP 200, 2175ms, valid JSON conforming to Zod schema, reasoning tokens verified                                                                                                                                 | **VERIFIED** |
+| Live Meta Voice Transcribe WebSocket | `pnpm run test:providers` | Handshake acknowledged (`sessionId`), streamed 206KB PCM audio, received 100% accurate final transcript, close code 1000                                                                                         | **VERIFIED** |
 
 ---
 

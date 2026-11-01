@@ -20,7 +20,9 @@ import {
   optimizeSingleImage,
   assessUploadPayloadBudget,
   CLIENT_UPLOAD_BUDGET_BYTES,
+  inspectPdf,
 } from "@/lib/files";
+import { PdfPreview } from "./PdfPreview";
 import {
   SparklesIcon,
   ArrowPathIcon,
@@ -434,18 +436,11 @@ function NewMaterialContent() {
 
     if (isExtracting) return; // Prevent duplicate submit clicks
 
-    if (isAnyImageOptimizing) {
-      setError(
-        "Please wait a moment while your images are being optimized for legibility and fast upload."
-      );
-      return;
-    }
-
     if (!payloadBudget.withinBudget) {
       setError(
-        payloadBudget.actionGuidance ||
-          payloadBudget.warning ||
-          "Upload payload exceeds the safe limit."
+        payloadBudget.warning
+          ? `${payloadBudget.warning} ${payloadBudget.actionGuidance || ""}`.trim()
+          : "These pages are too large to add together. Try selecting fewer pages."
       );
       return;
     }
@@ -454,10 +449,68 @@ function NewMaterialContent() {
     setError(null);
 
     try {
+      if (files.length === 1 && files[0]?.type === "application/pdf") {
+        setExtractionStep("Reading PDF document...");
+        const pdfFile = files[0];
+        try {
+          const inspection = await inspectPdf(pdfFile);
+          if (
+            inspection &&
+            inspection.classification === "text" &&
+            inspection.aggregateText.length >= 20
+          ) {
+            setExtractionStep("Analyzing your pages...");
+            const jsonRes = await fetch("/api/extract", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: title.trim() || undefined,
+                sourceText: inspection.aggregateText,
+                sourceType: "pdf",
+                fileName: pdfFile.name,
+                fileSize: pdfFile.size,
+                pageCount: inspection.pageCount,
+              }),
+            });
+            const jsonExtractData = await jsonRes.json();
+            if (!jsonRes.ok || !jsonExtractData.success) {
+              throw new Error(
+                jsonExtractData.error ||
+                  "Could not extract exam questions from this document. Please verify the file has clear, legible text."
+              );
+            }
+
+            const material: StudyMaterial = jsonExtractData.studyMaterial;
+            const questions: ExtractedQuestion[] = jsonExtractData.questions;
+            if (!questions || questions.length === 0) {
+              throw new Error(
+                "No question-answer pairs could be detected in this file. Please verify the document contains study questions and answers."
+              );
+            }
+
+            setCurrentMaterial(material);
+            setDetectedQuestions(questions);
+            setSelectedQuestionIndex(0);
+            if (!title && material.title) {
+              setTitle(material.title);
+            }
+            return;
+          }
+        } catch (inspectErr: unknown) {
+          // If text extraction fails, proceed with multipart binary upload fallback
+          if (
+            inspectErr instanceof Error &&
+            inspectErr.message.includes("No question-answer pairs")
+          ) {
+            throw inspectErr;
+          }
+        }
+      }
+
       setExtractionStep(
         files.length === 1 && files[0]?.type === "application/pdf"
-          ? "Uploading and reading PDF document..."
-          : `Uploading and ordering ${files.length} image page(s)...`
+          ? "Reading PDF document..."
+          : `Reading ${files.length} page(s)...`
       );
 
       const formData = new FormData();
@@ -468,9 +521,7 @@ function NewMaterialContent() {
         formData.append("title", title.trim());
       }
 
-      setExtractionStep(
-        "Analyzing consecutive pages with Meta multimodal reasoning..."
-      );
+      setExtractionStep("Analyzing your pages...");
 
       const extractRes = await fetch("/api/extract", {
         method: "POST",
@@ -812,7 +863,7 @@ function NewMaterialContent() {
         rubrics[q.id] = rubricData.rubric;
       }
 
-      setPreparingStep("Saving study set to your local browser storage...");
+      setPreparingStep("Saving your study set...");
 
       const studySet: StudySet = {
         id: materialToSave.id,
@@ -1103,6 +1154,9 @@ function NewMaterialContent() {
             </div>
           </div>
 
+          {/* Local PDF Preview */}
+          {stagedFiles[0]?.file && <PdfPreview file={stagedFiles[0].file} />}
+
           {detectedQuestions.length === 0 && (
             <div className="border-brand-peach/40 flex flex-col gap-3 border-t pt-3">
               {!payloadBudget.withinBudget && (
@@ -1125,19 +1179,6 @@ function NewMaterialContent() {
                     Extract all authentic exam questions and answers from this
                     PDF.
                   </span>
-                  <span className="text-brand-secondary/80 text-[11px]">
-                    Payload size: {payloadBudget.payloadFormatted} /{" "}
-                    {payloadBudget.budgetFormatted} budget
-                    {payloadBudget.withinBudget ? (
-                      <span className="ml-1.5 font-medium text-emerald-700">
-                        ✓ Safe for upload
-                      </span>
-                    ) : (
-                      <span className="ml-1.5 font-medium text-amber-700">
-                        ⚠ Exceeds limit
-                      </span>
-                    )}
-                  </span>
                 </div>
 
                 <button
@@ -1149,7 +1190,7 @@ function NewMaterialContent() {
                   {isExtracting ? (
                     <>
                       <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                      <span>Analyzing PDF Document...</span>
+                      <span>Extracting questions &amp; answers...</span>
                     </>
                   ) : (
                     <>
@@ -1267,12 +1308,6 @@ function NewMaterialContent() {
               <span className="bg-brand-cream text-brand-tomato border-brand-peach rounded-full border px-2 py-0.5 text-[10px] font-bold">
                 {stagedImages.length} page(s) ordered
               </span>
-              {isAnyImageOptimizing && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                  <ArrowPathIcon className="h-3 w-3 animate-spin" />
-                  Optimizing images...
-                </span>
-              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -1350,43 +1385,12 @@ function NewMaterialContent() {
                         <span className="bg-brand-tomato rounded px-1.5 py-0.5 text-[9px] font-bold text-white">
                           Page {idx + 1}
                         </span>
-                        {item.isOptimizing && (
-                          <span className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">
-                            <ArrowPathIcon className="h-2.5 w-2.5 animate-spin" />{" "}
-                            Optimizing...
-                          </span>
-                        )}
-                        {!item.isOptimizing && item.wasOptimized && (
-                          <span
-                            className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700"
-                            title={item.optimizationNote}
-                          >
-                            <CheckIcon className="h-2.5 w-2.5" />{" "}
-                            Legibility-optimized
-                          </span>
-                        )}
-                        {!item.isOptimizing &&
-                          item.optimizationNote &&
-                          !item.wasOptimized && (
-                            <span
-                              className="inline-flex items-center gap-1 rounded border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[9px] font-medium text-stone-600"
-                              title={item.optimizationNote}
-                            >
-                              Original retained
-                            </span>
-                          )}
                       </div>
                       <h5 className="font-heading text-brand-ink mt-0.5 truncate text-xs font-bold">
                         {item.name}
                       </h5>
                       <div className="text-brand-secondary flex items-center gap-1.5 text-[10px]">
                         <span>{item.sizeFormatted}</span>
-                        {item.originalSize &&
-                          item.originalSize !== item.size && (
-                            <span className="text-stone-400 line-through">
-                              ({item.originalSizeFormatted})
-                            </span>
-                          )}
                       </div>
                     </div>
                   </div>
@@ -1451,40 +1455,18 @@ function NewMaterialContent() {
                     Extract all questions across all {stagedImages.length}{" "}
                     page(s) in order.
                   </span>
-                  <span className="text-brand-secondary/80 text-[11px]">
-                    Payload size: {payloadBudget.payloadFormatted} /{" "}
-                    {payloadBudget.budgetFormatted} budget
-                    {payloadBudget.withinBudget ? (
-                      <span className="ml-1.5 font-medium text-emerald-700">
-                        ✓ Safe for upload
-                      </span>
-                    ) : (
-                      <span className="ml-1.5 font-medium text-amber-700">
-                        ⚠ Exceeds limit
-                      </span>
-                    )}
-                  </span>
                 </div>
 
                 <button
                   type="button"
-                  disabled={
-                    isExtracting ||
-                    isAnyImageOptimizing ||
-                    !payloadBudget.withinBudget
-                  }
+                  disabled={isExtracting || !payloadBudget.withinBudget}
                   onClick={() => executeExtractionWithFiles()}
                   className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
                   {isExtracting ? (
                     <>
                       <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                      <span>Analyzing Consecutive Pages...</span>
-                    </>
-                  ) : isAnyImageOptimizing ? (
-                    <>
-                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                      <span>Optimizing Images...</span>
+                      <span>Extracting questions &amp; answers...</span>
                     </>
                   ) : (
                     <>

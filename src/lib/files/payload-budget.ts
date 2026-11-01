@@ -90,9 +90,8 @@ export function assessUploadPayloadBudget(
   let actionGuidance: string | undefined;
 
   if (!withinBudget) {
-    warning = `Selected upload payload (${payloadFormatted}) exceeds the ${budgetFormatted} safe upload limit.`;
-    actionGuidance =
-      "To ensure reliable analysis on Vercel, please select fewer pages (e.g. 3–5 pages at a time) or remove unnecessary photos.";
+    warning = `These pages are too large to add together. We recommend keeping your selection under ${budgetFormatted}.`;
+    actionGuidance = "Try selecting fewer pages or choosing smaller images.";
   }
 
   return {

@@ -285,3 +285,4 @@ export function validateFileBatch(
 
 export * from "./image-optimizer";
 export * from "./payload-budget";
+export * from "./pdf-extractor";

@@ -261,18 +261,11 @@ export function ImportQuestionsModal({
   const handleExtractQuestions = async () => {
     if (stagedFiles.length === 0 || isExtracting) return;
 
-    if (isAnyImageOptimizing) {
-      setError(
-        "Please wait a moment while your images are being optimized for legibility and fast upload."
-      );
-      return;
-    }
-
     if (!payloadBudget.withinBudget) {
       setError(
-        payloadBudget.actionGuidance ||
-          payloadBudget.warning ||
-          "Upload payload exceeds the safe limit."
+        payloadBudget.warning
+          ? `${payloadBudget.warning} ${payloadBudget.actionGuidance || ""}`.trim()
+          : "These pages are too large to add together. Try selecting fewer pages."
       );
       return;
     }
@@ -293,9 +286,7 @@ export function ImportQuestionsModal({
       }
       formData.append("title", studySet.material.title);
 
-      setExtractionStep(
-        "Extracting authentic questions with Meta multimodal AI..."
-      );
+      setExtractionStep("Extracting questions and answers...");
 
       const res = await fetch("/api/extract", {
         method: "POST",
@@ -626,44 +617,17 @@ export function ImportQuestionsModal({
                             <DocumentTextIcon className="text-brand-tomato h-7 w-7 shrink-0" />
                           )}
                           <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1">
-                              <span className="bg-brand-tomato py-0.2 rounded px-1.5 text-[9px] font-bold text-white">
-                                {item.type === "pdf"
-                                  ? "PDF"
-                                  : `Page ${idx + 1}`}
-                              </span>
-                              {item.isOptimizing && (
-                                <span className="py-0.2 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 text-[9px] font-semibold text-amber-700">
-                                  <ArrowPathIcon className="h-2.5 w-2.5 animate-spin" />{" "}
-                                  Optimizing...
-                                </span>
-                              )}
-                              {!item.isOptimizing && item.wasOptimized && (
-                                <span
-                                  className="py-0.2 inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 text-[9px] font-semibold text-emerald-700"
-                                  title={item.optimizationNote}
-                                >
-                                  <CheckIcon className="h-2.5 w-2.5" />{" "}
-                                  Optimized
-                                </span>
-                              )}
-                            </div>
+                            <span className="bg-brand-tomato py-0.2 rounded px-1.5 text-[9px] font-bold text-white">
+                              {item.type === "pdf" ? "PDF" : `Page ${idx + 1}`}
+                            </span>
                             <h4 className="font-heading text-brand-ink truncate text-xs font-bold">
                               {item.name}
                             </h4>
-                            <div className="text-brand-secondary flex items-center gap-1 text-[10px]">
-                              <span>
-                                {item.pageCount
-                                  ? `${item.pageCount} pages · ${item.sizeFormatted}`
-                                  : item.sizeFormatted}
-                              </span>
-                              {item.originalSize &&
-                                item.originalSize !== item.size && (
-                                  <span className="text-stone-400 line-through">
-                                    ({item.originalSizeFormatted})
-                                  </span>
-                                )}
-                            </div>
+                            <span className="text-brand-secondary text-[10px]">
+                              {item.pageCount
+                                ? `${item.pageCount} pages · ${item.sizeFormatted}`
+                                : item.sizeFormatted}
+                            </span>
                           </div>
                         </div>
 
@@ -703,25 +667,8 @@ export function ImportQuestionsModal({
                     ))}
                   </div>
 
-                  {/* Payload budget meter and guidance */}
-                  <div className="text-brand-secondary flex items-center justify-between pt-1 text-[11px]">
-                    <span>
-                      Estimated upload: {payloadBudget.payloadFormatted} /{" "}
-                      {payloadBudget.budgetFormatted}
-                    </span>
-                    {payloadBudget.withinBudget ? (
-                      <span className="font-medium text-emerald-700">
-                        ✓ Safe for upload
-                      </span>
-                    ) : (
-                      <span className="font-medium text-amber-700">
-                        ⚠ Exceeds limit
-                      </span>
-                    )}
-                  </div>
-
                   {!payloadBudget.withinBudget && (
-                    <div className="rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+                    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
                       <p className="font-bold">{payloadBudget.warning}</p>
                       <p className="mt-0.5 text-[11px] text-amber-800">
                         {payloadBudget.actionGuidance}
@@ -917,7 +864,6 @@ export function ImportQuestionsModal({
                 disabled={
                   stagedFiles.length === 0 ||
                   isExtracting ||
-                  isAnyImageOptimizing ||
                   !payloadBudget.withinBudget
                 }
                 onClick={handleExtractQuestions}
@@ -926,12 +872,7 @@ export function ImportQuestionsModal({
                 {isExtracting ? (
                   <>
                     <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                    <span>Analyzing...</span>
-                  </>
-                ) : isAnyImageOptimizing ? (
-                  <>
-                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                    <span>Optimizing...</span>
+                    <span>Extracting...</span>
                   </>
                 ) : (
                   <>

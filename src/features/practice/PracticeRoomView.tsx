@@ -414,7 +414,7 @@ export function PracticeRoomView({
       await savePracticeAttempt(attempt);
       setLastSavedAttempt(attempt);
     } catch (saveErr) {
-      console.error("Failed to save practice attempt to IndexedDB:", saveErr);
+      console.error("Failed to save practice attempt locally:", saveErr);
       setErrorMessage(
         "Your spoken words are preserved below, but could not be saved to browser storage."
       );

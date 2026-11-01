@@ -185,8 +185,12 @@ export const ExtractRequestSchema = z.object({
   sourceText: z
     .string()
     .min(20, "Study material must be at least 20 characters")
-    .max(20000, "Study material exceeds 20,000 characters"),
+    .max(100000, "Study material exceeds 100,000 characters"),
   studentQuestion: z.string().optional(),
+  sourceType: z.enum(["text", "pdf", "image"]).optional(),
+  fileName: z.string().optional(),
+  fileSize: z.number().optional(),
+  pageCount: z.number().optional(),
 });
 
 export type ExtractRequest = z.infer<typeof ExtractRequestSchema>;

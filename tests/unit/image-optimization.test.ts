@@ -270,7 +270,7 @@ describe("Image Optimization & Safe Upload Payload Limits", () => {
       expect(assessment.withinBudget).toBe(false);
       expect(assessment.excessBytes).toBeGreaterThan(0);
       expect(assessment.warning).toBeDefined();
-      expect(assessment.warning).toContain("exceeds the");
+      expect(assessment.warning).toContain("too large to add together");
       expect(assessment.actionGuidance).toContain("fewer pages");
       expect(assessment.totalPayloadBytes).toBeLessThan(
         VERCEL_MAX_PAYLOAD_LIMIT_BYTES // Confirms 3.5 MB safety ceiling triggers well before Vercel 4.5 MB hard limit

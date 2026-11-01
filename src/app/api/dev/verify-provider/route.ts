@@ -82,10 +82,7 @@ async function runSmokeTest(providerId: ProviderId): Promise<SmokeTestResult> {
 
 export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      { error: "Verification endpoints are disabled in production mode." },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -120,10 +117,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      { error: "Verification endpoints are disabled in production mode." },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   let body: unknown = {};

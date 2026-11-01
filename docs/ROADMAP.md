@@ -210,16 +210,17 @@ Wire up the complete end-to-end user journey, finalize local IndexedDB persisten
 
 ### Tasks & Status
 
-| Task ID    | Task Description                                                                           | Status        | Implementation Plan Ref                                                                                          |
-| ---------- | ------------------------------------------------------------------------------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `TASK-5.1` | Complete client-side IndexedDB repository (`src/lib/storage`) with Dexie or raw IDB        | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)         |
-| `TASK-5.2` | Polish responsive layouts at 390px (mobile), 768px (tablet), and 1440px (desktop)          | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)      |
-| `TASK-5.3` | Implement keyboard navigation, ARIA live regions for transcripts, and high-contrast checks | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)      |
-| `TASK-5.4` | Add comprehensive error boundaries, retry buttons, and offline storage safeguards          | **Completed** | [Section 9](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#9-error-handling-and-resilience) |
-| `TASK-5.5` | Redesign Attempt History Interface matching Butter & Tomato visual reference               | **Completed** | [Section 2, 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                              |
-| `TASK-5.6` | UI Polish: Consistent Pointer Cursors on Learning History Pages                            | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)          |
+| Task ID    | Task Description                                                                           | Status        | Implementation Plan Ref                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `TASK-5.1` | Complete client-side IndexedDB repository (`src/lib/storage`) with Dexie or raw IDB        | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)          |
+| `TASK-5.2` | Polish responsive layouts at 390px (mobile), 768px (tablet), and 1440px (desktop)          | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)       |
+| `TASK-5.3` | Implement keyboard navigation, ARIA live regions for transcripts, and high-contrast checks | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)       |
+| `TASK-5.4` | Add comprehensive error boundaries, retry buttons, and offline storage safeguards          | **Completed** | [Section 9](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#9-error-handling-and-resilience)  |
+| `TASK-5.5` | Redesign Attempt History Interface matching Butter & Tomato visual reference               | **Completed** | [Section 2, 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-5.6` | UI Polish: Consistent Pointer Cursors on Learning History Pages                            | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)       |
 | `TASK-5.7` | Critical Bug Fix: Paragraph-Level Semantic Audit Scope Resolution                          | **Completed** | [Section 4, 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
-| `TASK-5.8` | Ingestion Phase 1: Client-Side Image Optimization & Upload Payload Protection              | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
+| `TASK-5.8` | Ingestion Phase 1: Client-Side Image Optimization & Upload Payload Protection              | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion) |
+| `TASK-5.9` | Image Upload UX Cleanup, Information Exposure Audit, Local PDF Preview & Ingestion         | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion) |
 
 ### Key Milestones Completed
 

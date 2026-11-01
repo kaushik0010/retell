@@ -402,7 +402,10 @@ Analyze the material strictly following the source-grounding rules and return va
       title,
       sourceText,
       characterCount: sourceText.length,
-      sourceType: "text",
+      sourceType: parsedRequest.data.sourceType || "text",
+      fileName: parsedRequest.data.fileName,
+      fileSize: parsedRequest.data.fileSize,
+      pageCount: parsedRequest.data.pageCount,
       createdAt: now,
       updatedAt: now,
     };

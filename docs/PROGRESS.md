@@ -617,8 +617,8 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
 
 ## 7. Latest Git Commit
 
-- **Latest Commit:** `HEAD` — `fix: isolate paragraph audits and restore repeated hints` (hash `4cbc48b`)
-- **Previous Commit:** `ab86afc` — `fix: improve contextual pause hints and transcription reliability`
+- **Latest Commit:** `HEAD` — `feat(ingestion): optimize images before extraction` (hash `53bf6e1`)
+- **Previous Commit:** `4cbc48b` — `fix: isolate paragraph audits and restore repeated hints`
 
 ---
 

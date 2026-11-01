@@ -117,11 +117,20 @@ retell/
 
 ---
 
-## 4. Features: Library and Ingestion (`src/features/library`)
+## 4. Features: Library and Ingestion (`src/features/library`, `src/features/materials`)
 
-- **Input Modalities:** Raw text paste, structured markdown notes, or uploaded study documents.
+- **Input Modalities:** Raw text paste, structured markdown notes, PDF documents, and multi-page note photos.
+- **Client-Side Adaptive Image Optimization (`src/lib/files/image-optimizer.ts`):**
+  - Offloaded to browser background Web Workers via `browser-image-compression`.
+  - Legibility-first configuration: `maxWidthOrHeight: 2048`, `initialQuality: 0.86`, `maxSizeMB: 0.9`. Preserves fine handwriting, subscript/superscript, diagrams, and small textbook fonts.
+  - Diagram transparency preservation: detects `image/png` and strictly preserves PNG MIME encoding, preventing black canvas backgrounds.
+  - Fail-safe fallback strategy: skips images <= 200 KB already compact, discards compression if output is larger than original, and retains original file if Web Worker/compression throws an error.
+- **Upload Payload Protection & Vercel Ceiling Safety (`src/lib/files/payload-budget.ts`):**
+  - Models conservative multipart/form-data boundary and field overhead (~2 KB base + 1 KB/file).
+  - Enforces client-side upload payload budget of 3.5 MB, safely below Vercel's unconfigurable 4.5 MB serverless body ceiling (HTTP 413).
+  - Clear student guidance and non-blocking background progress badges in `NewMaterialView.tsx` and `ImportQuestionsModal.tsx`.
 - **Extraction Pipeline:**
-  - Client sends raw text to `/api/extract`.
+  - Client sends optimized files or text to `/api/extract`.
   - Server invokes Meta `muse-spark-1.3` with structured output prompts.
   - Returns extracted `question` and `referenceAnswer`.
 - **Validation:** Zod schema guarantees both fields are non-empty strings before proceeding.

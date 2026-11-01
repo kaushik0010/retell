@@ -17,6 +17,9 @@ import {
   validateStudyFile,
   formatFileSize,
   MAX_BATCH_FILES,
+  optimizeSingleImage,
+  assessUploadPayloadBudget,
+  CLIENT_UPLOAD_BUDGET_BYTES,
 } from "@/lib/files";
 import {
   SparklesIcon,
@@ -33,18 +36,26 @@ import {
   PlusIcon,
   ArrowUpIcon,
   ArrowDownIcon,
+  CheckIcon,
 } from "@/components/icons";
 
 interface StagedFileItem {
   id: string;
   file: File;
+  originalFile?: File;
   name: string;
   size: number;
   sizeFormatted: string;
+  originalSize?: number;
+  originalSizeFormatted?: string;
   type: "pdf" | "image";
   pageCount?: number;
   previewUrl?: string;
   error?: string;
+  isOptimizing?: boolean;
+  wasOptimized?: boolean;
+  isFallback?: boolean;
+  optimizationNote?: string;
 }
 
 export function NewMaterialView() {
@@ -128,6 +139,14 @@ function NewMaterialContent() {
     ? sourceText.trim().split(/\s+/).length
     : 0;
 
+  // Upload payload budget assessment
+  const payloadBudget = assessUploadPayloadBudget(
+    stagedFiles.map((s) => ({ file: s.file, name: s.name, size: s.size })),
+    CLIENT_UPLOAD_BUDGET_BYTES,
+    { title: title.trim() || undefined }
+  );
+  const isAnyImageOptimizing = stagedFiles.some((f) => f.isOptimizing);
+
   // Active question for detail editing
   const activeQuestion = detectedQuestions[selectedQuestionIndex] || null;
 
@@ -193,11 +212,15 @@ function NewMaterialContent() {
       const singleItem: StagedFileItem = {
         id: `file_${crypto.randomUUID()}`,
         file,
+        originalFile: file,
         name: file.name,
         size: file.size,
         sizeFormatted: formatFileSize(file.size),
+        originalSize: file.size,
+        originalSizeFormatted: formatFileSize(file.size),
         type: "pdf",
         pageCount: validation.pageCount,
+        isOptimizing: false,
       };
 
       setStagedFiles([singleItem]);
@@ -241,12 +264,16 @@ function NewMaterialContent() {
         newItems.push({
           id: `file_${crypto.randomUUID()}`,
           file,
+          originalFile: file,
           name: file.name,
           size: file.size,
           sizeFormatted: formatFileSize(file.size),
+          originalSize: file.size,
+          originalSizeFormatted: formatFileSize(file.size),
           type: "image",
           previewUrl,
           error: validation.valid ? undefined : validation.error,
+          isOptimizing: validation.valid,
         });
       }
 
@@ -275,6 +302,41 @@ function NewMaterialContent() {
       setStagedFiles(updatedList);
       setDetectedQuestions([]);
       setCurrentMaterial(null);
+
+      // Asynchronously optimize valid newly staged images in background with Web Worker
+      const validItemsToOptimize = newItems.filter((i) => !i.error);
+      for (const item of validItemsToOptimize) {
+        try {
+          const res = await optimizeSingleImage(item.file);
+          setStagedFiles((prev) =>
+            prev.map((f) => {
+              if (f.id !== item.id) return f;
+              return {
+                ...f,
+                file: res.file,
+                size: res.file.size,
+                sizeFormatted: formatFileSize(res.file.size),
+                isOptimizing: false,
+                wasOptimized: res.wasOptimized,
+                isFallback: res.isFallback,
+                optimizationNote: res.note,
+              };
+            })
+          );
+        } catch {
+          setStagedFiles((prev) =>
+            prev.map((f) => {
+              if (f.id !== item.id) return f;
+              return {
+                ...f,
+                isOptimizing: false,
+                isFallback: true,
+                optimizationNote: "Original retained (safe fallback)",
+              };
+            })
+          );
+        }
+      }
     } catch (err) {
       setError(
         err instanceof Error
@@ -371,6 +433,22 @@ function NewMaterialContent() {
     }
 
     if (isExtracting) return; // Prevent duplicate submit clicks
+
+    if (isAnyImageOptimizing) {
+      setError(
+        "Please wait a moment while your images are being optimized for legibility and fast upload."
+      );
+      return;
+    }
+
+    if (!payloadBudget.withinBudget) {
+      setError(
+        payloadBudget.actionGuidance ||
+          payloadBudget.warning ||
+          "Upload payload exceeds the safe limit."
+      );
+      return;
+    }
 
     setIsExtracting(true);
     setError(null);
@@ -1026,29 +1104,61 @@ function NewMaterialContent() {
           </div>
 
           {detectedQuestions.length === 0 && (
-            <div className="border-brand-peach/40 flex flex-col items-center justify-between gap-3 border-t pt-3 sm:flex-row">
-              <span className="text-brand-secondary text-xs">
-                Extract all authentic exam questions and answers from this PDF.
-              </span>
+            <div className="border-brand-peach/40 flex flex-col gap-3 border-t pt-3">
+              {!payloadBudget.withinBudget && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  <div className="flex items-start gap-2">
+                    <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                    <div className="flex-1">
+                      <p className="font-bold">{payloadBudget.warning}</p>
+                      <p className="mt-0.5 text-[11px] text-amber-800">
+                        {payloadBudget.actionGuidance}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              <button
-                type="button"
-                disabled={isExtracting}
-                onClick={() => executeExtractionWithFiles()}
-                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-              >
-                {isExtracting ? (
-                  <>
-                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                    <span>Analyzing PDF Document...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Extract questions &amp; answers</span>
-                    <span>&rarr;</span>
-                  </>
-                )}
-              </button>
+              <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-brand-secondary text-xs">
+                    Extract all authentic exam questions and answers from this
+                    PDF.
+                  </span>
+                  <span className="text-brand-secondary/80 text-[11px]">
+                    Payload size: {payloadBudget.payloadFormatted} /{" "}
+                    {payloadBudget.budgetFormatted} budget
+                    {payloadBudget.withinBudget ? (
+                      <span className="ml-1.5 font-medium text-emerald-700">
+                        ✓ Safe for upload
+                      </span>
+                    ) : (
+                      <span className="ml-1.5 font-medium text-amber-700">
+                        ⚠ Exceeds limit
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isExtracting || !payloadBudget.withinBudget}
+                  onClick={() => executeExtractionWithFiles()}
+                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                >
+                  {isExtracting ? (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                      <span>Analyzing PDF Document...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Extract questions &amp; answers</span>
+                      <span>&rarr;</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1148,7 +1258,7 @@ function NewMaterialContent() {
         <div className="border-brand-peach/80 w-full min-w-0 space-y-4 rounded-2xl border bg-white p-4 shadow-xs sm:p-5">
           {/* Header Bar */}
           <div className="border-brand-peach/40 flex items-center justify-between border-b pb-3">
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
               <span className="font-heading text-brand-ink text-sm font-bold">
                 Selected Pages ({stagedImages.length}{" "}
                 {stagedImages.length === 1 ? "image" : "images"} ·{" "}
@@ -1157,6 +1267,12 @@ function NewMaterialContent() {
               <span className="bg-brand-cream text-brand-tomato border-brand-peach rounded-full border px-2 py-0.5 text-[10px] font-bold">
                 {stagedImages.length} page(s) ordered
               </span>
+              {isAnyImageOptimizing && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                  <ArrowPathIcon className="h-3 w-3 animate-spin" />
+                  Optimizing images...
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -1230,15 +1346,48 @@ function NewMaterialContent() {
                     )}
 
                     <div className="min-w-0">
-                      <span className="bg-brand-tomato rounded px-1.5 py-0.5 text-[9px] font-bold text-white">
-                        Page {idx + 1}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="bg-brand-tomato rounded px-1.5 py-0.5 text-[9px] font-bold text-white">
+                          Page {idx + 1}
+                        </span>
+                        {item.isOptimizing && (
+                          <span className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">
+                            <ArrowPathIcon className="h-2.5 w-2.5 animate-spin" />{" "}
+                            Optimizing...
+                          </span>
+                        )}
+                        {!item.isOptimizing && item.wasOptimized && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700"
+                            title={item.optimizationNote}
+                          >
+                            <CheckIcon className="h-2.5 w-2.5" />{" "}
+                            Legibility-optimized
+                          </span>
+                        )}
+                        {!item.isOptimizing &&
+                          item.optimizationNote &&
+                          !item.wasOptimized && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[9px] font-medium text-stone-600"
+                              title={item.optimizationNote}
+                            >
+                              Original retained
+                            </span>
+                          )}
+                      </div>
                       <h5 className="font-heading text-brand-ink mt-0.5 truncate text-xs font-bold">
                         {item.name}
                       </h5>
-                      <span className="text-brand-secondary text-[10px]">
-                        {item.sizeFormatted}
-                      </span>
+                      <div className="text-brand-secondary flex items-center gap-1.5 text-[10px]">
+                        <span>{item.sizeFormatted}</span>
+                        {item.originalSize &&
+                          item.originalSize !== item.size && (
+                            <span className="text-stone-400 line-through">
+                              ({item.originalSizeFormatted})
+                            </span>
+                          )}
+                      </div>
                     </div>
                   </div>
 
@@ -1281,30 +1430,70 @@ function NewMaterialContent() {
 
           {/* Extract Questions Action Button */}
           {detectedQuestions.length === 0 && (
-            <div className="border-brand-peach/40 flex flex-col items-center justify-between gap-3 border-t pt-3 sm:flex-row">
-              <span className="text-brand-secondary text-xs">
-                Extract all questions across all {stagedImages.length} page(s)
-                in order.
-              </span>
+            <div className="border-brand-peach/40 flex flex-col gap-3 border-t pt-3">
+              {!payloadBudget.withinBudget && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  <div className="flex items-start gap-2">
+                    <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                    <div className="flex-1">
+                      <p className="font-bold">{payloadBudget.warning}</p>
+                      <p className="mt-0.5 text-[11px] text-amber-800">
+                        {payloadBudget.actionGuidance}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              <button
-                type="button"
-                disabled={isExtracting}
-                onClick={() => executeExtractionWithFiles()}
-                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-              >
-                {isExtracting ? (
-                  <>
-                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                    <span>Analyzing Consecutive Pages...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Extract questions &amp; answers</span>
-                    <span>&rarr;</span>
-                  </>
-                )}
-              </button>
+              <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-brand-secondary text-xs">
+                    Extract all questions across all {stagedImages.length}{" "}
+                    page(s) in order.
+                  </span>
+                  <span className="text-brand-secondary/80 text-[11px]">
+                    Payload size: {payloadBudget.payloadFormatted} /{" "}
+                    {payloadBudget.budgetFormatted} budget
+                    {payloadBudget.withinBudget ? (
+                      <span className="ml-1.5 font-medium text-emerald-700">
+                        ✓ Safe for upload
+                      </span>
+                    ) : (
+                      <span className="ml-1.5 font-medium text-amber-700">
+                        ⚠ Exceeds limit
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    isExtracting ||
+                    isAnyImageOptimizing ||
+                    !payloadBudget.withinBudget
+                  }
+                  onClick={() => executeExtractionWithFiles()}
+                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                >
+                  {isExtracting ? (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                      <span>Analyzing Consecutive Pages...</span>
+                    </>
+                  ) : isAnyImageOptimizing ? (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                      <span>Optimizing Images...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Extract questions &amp; answers</span>
+                      <span>&rarr;</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </div>

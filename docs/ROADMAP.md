@@ -219,9 +219,17 @@ Wire up the complete end-to-end user journey, finalize local IndexedDB persisten
 | `TASK-5.5` | Redesign Attempt History Interface matching Butter & Tomato visual reference               | **Completed** | [Section 2, 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                              |
 | `TASK-5.6` | UI Polish: Consistent Pointer Cursors on Learning History Pages                            | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)          |
 | `TASK-5.7` | Critical Bug Fix: Paragraph-Level Semantic Audit Scope Resolution                          | **Completed** | [Section 4, 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-5.8` | Ingestion Phase 1: Client-Side Image Optimization & Upload Payload Protection              | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion)    |
 
 ### Key Milestones Completed
 
+- [x] Ingestion Phase 1: Adaptive client-side image optimization using Web Workers via `browser-image-compression`:
+  - Legibility-first settings preserving handwriting, mathematical symbols, diagrams, tables, and textbook text (`maxWidthOrHeight: 2048`, `initialQuality: 0.86`, `maxSizeMB: 0.9`, `useWebWorker: true`).
+  - Strict preservation of PNG format for architecture diagrams, preventing black canvas transparency artifacts.
+  - Automatic compression bypass for images <= 200 KB already optimal.
+  - Fail-safe fallback to original files whenever compression throws or yields a larger file size.
+  - Vercel 4.5 MB hard limit protection: client-side budget ceiling set at 3.5 MB with accurate multipart/form-data boundary overhead calculation.
+  - Student-facing UI feedback across `NewMaterialView.tsx` and `ImportQuestionsModal.tsx`: background optimization badges, size comparison metrics, payload budget meter, and actionable upload guidance if payload limit is exceeded.
 - [x] Complete Attempt History view (`/study/:id/history`) displaying past attempts by question with relative timestamps, word count, duration, scope pills, and evaluation outcomes.
 - [x] UI Refinement 1: Redesigned Attempt History interface matching approved Retell visual direction and reference design (`media_1793521239637_1b622ffd.jpg`):
   - Question header card with question pagination (`Question X of Y` with `<` and `>` controls), study set title, question prompt, source excerpt, and primary tomato `Practise this question` action.

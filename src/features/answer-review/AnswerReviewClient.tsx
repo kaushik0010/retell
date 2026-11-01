@@ -98,13 +98,13 @@ export function AnswerReviewClient({
         <div className="mt-4 flex gap-3">
           <Link
             href={`/study/${studySetId}/practice`}
-            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex items-center rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition"
+            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition"
           >
             Go to Practice Room
           </Link>
           <Link
             href="/library"
-            className="border-brand-peach text-brand-secondary hover:text-brand-ink inline-flex items-center rounded-xl border bg-white px-4 py-2 text-xs font-semibold transition"
+            className="border-brand-peach text-brand-secondary hover:text-brand-ink inline-flex cursor-pointer items-center rounded-xl border bg-white px-4 py-2 text-xs font-semibold transition"
           >
             Return to library
           </Link>

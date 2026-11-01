@@ -427,7 +427,7 @@ export function AttemptHistoryView({
       <div>
         <Link
           href={`/review/${studySet.id}`}
-          className="text-brand-secondary hover:text-brand-ink inline-flex items-center gap-1.5 text-xs font-semibold transition"
+          className="text-brand-secondary hover:text-brand-ink inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold transition"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           <span>Back to study set</span>
@@ -464,7 +464,7 @@ export function AttemptHistoryView({
             <button
               type="button"
               onClick={() => setSelectedForCompare([])}
-              className="text-brand-secondary hover:text-brand-ink text-xs font-medium transition"
+              className="text-brand-secondary hover:text-brand-ink cursor-pointer text-xs font-medium transition"
             >
               Clear
             </button>
@@ -472,7 +472,7 @@ export function AttemptHistoryView({
               type="button"
               disabled={!compareCompatibility?.compatible}
               onClick={handleLaunchComparison}
-              className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-40"
+              className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ScaleIcon className="h-3.5 w-3.5" />
               <span>Compare selected</span>
@@ -518,7 +518,7 @@ export function AttemptHistoryView({
                     onClick={handlePrevQuestion}
                     disabled={questionIndex === 0}
                     aria-label="Previous question"
-                    className="border-brand-peach/60 hover:bg-brand-cream/60 text-brand-ink flex h-7 w-7 items-center justify-center rounded-lg border bg-white text-xs transition disabled:pointer-events-none disabled:opacity-30"
+                    className="border-brand-peach/60 hover:bg-brand-cream/60 text-brand-ink flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border bg-white text-xs transition disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     ‹
                   </button>
@@ -527,7 +527,7 @@ export function AttemptHistoryView({
                     onClick={handleNextQuestion}
                     disabled={questionIndex === studySet.questions.length - 1}
                     aria-label="Next question"
-                    className="border-brand-peach/60 hover:bg-brand-cream/60 text-brand-ink flex h-7 w-7 items-center justify-center rounded-lg border bg-white text-xs transition disabled:pointer-events-none disabled:opacity-30"
+                    className="border-brand-peach/60 hover:bg-brand-cream/60 text-brand-ink flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border bg-white text-xs transition disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     ›
                   </button>
@@ -537,7 +537,7 @@ export function AttemptHistoryView({
               {/* Practise this question button */}
               <Link
                 href={`/study/${studySet.id}/practice?questionId=${activeQuestion.id}`}
-                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-xs transition hover:shadow-sm"
+                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-xs transition hover:shadow-sm"
               >
                 <PlayIcon className="h-3.5 w-3.5 fill-current" />
                 <span>Practise this question</span>
@@ -554,7 +554,7 @@ export function AttemptHistoryView({
                   key={scope.id}
                   type="button"
                   onClick={() => setScopeFilter(scope.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                     isActive
                       ? "bg-brand-tomato text-white shadow-xs"
                       : "border-brand-peach/60 hover:border-brand-tomato/40 text-brand-secondary hover:text-brand-ink border bg-white"
@@ -717,7 +717,7 @@ export function AttemptHistoryView({
             <div className="mt-5">
               <Link
                 href={`/study/${studySet.id}/practice?questionId=${activeQuestion.id}`}
-                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition"
+                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition"
               >
                 <PlayIcon className="h-3.5 w-3.5 fill-current" />
                 <span>Start your first attempt</span>
@@ -864,7 +864,7 @@ export function AttemptHistoryView({
                           {precedingCompatible ? (
                             <Link
                               href={`/study/${studySet.id}/compare?a=${precedingCompatible.id}&b=${attempt.id}`}
-                              className="border-brand-peach/60 hover:bg-brand-cream/60 text-brand-ink inline-flex items-center gap-1.5 rounded-xl border bg-white px-3 py-2 text-xs font-semibold shadow-xs transition"
+                              className="border-brand-peach/60 hover:bg-brand-cream/60 text-brand-ink inline-flex cursor-pointer items-center gap-1.5 rounded-xl border bg-white px-3 py-2 text-xs font-semibold shadow-xs transition"
                             >
                               <ScaleIcon className="h-3.5 w-3.5" />
                               <span>Compare with previous</span>
@@ -884,7 +884,7 @@ export function AttemptHistoryView({
                           {/* Review feedback button */}
                           <Link
                             href={`/study/${studySet.id}/attempts/${attempt.id}`}
-                            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:shadow-sm"
+                            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:shadow-sm"
                           >
                             <span>Review feedback</span>
                             <span>→</span>
@@ -903,7 +903,7 @@ export function AttemptHistoryView({
                                   : attempt.id
                               )
                             }
-                            className="hover:bg-brand-cream/80 text-brand-secondary hover:text-brand-ink flex h-8 w-8 items-center justify-center rounded-lg transition"
+                            className="hover:bg-brand-cream/80 text-brand-secondary hover:text-brand-ink flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition"
                           >
                             <EllipsisVerticalIcon className="h-4 w-4" />
                           </button>
@@ -917,7 +917,7 @@ export function AttemptHistoryView({
                                   handleToggleCompare(attempt.id);
                                   setOpenMenuAttemptId(null);
                                 }}
-                                className="text-brand-ink hover:bg-brand-cream/60 flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition"
+                                className="text-brand-ink hover:bg-brand-cream/60 flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition"
                               >
                                 <ScaleIcon className="text-brand-secondary h-3.5 w-3.5" />
                                 <span>
@@ -932,7 +932,7 @@ export function AttemptHistoryView({
                                   setAttemptToDelete(attempt);
                                   setOpenMenuAttemptId(null);
                                 }}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50"
                               >
                                 <TrashIcon className="h-3.5 w-3.5" />
                                 <span>Delete attempt</span>
@@ -967,7 +967,7 @@ export function AttemptHistoryView({
                 type="button"
                 onClick={() => setAttemptToDelete(null)}
                 disabled={isDeleting}
-                className="border-brand-peach/60 hover:bg-brand-cream/60 text-brand-ink rounded-xl border bg-white px-3.5 py-2 text-xs font-semibold transition"
+                className="border-brand-peach/60 hover:bg-brand-cream/60 text-brand-ink flex cursor-pointer items-center justify-center rounded-xl border bg-white px-3.5 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -975,7 +975,7 @@ export function AttemptHistoryView({
                 type="button"
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:opacity-50"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isDeleting ? "Deleting..." : "Delete"}
               </button>

@@ -131,7 +131,7 @@ export function AttemptComparisonView({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href={`/study/${studySet.id}/history?questionId=${attemptA.questionId}`}
-          className="text-brand-secondary hover:text-brand-ink inline-flex items-center gap-1.5 text-xs font-semibold transition"
+          className="text-brand-secondary hover:text-brand-ink inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold transition"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           <span>Back to attempt history</span>
@@ -167,7 +167,7 @@ export function AttemptComparisonView({
             <div className="mt-3">
               <Link
                 href={`/study/${studySet.id}/history?questionId=${attemptA.questionId}`}
-                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex items-center gap-1 rounded-xl px-4 py-2 text-xs font-bold text-white transition"
+                className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center gap-1 rounded-xl px-4 py-2 text-xs font-bold text-white transition"
               >
                 <span>Select compatible attempts from history</span>
               </Link>
@@ -272,7 +272,7 @@ export function AttemptComparisonView({
               <div className="mt-4 border-t border-stone-100 pt-3">
                 <Link
                   href={`/study/${studySet.id}/attempts/${earlierAttempt.id}`}
-                  className="text-brand-tomato hover:text-brand-tomato-hover inline-flex items-center gap-1 text-xs font-bold"
+                  className="text-brand-tomato hover:text-brand-tomato-hover inline-flex cursor-pointer items-center gap-1 text-xs font-bold"
                 >
                   <span>Open full Answer Review</span>
                   <ChevronRightIcon className="h-3 w-3" />
@@ -309,7 +309,7 @@ export function AttemptComparisonView({
               <div className="mt-4 border-t border-stone-100 pt-3">
                 <Link
                   href={`/study/${studySet.id}/attempts/${laterAttempt.id}`}
-                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold text-white transition"
+                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold text-white transition"
                 >
                   <span>Open full Answer Review</span>
                   <ChevronRightIcon className="h-3 w-3" />
@@ -408,7 +408,7 @@ export function AttemptComparisonView({
                             isExpanded ? null : concept.criterionId
                           )
                         }
-                        className="text-brand-secondary hover:text-brand-ink inline-flex items-center gap-1 text-[11px] font-semibold transition"
+                        className="text-brand-secondary hover:text-brand-ink inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold transition"
                       >
                         <span>
                           {isExpanded
@@ -454,14 +454,14 @@ export function AttemptComparisonView({
           <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
             <Link
               href={`/study/${studySet.id}/practice?questionId=${attemptA.questionId}`}
-              className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-3 text-xs font-bold text-white shadow-xs transition"
+              className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-5 py-3 text-xs font-bold text-white shadow-xs transition"
             >
               <span>Practise this question again &rarr;</span>
             </Link>
 
             <Link
               href={`/study/${studySet.id}/history?questionId=${attemptA.questionId}`}
-              className="border-brand-peach/80 hover:bg-brand-cream/60 text-brand-ink inline-flex items-center justify-center rounded-xl border px-4 py-2.5 text-xs font-semibold transition"
+              className="border-brand-peach/80 hover:bg-brand-cream/60 text-brand-ink inline-flex cursor-pointer items-center justify-center rounded-xl border px-4 py-2.5 text-xs font-semibold transition"
             >
               <span>Back to attempt history</span>
             </Link>

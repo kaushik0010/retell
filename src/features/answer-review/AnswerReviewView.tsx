@@ -140,7 +140,7 @@ export function AnswerReviewView({
           <div className="flex items-center gap-3 text-xs">
             <Link
               href={`/study/${studySet.id}/practice?questionId=${attempt.questionId}`}
-              className="text-brand-tomato hover:text-brand-tomato-hover inline-flex items-center gap-1 font-bold"
+              className="text-brand-tomato hover:text-brand-tomato-hover inline-flex cursor-pointer items-center gap-1 font-bold"
             >
               <span>&larr;</span>
               <span>Back to Practice Room</span>
@@ -148,7 +148,7 @@ export function AnswerReviewView({
             <span className="text-brand-secondary/40">•</span>
             <Link
               href={`/review/${studySet.id}`}
-              className="text-brand-secondary hover:text-brand-ink"
+              className="text-brand-secondary hover:text-brand-ink cursor-pointer"
             >
               Study set points
             </Link>
@@ -235,7 +235,7 @@ export function AnswerReviewView({
                 type="button"
                 onClick={handleRunAudit}
                 disabled={isAuditing}
-                className="bg-brand-tomato hover:bg-brand-tomato-hover mt-2.5 inline-flex cursor-pointer items-center rounded-lg px-3.5 py-1.5 font-bold text-white shadow-2xs transition disabled:opacity-50"
+                className="bg-brand-tomato hover:bg-brand-tomato-hover mt-2.5 inline-flex cursor-pointer items-center rounded-lg px-3.5 py-1.5 font-bold text-white shadow-2xs transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isAuditing ? "Evaluating..." : "↻ Retry evaluation"}
               </button>
@@ -636,7 +636,7 @@ export function AnswerReviewView({
 
                 <Link
                   href={`/study/${studySet.id}/compare?a=${previousAttempt.id}&b=${attempt.id}`}
-                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-xs transition"
+                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-xs transition"
                 >
                   <span>Compare progress &rarr;</span>
                 </Link>

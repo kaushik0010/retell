@@ -556,6 +556,12 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
   - Preserved multi-select custom comparison capability with sticky floating bar (`sticky top-4`).
   - Added unit test coverage in `tests/unit/attempt-history.test.ts` and verified responsive layout in `tests/unit/responsive-layout.test.ts`.
 
+- [x] **`TASK-5.6` — UI Polish: Consistent Pointer Cursors on Learning History Pages**
+  - Applied `cursor-pointer` to all interactive and actionable elements across Answer Review, Attempt History, and Attempt Comparison pages.
+  - Covered primary/secondary buttons, navigation/back links, scope filter pills, question pagination controls, sort dropdowns, kebab menus, dropdown menu items, expandable evidence comparisons, and delete modal buttons.
+  - Enforced `cursor-not-allowed` and `disabled:cursor-not-allowed` on disabled controls (e.g. disabled question paginators, disabled comparison actions, disabled modal buttons).
+  - Ensured non-interactive text, cards, and decorative elements retain standard default cursor behavior.
+
 ### Day 6: Evaluation & Deployment
 
 - [ ] `TASK-6.1` — Production deployment to Vercel.

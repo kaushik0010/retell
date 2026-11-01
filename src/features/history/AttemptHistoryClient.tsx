@@ -89,7 +89,7 @@ export function AttemptHistoryClient({
         <div className="mt-4">
           <Link
             href="/library"
-            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition"
+            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition"
           >
             <span>Return to Study Library</span>
           </Link>

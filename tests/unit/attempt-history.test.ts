@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   savePracticeAttempt,
   getPracticeAttemptsByQuestion,
+  deletePracticeAttempt,
   clearAllPracticeAttempts,
 } from "@/lib/storage/study-store";
 import { PracticeAttempt } from "@/lib/domain/practice-session";
+import { checkScopeCompatibility } from "@/lib/domain/attempt-comparison";
 
 describe("Attempt History Management and Scope Filtering", () => {
   beforeEach(async () => {
@@ -103,5 +105,30 @@ describe("Attempt History Management and Scope Filtering", () => {
     expect(p1.totalParagraphs).toBe(2);
     expect(p1.durationSeconds).toBe(20);
     expect(p1.wordCount).toBe(14);
+  });
+
+  it("deletes a practice attempt by id cleanly from storage", async () => {
+    for (const att of attempts) {
+      await savePracticeAttempt(att);
+    }
+
+    await deletePracticeAttempt("attempt_p1");
+
+    const remaining = await getPracticeAttemptsByQuestion("set_101", "q_1");
+    expect(remaining.length).toBe(2);
+    expect(remaining.map((a) => a.id)).not.toContain("attempt_p1");
+  });
+
+  it("resolves preceding compatible attempts correctly for comparison", () => {
+    // attempt_early (whole_answer) is chronologically before attempt_latest (whole_answer)
+    const early = attempts[0]!;
+    const p1 = attempts[1]!;
+    const latest = attempts[2]!;
+
+    const wholeComp = checkScopeCompatibility(early, latest);
+    expect(wholeComp.compatible).toBe(true);
+
+    const crossComp = checkScopeCompatibility(p1, latest);
+    expect(crossComp.compatible).toBe(false);
   });
 });

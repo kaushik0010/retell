@@ -220,6 +220,12 @@ Wire up the complete end-to-end user journey, finalize local IndexedDB persisten
 ### Key Milestones Completed
 
 - [x] Complete Attempt History view (`/study/:id/history`) displaying past attempts by question with relative timestamps, word count, duration, scope pills, and evaluation outcomes.
+- [x] UI Refinement 1: Redesigned Attempt History interface matching approved Retell visual direction and reference design (`media_1793521239637_1b622ffd.jpg`):
+  - Question header card with question pagination (`Question X of Y` with `<` and `>` controls), study set title, question prompt, source excerpt, and primary tomato `Practise this question` action.
+  - Dynamic scope filter pills (`All (N)`, `Whole Answer (N)`, and `Paragraph 1..N (N)`) updating dynamically with attempt counts.
+  - Four summary metric cards: `Total attempts` (with paragraph and whole-answer breakdown), `Best coverage` (ratio, percentage pill, and "Across all attempts"), `Improvement` (`+X concepts` vs first attempt), and `Latest attempt` (formatted timestamp and coverage subtext).
+  - Practice attempts timeline list with left vertical timeline track, timeline dots, `Latest` badge on most recent attempt, scope pills, word count, duration, concept coverage metrics, `Compare with previous` action, tomato `Review feedback →` button, and kebab menu with delete attempt confirmation modal.
+  - Preserved multi-select custom comparison capability with sticky floating bar (`sticky top-4`).
 - [x] Deterministic Attempt Comparison engine (`compareAttempts` in `src/lib/domain/attempt-comparison.ts`) tracking concept transitions: retained, improved, partial progress, regressed, and new misconceptions.
 - [x] Scope-aware comparison compatibility enforcement: guarantees only comparable scopes (whole-answer vs whole-answer, or matching paragraph indices) are compared, preventing misleading cross-scope comparisons.
 - [x] Responsive Comparison View (`/study/:id/compare`) with progress summary banner, side-by-side or stacked attempt cards, and concept-by-concept transcript evidence citations.

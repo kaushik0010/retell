@@ -246,23 +246,43 @@ export function resolvePracticeScope(params: {
       );
     }
 
-    if (!paragraphs[scope.paragraphIndex]) {
+    let paragraphText = paragraphs[scope.paragraphIndex];
+    let totalParagraphs = paragraphs.length;
+
+    // Resilience & backward compatibility:
+    // If the selected paragraphIndex cannot be resolved from extracted paragraphs,
+    // verify if referenceAnswer was already pre-scoped by caller to the target paragraph.
+    if (!paragraphText) {
+      const trimmedRef = referenceAnswer.trim();
+      const trimmedTarget = scope.targetText?.trim();
+      const isPreScoped = Boolean(
+        trimmedTarget &&
+        (trimmedRef === trimmedTarget ||
+          (paragraphs.length === 1 && paragraphs[0]?.trim() === trimmedTarget))
+      );
+
+      if (isPreScoped && trimmedTarget) {
+        paragraphText = trimmedTarget;
+        totalParagraphs = scope.totalParagraphs || scope.paragraphIndex + 1;
+      }
+    }
+
+    if (!paragraphText) {
       throw new Error(
         `Cannot resolve selected Paragraph ${scope.paragraphIndex + 1} from reference answer (found ${paragraphs.length} paragraphs).`
       );
     }
 
-    const paragraphText = paragraphs[scope.paragraphIndex]!;
     const scopedCriteria = filterCriteriaForParagraph(
       criteria,
-      paragraphs,
-      scope.paragraphIndex
+      paragraphs.length > 1 ? paragraphs : [paragraphText],
+      paragraphs.length > 1 ? scope.paragraphIndex : 0
     );
 
     return {
       isParagraph: true,
       paragraphIndex: scope.paragraphIndex,
-      totalParagraphs: paragraphs.length,
+      totalParagraphs,
       paragraphText,
       criteria: scopedCriteria,
     };

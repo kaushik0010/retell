@@ -93,9 +93,9 @@ export function AnswerReviewView({
           studySetId: studySet.id,
           questionId: activeQuestion.id,
           question: activeQuestion.question,
-          referenceAnswer: resolvedScope.paragraphText,
+          referenceAnswer: activeQuestion.referenceAnswer,
           transcript: attempt.transcript,
-          criteria: resolvedScope.criteria,
+          criteria: activeRubric?.criteria || [],
           scope: {
             type: attempt.scope || "whole_answer",
             paragraphIndex: attempt.paragraphIndex,

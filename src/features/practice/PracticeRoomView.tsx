@@ -433,9 +433,9 @@ export function PracticeRoomView({
           studySetId: studySet.id,
           questionId: activeQuestion.id,
           question: activeQuestion.question,
-          referenceAnswer: resolvedScope.paragraphText,
+          referenceAnswer: activeQuestion.referenceAnswer,
           transcript: fullTranscript,
-          criteria: resolvedScope.criteria,
+          criteria: activeRubric?.criteria || [],
           scope: {
             type: attempt.scope,
             paragraphIndex: attempt.paragraphIndex,
@@ -500,9 +500,9 @@ export function PracticeRoomView({
           studySetId: studySet.id,
           questionId: activeQuestion.id,
           question: activeQuestion.question,
-          referenceAnswer: resolvedScope.paragraphText,
+          referenceAnswer: activeQuestion.referenceAnswer,
           transcript: lastSavedAttempt.transcript,
-          criteria: resolvedScope.criteria,
+          criteria: activeRubric?.criteria || [],
           scope: {
             type: lastSavedAttempt.scope || "whole_answer",
             paragraphIndex: lastSavedAttempt.paragraphIndex,

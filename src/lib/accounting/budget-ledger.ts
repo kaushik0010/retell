@@ -246,7 +246,7 @@ export async function reserveDailyBudget(
       reservationId,
       remainingBudgetMicros: remainingMicros,
     };
-  } catch (err: unknown) {
+  } catch {
     // Fail closed on Redis script failure or connection error
     return {
       approved: false,

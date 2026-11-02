@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s | Retell",
   },
   description:
-    "Master your exam answers by speaking them aloud. Retell identifies essential concepts, technical terminology, and key steps so you can rehearse with confidence.",
+    "Practise exam answers aloud, discover missing concepts, and improve through AI-powered feedback.",
   keywords: [
     "active recall",
     "exam practice",

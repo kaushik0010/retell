@@ -864,6 +864,7 @@ export function ImportQuestionsModal({
                 disabled={
                   stagedFiles.length === 0 ||
                   isExtracting ||
+                  isAnyImageOptimizing ||
                   !payloadBudget.withinBudget
                 }
                 onClick={handleExtractQuestions}

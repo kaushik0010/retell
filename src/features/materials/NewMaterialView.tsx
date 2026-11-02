@@ -38,7 +38,6 @@ import {
   PlusIcon,
   ArrowUpIcon,
   ArrowDownIcon,
-  CheckIcon,
 } from "@/components/icons";
 
 interface StagedFileItem {
@@ -1183,7 +1182,11 @@ function NewMaterialContent() {
 
                 <button
                   type="button"
-                  disabled={isExtracting || !payloadBudget.withinBudget}
+                  disabled={
+                    isExtracting ||
+                    isAnyImageOptimizing ||
+                    !payloadBudget.withinBudget
+                  }
                   onClick={() => executeExtractionWithFiles()}
                   className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
@@ -1459,7 +1462,11 @@ function NewMaterialContent() {
 
                 <button
                   type="button"
-                  disabled={isExtracting || !payloadBudget.withinBudget}
+                  disabled={
+                    isExtracting ||
+                    isAnyImageOptimizing ||
+                    !payloadBudget.withinBudget
+                  }
                   onClick={() => executeExtractionWithFiles()}
                   className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >

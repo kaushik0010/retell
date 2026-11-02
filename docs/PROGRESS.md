@@ -608,12 +608,21 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
   - **Diagnosed and resolved root causes:**
     1. Upstash Redis `zadd` method signature compatibility (`{ score, member }` object shape instead of separate arguments), fixing `TypeError: Cannot use 'in' operator to search for 'score'`.
     2. Recovered from orphaned session locks in Redis with automatic stale detection (>45s inactivity), unblocking retried attempts without manual intervention.
-    3. Reordered client-side practice startup in `PracticeRoomView.tsx` so microphone permission (`getUserMedia`) is prompted *first* as a direct result of user interaction before initiating server sessions or budget reservations.
+    3. Reordered client-side practice startup in `PracticeRoomView.tsx` so microphone permission (`getUserMedia`) is prompted _first_ as a direct result of user interaction before initiating server sessions or budget reservations.
     4. Guarded route handler `POST /api/transcribe/session` with pre-flight checks (`checkTranscribePreconditions`) prior to opening upstream Meta WebSocket, eliminating billable upstream connections on rejected attempts.
     5. Added automatic budget pre-reservation refund (`releaseTranscribePreReservation`) if upstream session creation fails.
     6. Protected against double clicks and rapid multi-tap with `isStartingRef`.
     7. Cleansed user-facing audio error messages (no raw HTTP 429 or backend terminology shown to students).
   - **Verification:** 276 unit/integration tests passing across 30 test files (`pnpm run test`), zero TypeScript errors (`tsc --noEmit`), 100% Prettier compliance, production Webpack build passing with 19 compiled routes.
+
+- [x] **`TASK-5.8` — Project README, MIT License, and Branded SVG Favicon**
+  - Authored comprehensive, fact-grounded root-level `README.md` documenting the 5-step student workflow, problem statement, features, architecture, privacy boundaries, environment variables, technology stack, setup commands, and project status.
+  - Added official root `LICENSE` file under the standard MIT License attributed to `Retell contributors`.
+  - Replaced legacy default Next.js starter `favicon.ico` with hand-authored, pixel-perfect programmatic SVG favicon `src/app/icon.svg` using Retell's _Butter & Tomato_ brand design system (`#E6533D` tomato background with 7px rounded squircle, `#FFF8EB` warm cream centered geometric `R`).
+  - Verified Next.js App Router metadata automatic discovery, serving `<link rel="icon" href="/icon.svg?..." type="image/svg+xml" sizes="any"/>` in production HTML.
+  - Refined root layout metadata description to align with product positioning.
+  - Updated ESLint configuration to ignore vendor bundle `public/pdf.worker.min.mjs` and cleaned up all unused variable warnings for 100% clean linting (0 errors, 0 warnings).
+  - **Verification:** 276 tests passing across 30 test files (`pnpm run test`), zero TypeScript errors (`tsc --noEmit`), 100% ESLint compliance (0 errors, 0 warnings), 100% Prettier formatting, production Next.js build verified with 19 compiled routes.
 
 ### Day 6: Evaluation & Deployment
 

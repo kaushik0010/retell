@@ -4,7 +4,6 @@ import {
   verifyTranscribeSessionOwnership,
   finalizeTranscribeSessionInRedis,
   checkTranscribePreconditions,
-  commitTranscribeSession,
   releaseTranscribePreReservation,
 } from "@/lib/accounting/transcribe-guard";
 import {

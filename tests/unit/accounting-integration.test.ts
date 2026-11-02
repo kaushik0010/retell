@@ -187,8 +187,6 @@ describe("Protected Routes Accounting & Security Integration", () => {
 
   describe("POST /api/transcribe Session, Audio & Finish Lifecycle", () => {
     it("enforces single session per device, verifies ownership, and settles on finish", async () => {
-      const budgetKey = getUtcDailyKey();
-
       // 1. Initialize session on Device A
       const sessionReq1 = new NextRequest(
         "http://localhost:3000/api/transcribe/session",

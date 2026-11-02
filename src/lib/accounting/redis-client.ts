@@ -246,8 +246,8 @@ export class InMemoryAccountingRedis implements AccountingRedis {
     if (!z || z.members.length === 0) return [];
 
     const len = z.members.length;
-    let s = start < 0 ? Math.max(0, len + start) : Math.min(start, len);
-    let e = stop < 0 ? Math.max(0, len + stop) : Math.min(stop, len - 1);
+    const s = start < 0 ? Math.max(0, len + start) : Math.min(start, len);
+    const e = stop < 0 ? Math.max(0, len + stop) : Math.min(stop, len - 1);
     if (s > e) return [];
 
     const slice = z.members.slice(s, e + 1);

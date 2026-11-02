@@ -223,13 +223,22 @@ Wire up the complete end-to-end user journey, finalize local IndexedDB persisten
 | `TASK-5.9`  | Image Upload UX Cleanup, Information Exposure Audit, Local PDF Preview & Ingestion         | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion) |
 | `TASK-5.10` | Phase 3: Persistent Rate Limiting, AI Usage Accounting & Global Spending Protection        | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
 | `TASK-5.11` | Practice Room Transcription Startup 429 & Session Lifecycle Fix                            | **Completed** | [Section 11](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                 |
+| `TASK-5.12` | Project README, MIT License, and Branded SVG Favicon                                       | **Completed** | [Section 10](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                 |
 
 ### Key Milestones Completed
+
+- [x] Project README, MIT License, and Branded SVG Favicon:
+  - Authored comprehensive, fact-grounded root-level `README.md` documenting the 5-step student workflow, problem statement, features, architecture, privacy boundaries, environment variables, technology stack, setup commands, and project status.
+  - Added official root `LICENSE` file under the standard MIT License attributed to `Retell contributors`.
+  - Replaced legacy default Next.js starter `favicon.ico` with hand-authored programmatic SVG favicon `src/app/icon.svg` using Retell's Butter & Tomato brand design system (`#E6533D` tomato background with 7px rounded squircle, `#FFF8EB` warm cream centered geometric `R`).
+  - Verified Next.js App Router metadata automatic discovery, serving `<link rel="icon" href="/icon.svg?..." type="image/svg+xml" sizes="any"/>` in production HTML.
+  - Refined root layout metadata description to align with product positioning.
+  - Achieved 100% clean ESLint status (0 errors, 0 warnings).
 
 - [x] Practice Room Transcription Startup 429 & Session Lifecycle Fix:
   - Eliminated transcription startup 429 errors by fixing the `@upstash/redis` `zadd` method signature to pass structured `{ score, member }` objects.
   - Implemented self-healing Redis session lock recovery that automatically detects and clears stale/abandoned device locks (>45s inactive).
-  - Inverted Practice Room startup sequence so browser microphone access (`getUserMedia`) is prompted *first* as a direct response to user gesture, ensuring zero server calls, Redis locks, or budget reservations occur if permission is denied.
+  - Inverted Practice Room startup sequence so browser microphone access (`getUserMedia`) is prompted _first_ as a direct response to user gesture, ensuring zero server calls, Redis locks, or budget reservations occur if permission is denied.
   - Added pre-flight check (`checkTranscribePreconditions`) before opening upstream Meta WebSocket connection, guaranteeing zero billable upstream calls on rate-limited or concurrent attempts.
   - Added fail-safe pre-reservation refund (`releaseTranscribePreReservation`) and client teardown cleanup (`keepalive: true` finish beacon).
   - Sanitized student-facing audio error messages and added rapid double-click guard (`isStartingRef`).

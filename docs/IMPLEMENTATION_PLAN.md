@@ -249,9 +249,9 @@ export interface ReasoningProviderAdapter {
   - If Redis is unconfigured or unreachable in production, paid AI operations reject cleanly with HTTP 503, preventing cloud spending overages.
 - **Speech Transcription Session Guard & Startup Lifecycle:**
   - Enforces single active recording session per device lock (`tsess:active:dev:<hmac>`).
-  - **Pre-Flight Guarding (`checkTranscribePreconditions`):** Runs rate-limit sliding window, stale-lock cleanup, active-session check, and budget reservation *before* establishing any upstream Meta WebSocket connection. Guarantees zero upstream API calls on rejected attempts.
+  - **Pre-Flight Guarding (`checkTranscribePreconditions`):** Runs rate-limit sliding window, stale-lock cleanup, active-session check, and budget reservation _before_ establishing any upstream Meta WebSocket connection. Guarantees zero upstream API calls on rejected attempts.
   - **Self-Healing Lock Architecture:** Automatically detects and reclaims stale or abandoned session locks (>45s inactivity) to prevent students from being blocked if a previous tab or session crashed.
-  - **User Gesture Priority Order:** Audio capture (`getUserMedia`) must execute *first* as a direct response to the user click before requesting server session creation or Redis reservations. If permission is denied, zero server calls are made.
+  - **User Gesture Priority Order:** Audio capture (`getUserMedia`) must execute _first_ as a direct response to the user click before requesting server session creation or Redis reservations. If permission is denied, zero server calls are made.
   - **Fail-Safe Pre-Reservation Refund (`releaseTranscribePreReservation`):** Releases daily budget reservations and clears locks immediately if upstream session creation fails.
   - Validates session ownership against caller device HMAC to block session hijacking across devices.
   - Audio chunk transmissions do not consume separate operation quotas.

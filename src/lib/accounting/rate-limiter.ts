@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getAccountingRedis, isRedisConfigured } from "./redis-client";
+import { getAccountingRedis } from "./redis-client";
 import { getAccountingConfig, EndpointLimitConfig } from "./config";
 import { AnonymousIdentity } from "./anonymous-identity";
 
@@ -116,7 +116,7 @@ export async function checkEndpointRateLimit(
     }
 
     return { allowed: true };
-  } catch (err: unknown) {
+  } catch {
     // Fail closed on Redis network timeouts or script execution failures
     return {
       allowed: false,

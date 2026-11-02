@@ -1,11 +1,35 @@
+import "server-only";
+
 import { NextRequest } from "next/server";
 import { getTranscribeSession } from "@/lib/providers/transcribe-session";
+import {
+  getAnonymousIdentity,
+  verifyTranscribeSessionOwnership,
+} from "@/lib/accounting";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const sessionId = searchParams.get("sessionId");
+
+  const identity = getAnonymousIdentity(req);
+  const verification = await verifyTranscribeSessionOwnership(
+    sessionId,
+    identity
+  );
+
+  if (!verification.valid) {
+    return new Response(
+      JSON.stringify({
+        error: verification.message || "Session not found or expired",
+      }),
+      {
+        status: verification.statusCode || 404,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
 
   const session = getTranscribeSession(sessionId);
   if (!session) {

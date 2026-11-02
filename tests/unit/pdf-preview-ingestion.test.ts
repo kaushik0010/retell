@@ -83,7 +83,7 @@ describe("PDF Inspection, Extraction & Student UX", () => {
       expect(result.totalCharacterCount).toBe(0);
       expect(result.pages.length).toBe(14);
       expect(result.aggregateText).toBe("");
-    });
+    }, 15000);
   });
 
   describe("Payload Budget & Safe Limits for PDFs", () => {

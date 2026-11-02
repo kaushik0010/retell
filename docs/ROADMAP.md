@@ -210,19 +210,31 @@ Wire up the complete end-to-end user journey, finalize local IndexedDB persisten
 
 ### Tasks & Status
 
-| Task ID    | Task Description                                                                           | Status        | Implementation Plan Ref                                                                                           |
-| ---------- | ------------------------------------------------------------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `TASK-5.1` | Complete client-side IndexedDB repository (`src/lib/storage`) with Dexie or raw IDB        | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)          |
-| `TASK-5.2` | Polish responsive layouts at 390px (mobile), 768px (tablet), and 1440px (desktop)          | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)       |
-| `TASK-5.3` | Implement keyboard navigation, ARIA live regions for transcripts, and high-contrast checks | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)       |
-| `TASK-5.4` | Add comprehensive error boundaries, retry buttons, and offline storage safeguards          | **Completed** | [Section 9](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#9-error-handling-and-resilience)  |
-| `TASK-5.5` | Redesign Attempt History Interface matching Butter & Tomato visual reference               | **Completed** | [Section 2, 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
-| `TASK-5.6` | UI Polish: Consistent Pointer Cursors on Learning History Pages                            | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)       |
-| `TASK-5.7` | Critical Bug Fix: Paragraph-Level Semantic Audit Scope Resolution                          | **Completed** | [Section 4, 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
-| `TASK-5.8` | Ingestion Phase 1: Client-Side Image Optimization & Upload Payload Protection              | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion) |
-| `TASK-5.9` | Image Upload UX Cleanup, Information Exposure Audit, Local PDF Preview & Ingestion         | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion) |
+| Task ID     | Task Description                                                                           | Status        | Implementation Plan Ref                                                                                           |
+| ----------- | ------------------------------------------------------------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `TASK-5.1`  | Complete client-side IndexedDB repository (`src/lib/storage`) with Dexie or raw IDB        | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#8-persistence-indexeddb)          |
+| `TASK-5.2`  | Polish responsive layouts at 390px (mobile), 768px (tablet), and 1440px (desktop)          | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)       |
+| `TASK-5.3`  | Implement keyboard navigation, ARIA live regions for transcripts, and high-contrast checks | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)       |
+| `TASK-5.4`  | Add comprehensive error boundaries, retry buttons, and offline storage safeguards          | **Completed** | [Section 9](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#9-error-handling-and-resilience)  |
+| `TASK-5.5`  | Redesign Attempt History Interface matching Butter & Tomato visual reference               | **Completed** | [Section 2, 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-5.6`  | UI Polish: Consistent Pointer Cursors on Learning History Pages                            | **Completed** | [Section 2](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#2-design-system-and-tokens)       |
+| `TASK-5.7`  | Critical Bug Fix: Paragraph-Level Semantic Audit Scope Resolution                          | **Completed** | [Section 4, 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-5.8`  | Ingestion Phase 1: Client-Side Image Optimization & Upload Payload Protection              | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion) |
+| `TASK-5.9`  | Image Upload UX Cleanup, Information Exposure Audit, Local PDF Preview & Ingestion         | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion) |
+| `TASK-5.10` | Phase 3: Persistent Rate Limiting, AI Usage Accounting & Global Spending Protection        | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
 
 ### Key Milestones Completed
+
+- [x] Phase 3: Persistent Rate Limiting, Anonymous Abuse Protection, AI Accounting & Global Budget Protection:
+  - Preserved Retell's anonymous, local-first philosophy with zero mandatory user registration or cloud sync.
+  - Implemented privacy-preserving device identification via secure `HttpOnly` UUIDv4 cookie (`retell_device_id`, 1-year duration, `SameSite=Lax`, `Path=/`, `Secure` in prod) with strict server-side HMAC hashing (`device_<32hex>`, `ip_<32hex>`) ensuring zero raw PII is ever stored in Redis keys.
+  - Multi-tiered sliding window rate limiting via atomic Upstash Redis Lua scripts evaluating Device Burst, Device Sustained, IP Burst, and IP Sustained (tolerant of shared dorms/campus Wi-Fi).
+  - Global daily AI spending protection in USD ($5.00 default baseline, operator-configurable) utilizing integer micro-USD precision (1 USD = 1,000,000 micros).
+  - Atomic two-phase budget reservation: pre-flight reservation Lua script checks current confirmed + reserved balance, and post-flight settlement reconciles actual token usage, fully refunds definite provider errors, and conservatively preserves reservations on uncertain timeout outcomes.
+  - Fail-closed security architecture: if Redis credentials are not configured or Redis is unreachable in production, paid AI operations reject cleanly with HTTP 503 and student-friendly messaging, preventing runaway provider charges.
+  - Transcribe session guard enforcing single active session per device lock, IP concurrent limits, device HMAC ownership verification to block cross-device session hijacking, and idempotent audio duration settlement.
+  - Zero information exposure: all error messages and rate-limit responses communicate friendly student guidance without developer or infrastructure jargon ("Upstash", "Redis", "tokens", "payload", "serverless", "Vercel").
+  - 30 test files with 274 tests passing with zero failures. Production Next.js build verified across all 19 routes.
 
 - [x] Ingestion Phase 1: Adaptive client-side image optimization using Web Workers via `browser-image-compression`:
   - Legibility-first settings preserving handwriting, mathematical symbols, diagrams, tables, and textbook text (`maxWidthOrHeight: 2048`, `initialQuality: 0.86`, `maxSizeMB: 0.9`, `useWebWorker: true`).

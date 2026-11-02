@@ -1,5 +1,12 @@
+import "server-only";
+
 import { NextRequest, NextResponse } from "next/server";
 import { getTranscribeSession } from "@/lib/providers/transcribe-session";
+import {
+  getAnonymousIdentity,
+  verifyTranscribeSessionOwnership,
+  finalizeTranscribeSessionInRedis,
+} from "@/lib/accounting";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +26,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const identity = getAnonymousIdentity(req);
+    const verification = await verifyTranscribeSessionOwnership(
+      sessionId,
+      identity
+    );
+
+    if (!verification.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: verification.message || "Session not found or expired",
+        },
+        { status: verification.statusCode || 404 }
+      );
+    }
+
     const session = getTranscribeSession(sessionId);
     if (!session) {
       return NextResponse.json(
@@ -28,6 +51,12 @@ export async function POST(req: NextRequest) {
     }
 
     const finalTranscript = await session.finish();
+
+    await finalizeTranscribeSessionInRedis({
+      sessionId: session.id,
+      identity,
+      audioProcessedMs: session.audioProcessedMs,
+    });
 
     return NextResponse.json({
       success: true,

@@ -230,3 +230,25 @@ export interface ReasoningProviderAdapter {
 - All architectural decisions documented in `docs/DECISIONS.md`.
 - Provider capabilities verified and recorded in `docs/PROVIDER_VERIFICATION.md`.
 - Daily milestone progress tracked in `docs/PROGRESS.md`.
+
+---
+
+## 11. AI Usage Accounting, Rate Limiting & Global Spending Protection (`src/lib/accounting`)
+
+- **Anonymous Device Identification:**
+  - Secure `HttpOnly` UUIDv4 cookie (`retell_device_id`, 1-year duration, `SameSite=Lax`, `Path=/`, `Secure` in production).
+  - Server-side SHA-256 HMAC hashing (`device_<32hex>`, `ip_<32hex>`). Zero PII, raw cookies, or IP addresses stored in Redis.
+- **Persistent Sliding Window Rate Limiting:**
+  - Atomic Lua script executing multi-tier checks: Device Burst, Device Sustained, IP Burst, IP Sustained.
+  - Return HTTP 429 with student-friendly message and standard `Retry-After` header.
+- **Global Daily Spending Cap:**
+  - Strict UTC daily reset (`budget:utc:YYYY-MM-DD`).
+  - Integer micro-USD arithmetic (1 USD = 1,000,000 micros) eliminating floating-point rounding drift.
+  - Atomic two-phase reservation: pre-flight reservation checks confirmed + reserved balance against daily ceiling; post-flight settlement reconciles confirmed token usage, refunds definite errors, and conservatively retains reservations on timeouts.
+- **Fail-Closed Security Architecture:**
+  - If Redis is unconfigured or unreachable in production, paid AI operations reject cleanly with HTTP 503, preventing cloud spending overages.
+- **Speech Transcription Session Guard:**
+  - Enforces single active recording session per device lock (`tsess:active:dev:<hmac>`).
+  - Validates session ownership against caller device HMAC to block session hijacking across devices.
+  - Audio chunk transmissions do not consume separate operation quotas.
+  - Idempotent finalization settles billable audio duration against daily budget and releases active session locks.

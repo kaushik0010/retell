@@ -11,6 +11,7 @@ import { getReasoningProvider } from "@/lib/providers";
 import { sanitizeError } from "@/lib/providers/errors";
 import type { MessageContentPart, ChatMessage } from "@/lib/providers/types";
 import { validateFileBatch } from "@/lib/files";
+import { guardAiEndpoint, completeAiExecution } from "@/lib/accounting";
 
 const MULTIMODAL_TIMEOUT_MS = 75000; // 75 seconds for large scanned documents and multi-page PDFs
 
@@ -138,15 +139,27 @@ export async function POST(req: NextRequest) {
         pageCount: batchValidation.results[idx]!.pageCount,
       }));
 
+      const guardA = await guardAiEndpoint(req, "extract", {
+        imageCount: validatedFiles.length,
+      });
+      if (!guardA.proceed) {
+        return guardA.response;
+      }
+
       if (!provider.isConfigured()) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Reasoning provider is not configured. Please verify your API key in .env.local.",
-          },
-          { status: 503 }
-        );
+        return completeAiExecution({
+          response: NextResponse.json(
+            {
+              success: false,
+              error:
+                "Reasoning provider is not configured. Please verify your API key in .env.local.",
+            },
+            { status: 503 }
+          ),
+          identity: guardA.identity,
+          reservationId: guardA.reservationId,
+          isDefiniteFailure: true,
+        });
       }
 
       const primaryFile = validatedFiles[0]!;
@@ -219,16 +232,26 @@ EXTRACTION INSTRUCTIONS:
       );
 
       if (!result.success || !result.data) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              result.error?.message ||
-              "Failed to extract questions from your uploaded document.",
-            category: result.error?.category || "MODEL_UNAVAILABLE",
-          },
-          { status: 502 }
-        );
+        return completeAiExecution({
+          response: NextResponse.json(
+            {
+              success: false,
+              error:
+                result.error?.message ||
+                "Failed to extract questions from your uploaded document.",
+              category: result.error?.category || "MODEL_UNAVAILABLE",
+            },
+            { status: 502 }
+          ),
+          identity: guardA.identity,
+          reservationId: guardA.reservationId,
+          isDefiniteFailure:
+            result.error?.category === "AUTHENTICATION_ERROR" ||
+            result.error?.category === "MODEL_UNAVAILABLE",
+          isUncertainOutcome:
+            result.error?.category === "TIMEOUT" ||
+            result.error?.category === "NETWORK_ERROR",
+        });
       }
 
       const {
@@ -240,18 +263,23 @@ EXTRACTION INSTRUCTIONS:
       } = result.data;
 
       if (status !== "found_qa" || rawQuestions.length === 0) {
-        return NextResponse.json({
-          success: true,
-          status,
-          message:
-            guidanceMessage ||
-            "We could not find matching questions and answers in your uploaded material.",
-          detectedContent: detectedContent || "",
-          suggestedTitle:
-            suggestedTitle ||
-            userTitle ||
-            primaryFile.file.name.replace(/\.[^/.]+$/, ""),
-          questions: [],
+        return completeAiExecution({
+          response: NextResponse.json({
+            success: true,
+            status,
+            message:
+              guidanceMessage ||
+              "We could not find matching questions and answers in your uploaded material.",
+            detectedContent: detectedContent || "",
+            suggestedTitle:
+              suggestedTitle ||
+              userTitle ||
+              primaryFile.file.name.replace(/\.[^/.]+$/, ""),
+            questions: [],
+          }),
+          identity: guardA.identity,
+          reservationId: guardA.reservationId,
+          usage: result.usage,
         });
       }
 
@@ -296,11 +324,16 @@ EXTRACTION INSTRUCTIONS:
         isUncertain: q.isUncertain,
       }));
 
-      return NextResponse.json({
-        success: true,
-        status: "found_qa",
-        studyMaterial,
-        questions,
+      return completeAiExecution({
+        response: NextResponse.json({
+          success: true,
+          status: "found_qa",
+          studyMaterial,
+          questions,
+        }),
+        identity: guardA.identity,
+        reservationId: guardA.reservationId,
+        usage: result.usage,
       });
     }
 
@@ -319,22 +352,34 @@ EXTRACTION INSTRUCTIONS:
       );
     }
 
-    if (!provider.isConfigured()) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Reasoning provider is not configured. Please verify your API key in .env.local.",
-        },
-        { status: 503 }
-      );
-    }
-
     const {
       title: userTitle,
       sourceText,
       studentQuestion,
     } = parsedRequest.data;
+
+    const guardB = await guardAiEndpoint(req, "extract", {
+      charCount: sourceText.length,
+    });
+    if (!guardB.proceed) {
+      return guardB.response;
+    }
+
+    if (!provider.isConfigured()) {
+      return completeAiExecution({
+        response: NextResponse.json(
+          {
+            success: false,
+            error:
+              "Reasoning provider is not configured. Please verify your API key in .env.local.",
+          },
+          { status: 503 }
+        ),
+        identity: guardB.identity,
+        reservationId: guardB.reservationId,
+        isDefiniteFailure: true,
+      });
+    }
 
     const userPrompt = `SOURCE MATERIAL SUBMITTED BY STUDENT:
 ---
@@ -358,16 +403,26 @@ Analyze the material strictly following the source-grounding rules and return va
     );
 
     if (!result.success || !result.data) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            result.error?.message ||
-            "Failed to find questions and answers in your study material.",
-          category: result.error?.category || "MODEL_UNAVAILABLE",
-        },
-        { status: 502 }
-      );
+      return completeAiExecution({
+        response: NextResponse.json(
+          {
+            success: false,
+            error:
+              result.error?.message ||
+              "Failed to find questions and answers in your study material.",
+            category: result.error?.category || "MODEL_UNAVAILABLE",
+          },
+          { status: 502 }
+        ),
+        identity: guardB.identity,
+        reservationId: guardB.reservationId,
+        isDefiniteFailure:
+          result.error?.category === "AUTHENTICATION_ERROR" ||
+          result.error?.category === "MODEL_UNAVAILABLE",
+        isUncertainOutcome:
+          result.error?.category === "TIMEOUT" ||
+          result.error?.category === "NETWORK_ERROR",
+      });
     }
 
     const {
@@ -379,15 +434,20 @@ Analyze the material strictly following the source-grounding rules and return va
     } = result.data;
 
     if (status !== "found_qa" || rawQuestions.length === 0) {
-      return NextResponse.json({
-        success: true,
-        status,
-        message:
-          guidanceMessage ||
-          "We could not find matching questions and answers in your material.",
-        detectedContent: detectedContent || "",
-        suggestedTitle: suggestedTitle || userTitle || "My Study Notes",
-        questions: [],
+      return completeAiExecution({
+        response: NextResponse.json({
+          success: true,
+          status,
+          message:
+            guidanceMessage ||
+            "We could not find matching questions and answers in your material.",
+          detectedContent: detectedContent || "",
+          suggestedTitle: suggestedTitle || userTitle || "My Study Notes",
+          questions: [],
+        }),
+        identity: guardB.identity,
+        reservationId: guardB.reservationId,
+        usage: result.usage,
       });
     }
 
@@ -421,11 +481,16 @@ Analyze the material strictly following the source-grounding rules and return va
       isUncertain: q.isUncertain,
     }));
 
-    return NextResponse.json({
-      success: true,
-      status: "found_qa",
-      studyMaterial,
-      questions,
+    return completeAiExecution({
+      response: NextResponse.json({
+        success: true,
+        status: "found_qa",
+        studyMaterial,
+        questions,
+      }),
+      identity: guardB.identity,
+      reservationId: guardB.reservationId,
+      usage: result.usage,
     });
   } catch (err: unknown) {
     const sanitized = sanitizeError(err);

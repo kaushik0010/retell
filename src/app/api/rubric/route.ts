@@ -9,6 +9,7 @@ import {
 } from "@/lib/domain/study-set";
 import { getReasoningProvider } from "@/lib/providers";
 import { sanitizeError } from "@/lib/providers/errors";
+import { guardAiEndpoint, completeAiExecution } from "@/lib/accounting";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,15 +37,27 @@ export async function POST(req: NextRequest) {
 
     const provider = getReasoningProvider();
 
+    const guard = await guardAiEndpoint(req, "rubric", {
+      charCount: referenceAnswer.length + sourceText.length,
+    });
+    if (!guard.proceed) {
+      return guard.response;
+    }
+
     if (!provider.isConfigured()) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Reasoning provider is not configured. Please verify your API key in .env.local.",
-        },
-        { status: 503 }
-      );
+      return completeAiExecution({
+        response: NextResponse.json(
+          {
+            success: false,
+            error:
+              "Reasoning provider is not configured. Please verify your API key in .env.local.",
+          },
+          { status: 503 }
+        ),
+        identity: guard.identity,
+        reservationId: guard.reservationId,
+        isDefiniteFailure: true,
+      });
     }
 
     const systemPrompt = `You are an expert exam preparation coach for Retell.
@@ -103,16 +116,26 @@ Identify the important points to remember in valid JSON.`;
     );
 
     if (!result.success || !result.data) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            result.error?.message ||
-            "Failed to find important points for this question.",
-          category: result.error?.category || "MODEL_UNAVAILABLE",
-        },
-        { status: 502 }
-      );
+      return completeAiExecution({
+        response: NextResponse.json(
+          {
+            success: false,
+            error:
+              result.error?.message ||
+              "Failed to find important points for this question.",
+            category: result.error?.category || "MODEL_UNAVAILABLE",
+          },
+          { status: 502 }
+        ),
+        identity: guard.identity,
+        reservationId: guard.reservationId,
+        isDefiniteFailure:
+          result.error?.category === "AUTHENTICATION_ERROR" ||
+          result.error?.category === "MODEL_UNAVAILABLE",
+        isUncertainOutcome:
+          result.error?.category === "TIMEOUT" ||
+          result.error?.category === "NETWORK_ERROR",
+      });
     }
 
     const now = new Date().toISOString();
@@ -136,9 +159,14 @@ Identify the important points to remember in valid JSON.`;
       updatedAt: now,
     };
 
-    return NextResponse.json({
-      success: true,
-      rubric,
+    return completeAiExecution({
+      response: NextResponse.json({
+        success: true,
+        rubric,
+      }),
+      identity: guard.identity,
+      reservationId: guard.reservationId,
+      usage: result.usage,
     });
   } catch (err: unknown) {
     const sanitized = sanitizeError(err);

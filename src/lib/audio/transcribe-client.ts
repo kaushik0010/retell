@@ -83,7 +83,14 @@ export class TranscribeClient {
       });
 
       if (!res.ok) {
-        throw new Error(`Failed to start session (${res.status})`);
+        let serverError = `Failed to start session (${res.status})`;
+        try {
+          const errData = await res.json();
+          if (errData?.error) {
+            serverError = errData.error;
+          }
+        } catch {}
+        throw new Error(serverError);
       }
 
       const data = await res.json();
@@ -444,6 +451,7 @@ export class TranscribeClient {
   }
 
   public close(): void {
+    const activeSessionId = this.sessionId;
     this.isClosed = true;
     this.isFinishing = false;
     this.isRecognitionRunning = false;
@@ -465,5 +473,18 @@ export class TranscribeClient {
 
     this.sessionId = null;
     this.callbacks.onStateChange?.("closed");
+
+    // Release session lock on server if closed without finishing
+    if (activeSessionId && typeof fetch !== "undefined") {
+      fetch(
+        `/api/transcribe/finish?sessionId=${encodeURIComponent(activeSessionId)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: activeSessionId }),
+          keepalive: true,
+        }
+      ).catch(() => {});
+    }
   }
 }

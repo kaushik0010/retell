@@ -101,6 +101,7 @@ export function PracticeRoomView({
   const accumulatorRef = useRef<TranscriptAccumulator>(
     new TranscriptAccumulator()
   );
+  const isStartingRef = useRef<boolean>(false);
   const isFinishingRef = useRef<boolean>(false);
   const durationSecondsRef = useRef<number>(0);
   const previousHintsRef = useRef<string[]>([]);
@@ -167,18 +168,49 @@ export function PracticeRoomView({
     ) {
       friendlyMessage =
         "No microphone detected on your device. Please plug in a microphone or headset and try again.";
+    } else if (msg.includes("active spoken recording in progress")) {
+      friendlyMessage =
+        "You already have an active recording in progress. Please finish or stop it first, or wait a moment.";
+    } else if (
+      msg.includes("doing that a little too quickly") ||
+      msg.includes("429")
+    ) {
+      friendlyMessage =
+        "You're starting recordings too quickly. Please wait a few moments before trying again.";
+    } else if (
+      msg.includes("temporarily unable to process new requests") ||
+      msg.includes("503")
+    ) {
+      friendlyMessage =
+        "Retell is temporarily unable to start a new recording session. Please try again in a few moments.";
     }
 
     setErrorMessage(friendlyMessage);
     setSessionState("error");
     isFinishingRef.current = false;
+    isStartingRef.current = false;
     if (timerRef.current) clearInterval(timerRef.current);
     captureControllerRef.current?.stop();
+    captureControllerRef.current = null;
     transcribeClientRef.current?.close();
+    transcribeClientRef.current = null;
   };
 
   // Start practicing
   const handleStartPractice = async () => {
+    // Guard against duplicate clicks or concurrent triggers
+    if (
+      isStartingRef.current ||
+      isFinishingRef.current ||
+      sessionState === "listening" ||
+      sessionState === "requesting_permission" ||
+      sessionState === "connecting"
+    ) {
+      return;
+    }
+
+    isStartingRef.current = true;
+
     try {
       setErrorMessage(null);
       setSessionState("requesting_permission");
@@ -192,48 +224,6 @@ export function PracticeRoomView({
       durationSecondsRef.current = 0;
       setIsPaused(false);
       setLastSavedAttempt(null);
-
-      // 1. Initialize server-relay transcribe client
-      const client = new TranscribeClient({
-        onTranscriptDelta: (text, isFinal) => {
-          // Reject any late events if finishing or completed
-          if (
-            isFinishingRef.current ||
-            sessionState === "finishing" ||
-            sessionState === "completed"
-          ) {
-            return;
-          }
-          // Notify capture controller to debounce silence / reset pause timer when student is speaking
-          captureControllerRef.current?.notifySpeechActivity();
-          setIsPaused(false);
-          setCurrentHint(null);
-
-          accumulatorRef.current.update(text, isFinal);
-          setTranscript(accumulatorRef.current.finalizedText);
-          setInterimText(accumulatorRef.current.interimText);
-        },
-        onAudioProgress: () => {},
-        onProviderChange: (provider, details) => {
-          // Internal diagnostic logging only (never student-facing)
-          console.info(
-            "[PracticeRoom] Transcribe provider:",
-            provider,
-            details
-          );
-        },
-        onError: (errText) => {
-          console.warn("Transcribe streaming notice:", errText);
-        },
-        onStateChange: (st) => {
-          if (st === "listening" && !isFinishingRef.current) {
-            setSessionState("listening");
-          }
-        },
-      });
-
-      await client.start();
-      transcribeClientRef.current = client;
 
       // Authoritatively resolve scoped reference answer and criteria for hints
       const isParagraphScope = selectedParagraphIndex !== null;
@@ -251,11 +241,14 @@ export function PracticeRoomView({
       const targetHintReference = resolvedScope.paragraphText;
       const targetHintCriteria = resolvedScope.criteria;
 
-      // 2. Start browser audio capture using browser-provided default microphone (with quiet-voice threshold 0.008)
+      // 1. Request microphone permission FIRST as a direct response to user gesture
+      // If student denies permission, capture.start() throws NotAllowedError and ZERO server calls are made
+      let clientInstance: TranscribeClient | null = null;
+
       const capture = new AudioCaptureController(
         {
           onAudioChunk: (chunk) => {
-            client.sendAudioChunk(chunk);
+            clientInstance?.sendAudioChunk(chunk);
           },
           onVolumeChange: (vol) => {
             setVolume(vol);
@@ -276,8 +269,6 @@ export function PracticeRoomView({
             setIsPaused(paused);
 
             if (paused) {
-              // Generate source-grounded recall hint from scoped reference answer and criteria
-              // No arbitrary 3-hint ceiling: hints continue sequentially throughout the attempt
               const currentFullText =
                 accumulatorRef.current.getFullTranscript();
               const hint = generateRecallHint({
@@ -298,7 +289,6 @@ export function PracticeRoomView({
                 setCurrentHint(null);
               }
             } else {
-              // Student resumed speaking -> hide hint immediately
               setCurrentHint(null);
             }
           },
@@ -312,10 +302,53 @@ export function PracticeRoomView({
         }
       );
 
+      // Start audio capture (triggers browser microphone prompt)
       await capture.start();
       captureControllerRef.current = capture;
 
-      // Start elapsed timer
+      // 2. Microphone access granted: Initialize server-relay transcribe client
+      setSessionState("connecting");
+
+      const client = new TranscribeClient({
+        onTranscriptDelta: (text, isFinal) => {
+          if (
+            isFinishingRef.current ||
+            sessionState === "finishing" ||
+            sessionState === "completed"
+          ) {
+            return;
+          }
+          captureControllerRef.current?.notifySpeechActivity();
+          setIsPaused(false);
+          setCurrentHint(null);
+
+          accumulatorRef.current.update(text, isFinal);
+          setTranscript(accumulatorRef.current.finalizedText);
+          setInterimText(accumulatorRef.current.interimText);
+        },
+        onAudioProgress: () => {},
+        onProviderChange: (provider, details) => {
+          console.info(
+            "[PracticeRoom] Transcribe provider:",
+            provider,
+            details
+          );
+        },
+        onError: (errText) => {
+          console.warn("Transcribe streaming notice:", errText);
+        },
+        onStateChange: (st) => {
+          if (st === "listening" && !isFinishingRef.current) {
+            setSessionState("listening");
+          }
+        },
+      });
+
+      clientInstance = client;
+      await client.start();
+      transcribeClientRef.current = client;
+
+      // 3. Start elapsed timer
       timerRef.current = setInterval(() => {
         durationSecondsRef.current += 1;
         setDurationSeconds(durationSecondsRef.current);
@@ -323,7 +356,17 @@ export function PracticeRoomView({
 
       setSessionState("listening");
     } catch (err: unknown) {
+      if (captureControllerRef.current) {
+        captureControllerRef.current.stop();
+        captureControllerRef.current = null;
+      }
+      if (transcribeClientRef.current) {
+        transcribeClientRef.current.close();
+        transcribeClientRef.current = null;
+      }
       handleAudioError(err);
+    } finally {
+      isStartingRef.current = false;
     }
   };
 
@@ -538,6 +581,7 @@ export function PracticeRoomView({
 
   // Cancel attempt without saving
   const handleCancelPractice = () => {
+    isStartingRef.current = false;
     if (timerRef.current) clearInterval(timerRef.current);
     captureControllerRef.current?.stop();
     captureControllerRef.current = null;

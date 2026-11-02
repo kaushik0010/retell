@@ -5,7 +5,9 @@ import { createTranscribeSession } from "@/lib/providers/transcribe-session";
 import {
   getAnonymousIdentity,
   attachDeviceCookie,
-  registerTranscribeSessionInRedis,
+  checkTranscribePreconditions,
+  commitTranscribeSession,
+  releaseTranscribePreReservation,
 } from "@/lib/accounting";
 
 export async function POST(req: NextRequest) {
@@ -24,29 +26,20 @@ export async function POST(req: NextRequest) {
       // Body is optional
     }
 
-    const session = await createTranscribeSession({
-      sampleRate: body.sampleRate || 24000,
-      languageBias: body.languageBias,
-      mockFallback: body.mockFallback,
-    });
+    const isMock = Boolean(body.mockFallback);
 
-    const registration = await registerTranscribeSessionInRedis({
-      sessionId: session.id,
-      identity,
-      isMock: session.isMock,
-      provider: session.provider,
-    });
-
-    if (!registration.allowed) {
-      session.close();
+    // 1. Pre-flight checks: rate limit, stale lock recovery, active session check, budget reservation
+    // Runs BEFORE connecting to upstream Meta WebSocket to avoid consuming paid resources if rejected
+    const preCheck = await checkTranscribePreconditions(identity, isMock);
+    if (!preCheck.allowed) {
       const response = NextResponse.json(
         {
           success: false,
           error:
-            registration.message ||
+            preCheck.message ||
             "Retell is temporarily unable to process new requests. Please try again later.",
         },
-        { status: registration.statusCode || 429 }
+        { status: preCheck.statusCode || 429 }
       );
       if (identity.isNewDevice) {
         attachDeviceCookie(response, identity.deviceId);
@@ -54,6 +47,41 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
+    // 2. Only after all checks pass: create upstream transcribe session
+    let session;
+    try {
+      session = await createTranscribeSession({
+        sampleRate: body.sampleRate || 24000,
+        languageBias: body.languageBias,
+        mockFallback: body.mockFallback,
+      });
+    } catch (createErr) {
+      // Upstream connection or handshake failed -> release reservation immediately
+      if (preCheck.reservationId) {
+        await releaseTranscribePreReservation(preCheck.reservationId, identity);
+      }
+      throw createErr;
+    }
+
+    // 3. Commit session record and active device lock in Redis
+    try {
+      await commitTranscribeSession({
+        sessionId: session.id,
+        identity,
+        reservationId: preCheck.reservationId || "",
+        isMock: session.isMock,
+        provider: session.provider,
+      });
+    } catch (commitErr) {
+      // Failed to commit to Redis -> close session and refund
+      session.close();
+      if (preCheck.reservationId) {
+        await releaseTranscribePreReservation(preCheck.reservationId, identity);
+      }
+      throw commitErr;
+    }
+
+    // 4. Return success response
     const response = NextResponse.json({
       success: true,
       sessionId: session.id,

@@ -23,7 +23,10 @@ export interface AccountingRedis {
   hget<T = unknown>(key: string, field: string): Promise<T | null>;
   hset(key: string, kv: Record<string, unknown>): Promise<number>;
   hincrby(key: string, field: string, increment: number): Promise<number>;
-  zadd(key: string, ...scoreMembers: (string | number)[]): Promise<number>;
+  zadd(
+    key: string,
+    ...scoreMembers: (string | number | { score: number; member: string })[]
+  ): Promise<number>;
   zcard(key: string): Promise<number>;
   zremrangebyscore(
     key: string,
@@ -166,7 +169,7 @@ export class InMemoryAccountingRedis implements AccountingRedis {
 
   public async zadd(
     key: string,
-    ...scoreMembers: (string | number)[]
+    ...scoreMembers: (string | number | { score: number; member: string })[]
   ): Promise<number> {
     this.cleanKey(key);
     let z = this.sortedSets.get(key);
@@ -175,15 +178,36 @@ export class InMemoryAccountingRedis implements AccountingRedis {
       this.sortedSets.set(key, z);
     }
     let added = 0;
-    for (let i = 0; i < scoreMembers.length; i += 2) {
-      const score = Number(scoreMembers[i]);
-      const member = String(scoreMembers[i + 1]);
-      const idx = z.members.findIndex((m) => m.member === member);
-      if (idx >= 0) {
-        z.members[idx]!.score = score;
+    let i = 0;
+    while (i < scoreMembers.length) {
+      const item = scoreMembers[i];
+      if (
+        item &&
+        typeof item === "object" &&
+        "score" in item &&
+        "member" in item
+      ) {
+        const score = Number(item.score);
+        const member = String(item.member);
+        const idx = z.members.findIndex((m) => m.member === member);
+        if (idx >= 0) {
+          z.members[idx]!.score = score;
+        } else {
+          z.members.push({ score, member });
+          added++;
+        }
+        i += 1;
       } else {
-        z.members.push({ score, member });
-        added++;
+        const score = Number(scoreMembers[i]);
+        const member = String(scoreMembers[i + 1]);
+        const idx = z.members.findIndex((m) => m.member === member);
+        if (idx >= 0) {
+          z.members[idx]!.score = score;
+        } else {
+          z.members.push({ score, member });
+          added++;
+        }
+        i += 2;
       }
     }
     z.members.sort((a, b) => a.score - b.score);

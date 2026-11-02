@@ -33,17 +33,16 @@ export interface VerifySessionResult {
 }
 
 /**
- * Atomically registers a speech transcription session in shared Redis storage,
- * enforcing single active session per device, IP concurrent limits, and reserving
- * budget for maximum allowed duration.
+ * Pre-flight verification for spoken practice recording:
+ * 1. Checks Redis availability (fails closed with 503).
+ * 2. Checks active session lock for device with automatic stale/abandoned recovery.
+ * 3. Enforces sliding window rate limits (clearing expired timestamps).
+ * 4. Pre-reserves daily budget (if paid session) BEFORE connecting to upstream Meta WebSocket.
  */
-export async function registerTranscribeSessionInRedis(params: {
-  sessionId: string;
-  identity: AnonymousIdentity;
-  isMock: boolean;
-  provider: string;
-}): Promise<RegisterSessionResult> {
-  const { sessionId, identity, isMock, provider } = params;
+export async function checkTranscribePreconditions(
+  identity: AnonymousIdentity,
+  isMock: boolean
+): Promise<RegisterSessionResult> {
   const redis = getAccountingRedis();
 
   if (!redis) {
@@ -59,22 +58,56 @@ export async function registerTranscribeSessionInRedis(params: {
   const config = getAccountingConfig();
   const limits = config.limits.transcribeSession;
   const devActiveKey = `tsess:active:dev:${identity.deviceKey}`;
-  const ipActiveKey = `tsess:active:ip:${identity.ipKey}`;
+  const now = Date.now();
 
-  // 1. Check if this device already has an active session
+  // 1. Check if this device already has an active session (with stale lock recovery)
   const existingActiveSession = await redis.get<string>(devActiveKey);
-  if (existingActiveSession && existingActiveSession !== sessionId) {
-    return {
-      allowed: false,
-      statusCode: 429,
-      message:
-        "You already have an active spoken recording in progress. Please finish or stop it first.",
-    };
+  if (existingActiveSession) {
+    const oldSessionKey = `tsess:${existingActiveSession}`;
+    const rawOld = await redis.get<string>(oldSessionKey);
+    let isStillActive = false;
+
+    if (rawOld) {
+      try {
+        const oldRecord =
+          typeof rawOld === "string" ? JSON.parse(rawOld) : rawOld;
+        if (oldRecord && oldRecord.status === "active") {
+          const ageMs =
+            now - (oldRecord.lastActivityAt || oldRecord.createdAt || 0);
+          // If inactive for > 45 seconds without finishing, treat as abandoned
+          if (ageMs < 45_000) {
+            isStillActive = true;
+          } else {
+            // Settle abandoned reservation to unblock budget
+            if (!oldRecord.isMock && oldRecord.reservationId) {
+              await settleDailyBudget({
+                reservationId: oldRecord.reservationId,
+                isDefiniteFailure: true,
+              });
+            }
+          }
+        }
+      } catch {
+        // Corrupted session record -> clean up
+      }
+    }
+
+    if (isStillActive) {
+      return {
+        allowed: false,
+        statusCode: 429,
+        message:
+          "You already have an active spoken recording in progress. Please finish or stop it first.",
+      };
+    } else {
+      // Stale or abandoned session: recover lock
+      await redis.del(devActiveKey);
+    }
   }
 
   // 2. Sliding window check for session creation rate limit
-  const now = Date.now();
   const sessionRateKey = `rl:s:dev:transcribe:${identity.deviceKey}`;
+  await redis.zremrangebyscore(sessionRateKey, 0, now - 600 * 1000);
   const count = await redis.zcard(sessionRateKey);
   if (count >= limits.deviceMaxIn10Min) {
     return {
@@ -86,7 +119,6 @@ export async function registerTranscribeSessionInRedis(params: {
   }
 
   // 3. Atomically reserve daily spending budget for maximum session duration
-  // If mock fallback session, estimated cost is $0
   let reservationId: string | undefined;
   if (!isMock) {
     const budgetRes = await reserveDailyBudget("transcribe", {
@@ -104,7 +136,32 @@ export async function registerTranscribeSessionInRedis(params: {
     reservationId = `resv_mock_${Date.now()}`;
   }
 
-  // 4. Store session record in Redis with 10-minute TTL
+  return {
+    allowed: true,
+    reservationId,
+  };
+}
+
+/**
+ * Commits a newly established transcribe session to Redis after upstream connection succeeds.
+ */
+export async function commitTranscribeSession(params: {
+  sessionId: string;
+  identity: AnonymousIdentity;
+  reservationId: string;
+  isMock: boolean;
+  provider: string;
+}): Promise<void> {
+  const { sessionId, identity, reservationId, isMock, provider } = params;
+  const redis = getAccountingRedis();
+  if (!redis) return;
+
+  const config = getAccountingConfig();
+  const limits = config.limits.transcribeSession;
+  const devActiveKey = `tsess:active:dev:${identity.deviceKey}`;
+  const sessionRateKey = `rl:s:dev:transcribe:${identity.deviceKey}`;
+  const now = Date.now();
+
   const sessionRecord: TranscribeSessionRecord = {
     sessionId,
     deviceKey: identity.deviceKey,
@@ -113,7 +170,7 @@ export async function registerTranscribeSessionInRedis(params: {
     lastActivityAt: now,
     maxDurationSeconds: limits.maxSessionDurationSeconds,
     status: "active",
-    reservationId: reservationId || "",
+    reservationId,
     isMock,
     provider,
   };
@@ -127,13 +184,73 @@ export async function registerTranscribeSessionInRedis(params: {
   await redis.set(devActiveKey, sessionId, {
     ex: limits.maxSessionDurationSeconds + 30,
   });
-  await redis.zadd(sessionRateKey, now, String(now));
+  await redis.zadd(sessionRateKey, {
+    score: now,
+    member: `${sessionId}:${now}`,
+  });
   await redis.expire(sessionRateKey, 600);
+}
 
-  return {
-    allowed: true,
-    reservationId,
-  };
+/**
+ * Safely releases a pre-flight budget reservation and active session lock if upstream connection fails.
+ */
+export async function releaseTranscribePreReservation(
+  reservationId?: string,
+  identity?: AnonymousIdentity
+): Promise<void> {
+  if (reservationId && !reservationId.startsWith("resv_mock_")) {
+    await settleDailyBudget({
+      reservationId,
+      isDefiniteFailure: true,
+    });
+  }
+
+  if (identity) {
+    const redis = getAccountingRedis();
+    if (redis) {
+      const devActiveKey = `tsess:active:dev:${identity.deviceKey}`;
+      await redis.del(devActiveKey);
+    }
+  }
+}
+
+/**
+ * Atomically registers a speech transcription session in shared Redis storage,
+ * enforcing single active session per device, IP concurrent limits, and reserving
+ * budget for maximum allowed duration.
+ */
+export async function registerTranscribeSessionInRedis(params: {
+  sessionId: string;
+  identity: AnonymousIdentity;
+  isMock: boolean;
+  provider: string;
+}): Promise<RegisterSessionResult> {
+  const { sessionId, identity, isMock, provider } = params;
+
+  const preCheck = await checkTranscribePreconditions(identity, isMock);
+  if (!preCheck.allowed) {
+    return preCheck;
+  }
+
+  try {
+    await commitTranscribeSession({
+      sessionId,
+      identity,
+      reservationId: preCheck.reservationId || "",
+      isMock,
+      provider,
+    });
+
+    return {
+      allowed: true,
+      reservationId: preCheck.reservationId,
+    };
+  } catch (err) {
+    if (preCheck.reservationId) {
+      await releaseTranscribePreReservation(preCheck.reservationId, identity);
+    }
+    throw err;
+  }
 }
 
 /**

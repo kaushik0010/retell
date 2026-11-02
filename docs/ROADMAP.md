@@ -222,8 +222,17 @@ Wire up the complete end-to-end user journey, finalize local IndexedDB persisten
 | `TASK-5.8`  | Ingestion Phase 1: Client-Side Image Optimization & Upload Payload Protection              | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion) |
 | `TASK-5.9`  | Image Upload UX Cleanup, Information Exposure Audit, Local PDF Preview & Ingestion         | **Completed** | [Section 4](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md#4-features-library-and-ingestion) |
 | `TASK-5.10` | Phase 3: Persistent Rate Limiting, AI Usage Accounting & Global Spending Protection        | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
+| `TASK-5.11` | Practice Room Transcription Startup 429 & Session Lifecycle Fix                            | **Completed** | [Section 11](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                 |
 
 ### Key Milestones Completed
+
+- [x] Practice Room Transcription Startup 429 & Session Lifecycle Fix:
+  - Eliminated transcription startup 429 errors by fixing the `@upstash/redis` `zadd` method signature to pass structured `{ score, member }` objects.
+  - Implemented self-healing Redis session lock recovery that automatically detects and clears stale/abandoned device locks (>45s inactive).
+  - Inverted Practice Room startup sequence so browser microphone access (`getUserMedia`) is prompted *first* as a direct response to user gesture, ensuring zero server calls, Redis locks, or budget reservations occur if permission is denied.
+  - Added pre-flight check (`checkTranscribePreconditions`) before opening upstream Meta WebSocket connection, guaranteeing zero billable upstream calls on rate-limited or concurrent attempts.
+  - Added fail-safe pre-reservation refund (`releaseTranscribePreReservation`) and client teardown cleanup (`keepalive: true` finish beacon).
+  - Sanitized student-facing audio error messages and added rapid double-click guard (`isStartingRef`).
 
 - [x] Phase 3: Persistent Rate Limiting, Anonymous Abuse Protection, AI Accounting & Global Budget Protection:
   - Preserved Retell's anonymous, local-first philosophy with zero mandatory user registration or cloud sync.

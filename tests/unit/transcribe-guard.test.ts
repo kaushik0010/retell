@@ -3,6 +3,9 @@ import {
   registerTranscribeSessionInRedis,
   verifyTranscribeSessionOwnership,
   finalizeTranscribeSessionInRedis,
+  checkTranscribePreconditions,
+  commitTranscribeSession,
+  releaseTranscribePreReservation,
 } from "@/lib/accounting/transcribe-guard";
 import {
   setTestRedisInstance,
@@ -209,5 +212,59 @@ describe("Persistent Transcribe Session Guard & Device Coordination", () => {
     expect(res.message).toBe(
       "Retell is temporarily unable to process new requests. Please try again later."
     );
+  });
+
+  it("recovers automatically from stale or abandoned session locks (>45s inactive)", async () => {
+    // 1. Device A starts a session that gets abandoned without finalizing
+    const first = await registerTranscribeSessionInRedis({
+      sessionId: "trans_stale_01",
+      identity: deviceA,
+      isMock: false,
+      provider: "meta_voice",
+    });
+    expect(first.allowed).toBe(true);
+
+    // Simulate that the session was abandoned 60 seconds ago
+    const staleTime = Date.now() - 60_000;
+    const sessionKey = "tsess:trans_stale_01";
+    const rawSession = await redisSimulator.get<string>(sessionKey);
+    if (rawSession) {
+      const parsed = JSON.parse(rawSession);
+      parsed.lastActivityAt = staleTime;
+      parsed.createdAt = staleTime;
+      await redisSimulator.set(sessionKey, JSON.stringify(parsed));
+    }
+
+    // 2. Pre-check for a new session attempt should detect stale lock, clear it, and allow the new session
+    const preCheck = await checkTranscribePreconditions(deviceA, false);
+    expect(preCheck.allowed).toBe(true);
+    expect(preCheck.reservationId).toBeDefined();
+
+    // Device lock should have been released during stale recovery
+    const activeLock = await redisSimulator.get(
+      `tsess:active:dev:${deviceA.deviceKey}`
+    );
+    expect(activeLock).toBeNull();
+  });
+
+  it("releases pre-flight budget reservation when upstream connection fails", async () => {
+    const budgetKey = getUtcDailyKey();
+
+    const preCheck = await checkTranscribePreconditions(deviceA, false);
+    expect(preCheck.allowed).toBe(true);
+    expect(preCheck.reservationId).toBeDefined();
+
+    const reservedBefore = Number(
+      await redisSimulator.hget(budgetKey, "reserved_cost_micros")
+    );
+    expect(reservedBefore).toBeGreaterThan(0);
+
+    // Simulate upstream failure releasing pre-reservation
+    await releaseTranscribePreReservation(preCheck.reservationId, deviceA);
+
+    const reservedAfter = Number(
+      await redisSimulator.hget(budgetKey, "reserved_cost_micros")
+    );
+    expect(reservedAfter).toBe(0);
   });
 });

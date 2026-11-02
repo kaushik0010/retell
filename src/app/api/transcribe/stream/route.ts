@@ -5,6 +5,7 @@ import { getTranscribeSession } from "@/lib/providers/transcribe-session";
 import {
   getAnonymousIdentity,
   verifyTranscribeSessionOwnership,
+  finalizeTranscribeSessionInRedis,
 } from "@/lib/accounting";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +80,16 @@ export async function GET(req: NextRequest) {
         try {
           controller.close();
         } catch {}
+
+        // If no active listeners remain, finalize session in Redis to release device lock
+        if (session.listeners.size === 0 && !session.isClosed) {
+          session.close();
+          finalizeTranscribeSessionInRedis({
+            sessionId: session.id,
+            identity,
+            audioProcessedMs: session.audioProcessedMs,
+          }).catch(() => {});
+        }
       });
     },
   });

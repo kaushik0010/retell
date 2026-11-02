@@ -242,11 +242,24 @@ Copy-Item .env.example .env.local
 | `TRANSCRIPTION_PROVIDER`                | Active speech transcription provider (`meta`)                  | Optional (default: `meta`)                             | Retell Configuration                            | Server-side                         |
 | `UPSTASH_REDIS_REST_URL`                | Upstash Redis REST endpoint URL                                | Required in production                                 | [Upstash Console](https://console.upstash.com)  | Server-side                         |
 | `UPSTASH_REDIS_REST_TOKEN`              | Upstash Redis REST authentication token                        | Required in production                                 | [Upstash Console](https://console.upstash.com)  | **Server-side only** (Never commit) |
-| `RETELL_DAILY_BUDGET_USD`               | Global aggregate daily spending cap in USD                     | Optional (default: `5.00`)                             | Operator Policy                                 | Server-side                         |
+| `RETELL_DAILY_BUDGET_USD`               | Global aggregate daily spending cap in USD                     | Optional (default: `30.00`)                            | Operator Policy                                 | Server-side                         |
 | `RETELL_ANONYMOUS_HMAC_SECRET`          | 32+ char secret for hashing device IDs and IPs                 | Optional in dev; recommended in prod                   | Random Secret                                   | **Server-side only** (Never commit) |
-| `RETELL_PRICE_PER_1M_INPUT_TOKENS_USD`  | Unit cost override for input tokens ($)                        | Optional (default: `0.30`)                             | Billing Override                                | Server-side                         |
-| `RETELL_PRICE_PER_1M_OUTPUT_TOKENS_USD` | Unit cost override for output tokens ($)                       | Optional (default: `0.60`)                             | Billing Override                                | Server-side                         |
+| `RETELL_PRICE_PER_1M_INPUT_TOKENS_USD`  | Unit cost override for input tokens ($)                        | Optional (default: `1.25`)                             | Billing Override                                | Server-side                         |
+| `RETELL_PRICE_PER_1M_OUTPUT_TOKENS_USD` | Unit cost override for output tokens ($)                       | Optional (default: `4.25`)                             | Billing Override                                | Server-side                         |
 | `RETELL_PRICE_PER_AUDIO_MINUTE_USD`     | Unit cost override for speech audio ($)                        | Optional (default: `0.012`)                            | Billing Override                                | Server-side                         |
+
+### Hackathon Testing Budget & Pricing Defaults
+
+For the hackathon testing period, Retell uses the following application-side accounting defaults to provide ample headroom so evaluators do not encounter premature rate-limiting or budget-exhaustion errors while testing:
+
+```env
+RETELL_DAILY_BUDGET_USD=30.00
+RETELL_PRICE_PER_1M_INPUT_TOKENS_USD=1.25
+RETELL_PRICE_PER_1M_OUTPUT_TOKENS_USD=4.25
+RETELL_PRICE_PER_AUDIO_MINUTE_USD=0.012
+```
+
+These values represent Retell's internal application-side accounting and safety ceiling defaults for the hackathon testing period. They are not necessarily the actual billing rates charged by Meta or Baseten.
 
 ### Local Development vs. Production
 

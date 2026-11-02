@@ -243,6 +243,7 @@ export interface ReasoningProviderAdapter {
   - Return HTTP 429 with student-friendly message and standard `Retry-After` header.
 - **Global Daily Spending Cap:**
   - Strict UTC daily reset (`budget:utc:YYYY-MM-DD`).
+  - Canonical $30.00 daily budget ceiling for hackathon testing (`RETELL_DAILY_BUDGET_USD=30.00`) with pricing defaults ($1.25/1M input tokens, $4.25/1M output tokens, $0.012/min audio).
   - Integer micro-USD arithmetic (1 USD = 1,000,000 micros) eliminating floating-point rounding drift.
   - Atomic two-phase reservation: pre-flight reservation checks confirmed + reserved balance against daily ceiling; post-flight settlement reconciles confirmed token usage, refunds definite errors, and conservatively retains reservations on timeouts.
 - **Fail-Closed Security Architecture:**

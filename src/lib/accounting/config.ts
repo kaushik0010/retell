@@ -29,7 +29,7 @@ export interface AccountingConfig {
   /**
    * Global daily AI spending budget in USD.
    * Resets every UTC midnight.
-   * Default: $5.00 USD (conservative, safe baseline; operator-configurable).
+   * Default: $30.00 USD (hackathon testing baseline; operator-configurable).
    */
   dailyBudgetUsd: number;
 
@@ -94,13 +94,13 @@ export function getAccountingConfig(): AccountingConfig {
   const redisRestUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
   const redisRestToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 
-  // Conservative default daily budget: $5.00 USD
+  // Canonical default daily budget: $30.00 USD (hackathon testing baseline)
   // Operators can configure RETELL_DAILY_BUDGET_USD in .env.local / Vercel env
   const dailyBudgetUsd = parseNumberEnv(
     "RETELL_DAILY_BUDGET_USD",
-    5.0,
+    30.0,
     0.5,
-    100.0
+    500.0
   );
 
   // HMAC secret for privacy-conscious key generation
@@ -109,18 +109,18 @@ export function getAccountingConfig(): AccountingConfig {
     process.env.META_MODEL_API_KEY?.slice(0, 32) ||
     "retell_default_server_hmac_secret_2026";
 
-  // Authoritative model pricing baseline (operator-configurable)
-  // Default values based on standard sub-dollar LLM and Whisper/ASR tiers:
-  // - Input tokens: $0.30 per 1M tokens ($0.00000030 / token)
-  // - Output tokens: $0.60 per 1M tokens ($0.00000060 / token)
+  // Authoritative application-side model pricing baseline (operator-configurable)
+  // Canonical defaults for hackathon testing period:
+  // - Input tokens: $1.25 per 1M tokens ($0.00000125 / token)
+  // - Output tokens: $4.25 per 1M tokens ($0.00000425 / token)
   // - Audio: $0.012 per minute ($0.0002 / second)
   const pricePer1MInputTokensUsd = parseNumberEnv(
     "RETELL_PRICE_PER_1M_INPUT_TOKENS_USD",
-    0.3
+    1.25
   );
   const pricePer1MOutputTokensUsd = parseNumberEnv(
     "RETELL_PRICE_PER_1M_OUTPUT_TOKENS_USD",
-    0.6
+    4.25
   );
   const pricePerAudioMinuteUsd = parseNumberEnv(
     "RETELL_PRICE_PER_AUDIO_MINUTE_USD",

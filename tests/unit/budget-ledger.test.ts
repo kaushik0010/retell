@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   reserveDailyBudget,
   settleDailyBudget,
@@ -7,6 +7,7 @@ import {
   calculateActualAudioCostMicros,
   getUtcDailyKey,
 } from "@/lib/accounting/budget-ledger";
+import { getAccountingConfig } from "@/lib/accounting/config";
 import {
   setTestRedisInstance,
   setTestRedisDisabled,
@@ -42,15 +43,15 @@ describe("Global Daily AI Spending Ledger & Protection", () => {
     });
 
     it("calculates exact micro-USD provider cost from token usage", () => {
-      // 1000 prompt tokens @ $0.30/1M = 0.3 micros * 1000 = 300 micros
-      // 500 completion tokens @ $0.60/1M = 0.6 micros * 500 = 300 micros
+      // 1000 prompt tokens @ $1.25/1M = 1.25 micros * 1000 = 1250 micros
+      // 500 completion tokens @ $4.25/1M = 4.25 micros * 500 = 2125 micros
       const cost = calculateActualTokenCostMicros({
         promptTokens: 1000,
         completionTokens: 500,
         totalTokens: 1500,
       });
 
-      expect(cost).toBe(600);
+      expect(cost).toBe(3375);
     });
 
     it("calculates exact audio transcription cost in micro-USD", () => {
@@ -85,14 +86,14 @@ describe("Global Daily AI Spending Ledger & Protection", () => {
 
     it("rejects reservations when aggregate budget is exhausted", async () => {
       const budgetKey = getUtcDailyKey();
-      // Daily budget default is $5.00 = 5,000,000 micro-USD.
-      // Pre-fill confirmed cost up to $4.99
+      // Daily budget default is $30.00 = 30,000,000 micro-USD.
+      // Pre-fill confirmed cost up to $29.99
       await redisSimulator.hset(budgetKey, {
-        confirmed_cost_micros: 4_999_000,
+        confirmed_cost_micros: 29_995_000,
         reserved_cost_micros: 0,
       });
 
-      // An extract call requiring ~2,500 micros would exceed $5.00 (5,000,000 micros)
+      // An extract call requiring estimated tokens will exceed $30.00 (30,000,000 micros)
       const result = await reserveDailyBudget("extract");
 
       expect(result.approved).toBe(false);
@@ -106,7 +107,7 @@ describe("Global Daily AI Spending Ledger & Protection", () => {
     it("settles actual token usage and refunds the unused difference", async () => {
       const budgetKey = getUtcDailyKey();
 
-      // Reserve for rubric (~1,050 micros estimated)
+      // Reserve for rubric
       const reservation = await reserveDailyBudget("rubric");
       expect(reservation.approved).toBe(true);
 
@@ -115,7 +116,7 @@ describe("Global Daily AI Spending Ledger & Protection", () => {
       );
       expect(reservedBefore).toBeGreaterThan(0);
 
-      // Settle with modest actual usage (e.g. 500 prompt tokens + 200 output tokens = 270 micros)
+      // Settle with modest actual usage (500 prompt tokens * 1.25 + 200 output tokens * 4.25 = 625 + 850 = 1475 micros)
       await settleDailyBudget({
         reservationId: reservation.reservationId!,
         actualTokens: {
@@ -134,8 +135,8 @@ describe("Global Daily AI Spending Ledger & Protection", () => {
 
       // Reserved cost was released back to 0
       expect(reservedAfter).toBe(0);
-      // Confirmed cost increased only by actual amount (270 micros)
-      expect(confirmedAfter).toBe(270);
+      // Confirmed cost increased only by actual amount (1475 micros)
+      expect(confirmedAfter).toBe(1475);
     });
 
     it("releases 100% of reserved funds on definite provider failure", async () => {
@@ -201,6 +202,40 @@ describe("Global Daily AI Spending Ledger & Protection", () => {
       expect(result.message).toBe(
         "Retell is temporarily unable to process new requests. Please try again later."
       );
+    });
+  });
+
+  describe("Configuration Defaults and Environment Overrides", () => {
+    const originalEnv = { ...process.env };
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it("resolves canonical hackathon defaults when environment variables are unset", () => {
+      delete process.env.RETELL_DAILY_BUDGET_USD;
+      delete process.env.RETELL_PRICE_PER_1M_INPUT_TOKENS_USD;
+      delete process.env.RETELL_PRICE_PER_1M_OUTPUT_TOKENS_USD;
+      delete process.env.RETELL_PRICE_PER_AUDIO_MINUTE_USD;
+
+      const config = getAccountingConfig();
+      expect(config.dailyBudgetUsd).toBe(30.0);
+      expect(config.pricing.pricePer1MInputTokensUsd).toBe(1.25);
+      expect(config.pricing.pricePer1MOutputTokensUsd).toBe(4.25);
+      expect(config.pricing.pricePerAudioMinuteUsd).toBe(0.012);
+    });
+
+    it("allows explicit environment variables to override defaults", () => {
+      process.env.RETELL_DAILY_BUDGET_USD = "50.00";
+      process.env.RETELL_PRICE_PER_1M_INPUT_TOKENS_USD = "2.50";
+      process.env.RETELL_PRICE_PER_1M_OUTPUT_TOKENS_USD = "8.00";
+      process.env.RETELL_PRICE_PER_AUDIO_MINUTE_USD = "0.024";
+
+      const config = getAccountingConfig();
+      expect(config.dailyBudgetUsd).toBe(50.0);
+      expect(config.pricing.pricePer1MInputTokensUsd).toBe(2.5);
+      expect(config.pricing.pricePer1MOutputTokensUsd).toBe(8.0);
+      expect(config.pricing.pricePerAudioMinuteUsd).toBe(0.024);
     });
   });
 });

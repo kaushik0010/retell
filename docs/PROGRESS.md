@@ -624,6 +624,15 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
   - Updated ESLint configuration to ignore vendor bundle `public/pdf.worker.min.mjs` and cleaned up all unused variable warnings for 100% clean linting (0 errors, 0 warnings).
   - **Verification:** 276 tests passing across 30 test files (`pnpm run test`), zero TypeScript errors (`tsc --noEmit`), 100% ESLint compliance (0 errors, 0 warnings), 100% Prettier formatting, production Next.js build verified with 19 compiled routes.
 
+- [x] **Hackathon Testing Configuration Adjustment (AI Budget & Pricing Defaults)**
+  - Updated application-side accounting defaults for the hackathon evaluation period to provide generous headroom and avoid premature judge lockout:
+    - `RETELL_DAILY_BUDGET_USD`: Updated canonical default from `$5.00` to `$30.00` (30,000,000 micro-USD).
+    - `RETELL_PRICE_PER_1M_INPUT_TOKENS_USD`: Updated canonical default from `$0.30` to `$1.25`.
+    - `RETELL_PRICE_PER_1M_OUTPUT_TOKENS_USD`: Updated canonical default from `$0.60` to `$4.25`.
+    - `RETELL_PRICE_PER_AUDIO_MINUTE_USD`: Retained existing canonical default of `$0.012` per minute.
+  - Preserved integer micro-USD precision, atomic Lua two-phase budget reservation/settlement/refund, and fail-closed security.
+  - Updated documentation (`README.md`, `.env.example`, `IMPLEMENTATION_PLAN.md`, `ROADMAP.md`) and unit test assertions.
+
 ### Day 6: Evaluation & Deployment
 
 - [ ] `TASK-6.1` — Production deployment to Vercel.

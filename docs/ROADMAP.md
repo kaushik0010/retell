@@ -247,7 +247,7 @@ Wire up the complete end-to-end user journey, finalize local IndexedDB persisten
   - Preserved Retell's anonymous, local-first philosophy with zero mandatory user registration or cloud sync.
   - Implemented privacy-preserving device identification via secure `HttpOnly` UUIDv4 cookie (`retell_device_id`, 1-year duration, `SameSite=Lax`, `Path=/`, `Secure` in prod) with strict server-side HMAC hashing (`device_<32hex>`, `ip_<32hex>`) ensuring zero raw PII is ever stored in Redis keys.
   - Multi-tiered sliding window rate limiting via atomic Upstash Redis Lua scripts evaluating Device Burst, Device Sustained, IP Burst, and IP Sustained (tolerant of shared dorms/campus Wi-Fi).
-  - Global daily AI spending protection in USD ($5.00 default baseline, operator-configurable) utilizing integer micro-USD precision (1 USD = 1,000,000 micros).
+  - Global daily AI spending protection in USD ($30.00 hackathon testing default baseline, operator-configurable) utilizing integer micro-USD precision (1 USD = 1,000,000 micros).
   - Atomic two-phase budget reservation: pre-flight reservation Lua script checks current confirmed + reserved balance, and post-flight settlement reconciles actual token usage, fully refunds definite provider errors, and conservatively preserves reservations on uncertain timeout outcomes.
   - Fail-closed security architecture: if Redis credentials are not configured or Redis is unreachable in production, paid AI operations reject cleanly with HTTP 503 and student-friendly messaging, preventing runaway provider charges.
   - Transcribe session guard enforcing single active session per device lock, IP concurrent limits, device HMAC ownership verification to block cross-device session hijacking, and idempotent audio duration settlement.

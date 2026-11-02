@@ -100,8 +100,8 @@ export function calculateEstimatedCostMicros(
   }
 ): number {
   const config = getAccountingConfig();
-  const inputRateMicrosPerToken = config.pricing.pricePer1MInputTokensUsd; // e.g. 0.3 micros / token
-  const outputRateMicrosPerToken = config.pricing.pricePer1MOutputTokensUsd; // e.g. 0.6 micros / token
+  const inputRateMicrosPerToken = config.pricing.pricePer1MInputTokensUsd; // e.g. 1.25 micros / token
+  const outputRateMicrosPerToken = config.pricing.pricePer1MOutputTokensUsd; // e.g. 4.25 micros / token
 
   switch (operation) {
     case "extract": {

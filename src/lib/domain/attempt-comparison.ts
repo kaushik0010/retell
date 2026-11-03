@@ -12,6 +12,9 @@ export type ComparisonScopeCompatibility =
   | {
       compatible: true;
       scopeDescription: string;
+      isParagraphScope: boolean;
+      paragraphIndex?: number;
+      totalParagraphs?: number;
     }
   | {
       compatible: false;
@@ -92,10 +95,13 @@ export interface AttemptComparisonResult {
  * - Paragraph N vs Paragraph N: compatible
  * - Paragraph N vs whole answer: incompatible
  * - Paragraph N vs Paragraph M (different N & M): incompatible
+ * - Historical attempts with unknown scope: safe explanation, incompatible
  */
 export function checkScopeCompatibility(
   attemptA: PracticeAttempt,
-  attemptB: PracticeAttempt
+  attemptB: PracticeAttempt,
+  auditA?: SemanticAuditResult | null,
+  auditB?: SemanticAuditResult | null
 ): ComparisonScopeCompatibility {
   if (attemptA.questionId !== attemptB.questionId) {
     return {
@@ -105,20 +111,71 @@ export function checkScopeCompatibility(
     };
   }
 
-  const scopeA = attemptA.scope || "whole_answer";
-  const scopeB = attemptB.scope || "whole_answer";
+  // Helper to reliably classify attempt scope without fabricating metadata
+  const classifyScope = (
+    att: PracticeAttempt,
+    audit?: SemanticAuditResult | null
+  ): {
+    scope: "whole_answer" | "paragraph" | "unknown";
+    paragraphIndex?: number;
+    totalParagraphs?: number;
+  } => {
+    // 1. Explicit attempt scope
+    if (att.scope === "paragraph") {
+      return {
+        scope: "paragraph",
+        paragraphIndex: att.paragraphIndex ?? 0,
+        totalParagraphs: att.totalParagraphs,
+      };
+    }
+    if (att.scope === "whole_answer") {
+      return { scope: "whole_answer" };
+    }
 
-  if (scopeA === "whole_answer" && scopeB === "whole_answer") {
+    // 2. Reliable audit scope if available
+    if (audit?.scope) {
+      if (audit.scope.type === "paragraph") {
+        return {
+          scope: "paragraph",
+          paragraphIndex: audit.scope.paragraphIndex ?? 0,
+          totalParagraphs: audit.scope.totalParagraphs,
+        };
+      }
+      if (audit.scope.type === "whole_answer") {
+        return { scope: "whole_answer" };
+      }
+    }
+
+    // 3. Fallback: If attempt explicitly lacks scope metadata, mark as unknown
+    return { scope: "unknown" };
+  };
+
+  const scopeA = classifyScope(attemptA, auditA);
+  const scopeB = classifyScope(attemptB, auditB);
+
+  // Case D: Older attempts without scope metadata
+  if (scopeA.scope === "unknown" || scopeB.scope === "unknown") {
     return {
-      compatible: true,
-      scopeDescription: "Whole Answer",
+      compatible: false,
+      reason:
+        "This attempt was recorded before practice scope tracking was introduced. Its practice scope is unavailable, so a direct progress comparison cannot be made.",
     };
   }
 
-  if (scopeA === "paragraph" && scopeB === "paragraph") {
-    const idxA = attemptA.paragraphIndex ?? 0;
-    const idxB = attemptB.paragraphIndex ?? 0;
-    const total = attemptA.totalParagraphs || attemptB.totalParagraphs;
+  // Case B: Both are whole answer
+  if (scopeA.scope === "whole_answer" && scopeB.scope === "whole_answer") {
+    return {
+      compatible: true,
+      scopeDescription: "Whole Answer",
+      isParagraphScope: false,
+    };
+  }
+
+  // Case A: Both are paragraph
+  if (scopeA.scope === "paragraph" && scopeB.scope === "paragraph") {
+    const idxA = scopeA.paragraphIndex ?? 0;
+    const idxB = scopeB.paragraphIndex ?? 0;
+    const total = scopeA.totalParagraphs || scopeB.totalParagraphs;
 
     if (idxA === idxB) {
       return {
@@ -126,6 +183,9 @@ export function checkScopeCompatibility(
         scopeDescription: total
           ? `Paragraph ${idxA + 1} of ${total}`
           : `Paragraph ${idxA + 1}`,
+        isParagraphScope: true,
+        paragraphIndex: idxA,
+        totalParagraphs: total,
       };
     }
 
@@ -135,8 +195,9 @@ export function checkScopeCompatibility(
     };
   }
 
-  if (scopeA !== scopeB) {
-    const paraAttempt = scopeA === "paragraph" ? attemptA : attemptB;
+  // Case C: Mismatched scopes (Paragraph vs Whole Answer)
+  if (scopeA.scope !== scopeB.scope) {
+    const paraAttempt = scopeA.scope === "paragraph" ? scopeA : scopeB;
     const pNum = (paraAttempt.paragraphIndex ?? 0) + 1;
     return {
       compatible: false,
@@ -276,7 +337,12 @@ export function compareAttempts({
   const laterAudit = isAFirst ? auditB : auditA;
 
   // 1. Verify scope compatibility
-  const compatibility = checkScopeCompatibility(earlierAttempt, laterAttempt);
+  const compatibility = checkScopeCompatibility(
+    earlierAttempt,
+    laterAttempt,
+    earlierAudit,
+    laterAudit
+  );
   if (!compatibility.compatible) {
     return {
       isComparable: false,
@@ -349,6 +415,24 @@ export function compareAttempts({
     laterAudit.criteriaEvaluations.map((c) => [c.criterionId, c])
   );
 
+  // If this is a paragraph-level comparison:
+  // Ensure we only include criteria that belong to this paragraph!
+  // If whole-question criteria were passed, filter to only those evaluated in this paragraph
+  let targetCriteria = criteria;
+  const isParagraph =
+    earlierAttempt.scope === "paragraph" ||
+    laterAttempt.scope === "paragraph" ||
+    compatibility.isParagraphScope;
+
+  if (isParagraph && targetCriteria.length > 0) {
+    const evaluatedCriteria = targetCriteria.filter(
+      (c) => earlierEvalsMap.has(c.id) || laterEvalsMap.has(c.id)
+    );
+    if (evaluatedCriteria.length > 0) {
+      targetCriteria = evaluatedCriteria;
+    }
+  }
+
   // If criteria are provided, use them; otherwise extract union from audits
   const criteriaList: Array<{
     id: string;
@@ -356,8 +440,8 @@ export function compareAttempts({
     category: RubricCriterionCategory;
     isMandatory: boolean;
   }> =
-    criteria.length > 0
-      ? criteria.map((c) => ({
+    targetCriteria.length > 0
+      ? targetCriteria.map((c) => ({
           id: c.id,
           name: c.name,
           category: c.category,

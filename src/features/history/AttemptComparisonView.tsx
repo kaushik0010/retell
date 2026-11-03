@@ -13,6 +13,10 @@ import {
   ConceptTransitionType,
 } from "@/lib/domain/attempt-comparison";
 import {
+  resolvePracticeScope,
+  extractParagraphs,
+} from "@/lib/domain/paragraph-scope";
+import {
   ArrowLeftIcon,
   ChevronRightIcon,
   SparklesIcon,
@@ -87,12 +91,43 @@ export function AttemptComparisonView({
   const [expandedConceptId, setExpandedConceptId] = useState<string | null>(
     null
   );
+  const [showReference, setShowReference] = useState(false);
 
   const question: ExtractedQuestion | undefined = studySet.questions.find(
     (q) => q.id === attemptA.questionId
   );
   const rubric = question ? studySet.rubrics[question.id] : undefined;
-  const criteria = rubric?.criteria || [];
+  let criteria = rubric?.criteria || [];
+
+  const isParagraphPractice =
+    attemptA.scope === "paragraph" ||
+    attemptB.scope === "paragraph" ||
+    auditA?.scope.type === "paragraph" ||
+    auditB?.scope.type === "paragraph";
+
+  if (isParagraphPractice && question?.referenceAnswer) {
+    const pIdx =
+      attemptA.paragraphIndex ??
+      attemptB.paragraphIndex ??
+      auditA?.scope.paragraphIndex ??
+      auditB?.scope.paragraphIndex ??
+      0;
+    try {
+      const resolved = resolvePracticeScope({
+        referenceAnswer: question.referenceAnswer,
+        criteria,
+        scope: {
+          type: "paragraph",
+          paragraphIndex: pIdx,
+          totalParagraphs: attemptA.totalParagraphs || attemptB.totalParagraphs,
+          targetText: attemptA.paragraphText || attemptB.paragraphText,
+        },
+      });
+      criteria = resolved.criteria;
+    } catch {
+      // fallback if resolvePracticeScope cannot extract
+    }
+  }
 
   const comparison = compareAttempts({
     attemptA,
@@ -144,9 +179,13 @@ export function AttemptComparisonView({
 
       {/* Header Card */}
       <div className="border-brand-peach/80 rounded-2xl border bg-white p-5 shadow-xs sm:p-6">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="bg-brand-cream text-brand-tomato rounded-lg px-2.5 py-1 text-xs font-bold">
-            Attempt Comparison
+            {comparison.isComparable
+              ? comparison.scopeDescription.startsWith("Paragraph")
+                ? `${comparison.scopeDescription} Progress`
+                : "Whole Answer Progress"
+              : "Attempt Comparison"}
           </span>
           <span className="text-brand-secondary text-xs">
             {studySet.material.title}
@@ -156,6 +195,53 @@ export function AttemptComparisonView({
         <h1 className="font-heading text-brand-ink mt-2 text-lg font-bold sm:text-xl">
           {question?.question || "Question Comparison"}
         </h1>
+
+        {/* If Paragraph Practice: Clear Scope Banner */}
+        {comparison.isComparable &&
+          comparison.scopeDescription.startsWith("Paragraph") && (
+            <div className="border-brand-peach/70 bg-brand-cream/60 mt-3 flex items-start gap-2 rounded-xl border px-3.5 py-2 text-xs text-stone-800">
+              <span className="text-brand-tomato font-bold">
+                ℹ Paragraph Practice:
+              </span>
+              <span>
+                Comparing progress strictly within {comparison.scopeDescription}
+                . Concepts and criteria from other paragraphs are excluded from
+                this comparison.
+              </span>
+            </div>
+          )}
+
+        {/* Reference Answer toggle */}
+        {question && (
+          <div className="border-brand-peach/40 mt-3 border-t pt-3">
+            <button
+              type="button"
+              onClick={() => setShowReference(!showReference)}
+              className="text-brand-tomato hover:text-brand-tomato-hover flex cursor-pointer items-center gap-1.5 text-xs font-semibold"
+            >
+              <span>
+                {showReference ? "Hide" : "Show"} reference answer for{" "}
+                {comparison.scopeDescription}
+              </span>
+              <span>{showReference ? "▲" : "▼"}</span>
+            </button>
+            {showReference && (
+              <div className="border-brand-peach/60 bg-brand-cream/50 text-brand-ink mt-2 rounded-xl border p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                {comparison.scopeDescription.startsWith("Paragraph")
+                  ? attemptA.paragraphText ||
+                    attemptB.paragraphText ||
+                    auditA?.scope.targetText ||
+                    auditB?.scope.targetText ||
+                    (question.referenceAnswer &&
+                      extractParagraphs(question.referenceAnswer)[
+                        attemptA.paragraphIndex ?? attemptB.paragraphIndex ?? 0
+                      ]) ||
+                    question.referenceAnswer
+                  : question.referenceAnswer}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* If Incompatible */}
         {!comparison.isComparable && (

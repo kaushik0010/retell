@@ -293,6 +293,38 @@ pnpm run start
 
 ---
 
+## Testing Retell with Sample Study Materials
+
+To simplify evaluation, judges and evaluators do not need to find external textbooks, draft sample questions, or prepare study materials from scratch.
+
+Two curated sample PDF documents are included directly in the repository under [`public/assets/qa_material/`](public/assets/qa_material):
+
+| Sample File                                                                                                        |   Size   | Pages | Description & Purpose                                                                                                                                                                                                                                                                                                                                  |
+| :----------------------------------------------------------------------------------------------------------------- | :------: | :---: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`AI_ML_Module_2_Questions_with_Answers.pdf`](public/assets/qa_material/AI_ML_Module_2_Questions_with_Answers.pdf) | ~150 KB  |   6   | **Fast First Test (Digital Q&A):** Clean digital text covering Artificial Intelligence & Machine Learning (Module 2: Search Strategies, Depth-First Search, and Heuristic evaluation). Ideal for quickly testing end-to-end question extraction, rubric generation, and spoken practice in under two minutes without upload wait times.                |
+| [`STE_QB_UT1.pdf`](public/assets/qa_material/STE_QB_UT1.pdf)                                                       | ~1.59 MB |  14   | **Substantial Ingestion & Preparation Test (Scanned Question Bank):** Authentic scanned engineering question bank containing 24 questions and answers on Software Testing / Engineering (Unit Test 1). Ideal for evaluating local PDF preview rendering, upload payload estimation, multi-question preparation recovery, and paragraph-level practice. |
+
+### How to Test with Sample PDFs
+
+1. **Download a sample PDF:**
+   - From GitHub: Navigate to [`public/assets/qa_material/`](public/assets/qa_material) and download either [`AI_ML_Module_2_Questions_with_Answers.pdf`](public/assets/qa_material/AI_ML_Module_2_Questions_with_Answers.pdf) or [`STE_QB_UT1.pdf`](public/assets/qa_material/STE_QB_UT1.pdf).
+   - Alternatively, when running locally or on the deployed app, both files are served as static assets from `/assets/qa_material/<filename>`.
+2. **Upload the file into Retell:**
+   - Navigate to **Add study material** (`/materials/new`) from the top navigation.
+   - Switch to the **Upload PDF Document** tab and select the downloaded PDF.
+3. **Inspect the document & extract:**
+   - For multi-page files, verify the instant client-side page preview and payload budget meter.
+   - Click **Extract Questions & Answers** to run source-grounded multimodal extraction.
+4. **Review & prepare points to remember:**
+   - Review the extracted questions, reference answers, and page sources.
+   - Click **Save and prepare** to generate key conceptual rubrics (main ideas, key terms, sequences, and pitfalls to avoid). If a transient timeout occurs on a large file, the preparation recovery banner preserves your extracted content and completed questions so you can resume without re-uploading.
+5. **Practise and review:**
+   - Open the study set and click **Start Practising** for any question.
+   - Choose between **Whole answer** practice or focused **Paragraph-level** practice.
+   - Speak your answer aloud with real-time speech transcription, inspect your conceptual gaps in the Answer Review, and track your progress across multiple attempts with side-by-side Attempt Comparison.
+
+---
+
 ## Running Tests
 
 Retell includes a comprehensive test suite covering domain logic, accounting guards, rate limiters, audio accumulators, and file preprocessing:

@@ -116,6 +116,10 @@ function NewMaterialContent() {
   const [isPreparing, setIsPreparing] = useState(false);
   const [preparingStep, setPreparingStep] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [completedRubrics, setCompletedRubrics] = useState<
+    Record<string, QuestionRubric>
+  >({});
+  const [preparationFailed, setPreparationFailed] = useState(false);
 
   // Detected Questions State (Master-Detail review)
   const [detectedQuestions, setDetectedQuestions] = useState<
@@ -159,6 +163,8 @@ function NewMaterialContent() {
     setError(null);
     setMissingQuestionPrompt(null);
     setMissingAnswerPrompt(null);
+    setCompletedRubrics({});
+    setPreparationFailed(false);
     setDetectedQuestions([]);
     setCurrentMaterial(null);
   };
@@ -175,6 +181,8 @@ function NewMaterialContent() {
     setError(null);
     setMissingQuestionPrompt(null);
     setMissingAnswerPrompt(null);
+    setCompletedRubrics({});
+    setPreparationFailed(false);
     if (pdfInputRef.current) pdfInputRef.current.value = "";
     if (imageInputRef.current) imageInputRef.current.value = "";
     if (addMoreImagesInputRef.current) addMoreImagesInputRef.current.value = "";
@@ -648,6 +656,12 @@ function NewMaterialContent() {
       const item = copy[index];
       if (item) {
         copy[index] = { ...item, [field]: value };
+        setCompletedRubrics((rubrics) => {
+          if (!rubrics[item.id]) return rubrics;
+          const next = { ...rubrics };
+          delete next[item.id];
+          return next;
+        });
       }
       return copy;
     });
@@ -765,6 +779,81 @@ function NewMaterialContent() {
     setSelectedQuestionIndex(detectedQuestions.length);
   };
 
+  // Helper for bounded transient retries on rubric generation
+  const fetchRubricWithRetry = async (
+    params: {
+      questionId: string;
+      question: string;
+      referenceAnswer: string;
+      sourceText: string;
+      studyMaterialId: string;
+    },
+    maxRetries = 2
+  ): Promise<QuestionRubric> => {
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const rubricRes = await fetch("/api/rubric", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+        });
+
+        let rubricData: {
+          success?: boolean;
+          rubric?: QuestionRubric;
+          error?: string;
+        } | null = null;
+        try {
+          rubricData = await rubricRes.json();
+        } catch {
+          // non-JSON response from serverless proxy (e.g. 502/504)
+        }
+
+        if (rubricRes.ok && rubricData?.success && rubricData?.rubric) {
+          return rubricData.rubric;
+        }
+
+        // Never retry client validation errors (400), rate limits (429), or budget exhaustion (503)
+        if (
+          rubricRes.status === 400 ||
+          rubricRes.status === 429 ||
+          rubricRes.status === 503
+        ) {
+          throw new Error(
+            rubricData?.error || "Could not find key points for this question."
+          );
+        }
+
+        // Transient failure (502, 504, 500, network)
+        lastError = new Error(
+          rubricData?.error ||
+            `Gateway or connection timeout (HTTP ${rubricRes.status}).`
+        );
+      } catch (err: unknown) {
+        lastError = err;
+        // Non-retryable
+        if (
+          err instanceof Error &&
+          (err.message.includes("400") ||
+            err.message.includes("429") ||
+            err.message.includes("daily study capacity"))
+        ) {
+          throw err;
+        }
+      }
+
+      // Exponential backoff for transient retries
+      if (attempt < maxRetries) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1500 * (attempt + 1))
+        );
+      }
+    }
+
+    throw lastError || new Error("Failed to prepare question rubric.");
+  };
+
   // Save and Prepare Points (calls /api/rubric and saves to IndexedDB)
   const handleSaveAndPrepare = async () => {
     if (detectedQuestions.length === 0) {
@@ -790,6 +879,7 @@ function NewMaterialContent() {
 
     setIsPreparing(true);
     setError(null);
+    setPreparationFailed(false);
 
     try {
       const rawText =
@@ -817,36 +907,40 @@ function NewMaterialContent() {
         updatedAt: new Date().toISOString(),
       };
 
-      const rubrics: Record<string, QuestionRubric> = {};
+      // Keep reference to existing material ID so retries don't create duplicate materials
+      if (!currentMaterial) {
+        setCurrentMaterial(materialToSave);
+      }
+
+      // Resume from rubrics already completed in state
+      const rubrics: Record<string, QuestionRubric> = { ...completedRubrics };
 
       for (let i = 0; i < detectedQuestions.length; i++) {
         const q = detectedQuestions[i]!;
-        setPreparingStep(
-          `Finding important points to remember for Question ${i + 1} of ${detectedQuestions.length}...`
-        );
 
-        const rubricRes = await fetch("/api/rubric", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            questionId: q.id,
-            question: q.question,
-            referenceAnswer: q.referenceAnswer,
-            sourceText: materialToSave.sourceText,
-            studyMaterialId: materialToSave.id,
-          }),
-        });
-
-        const rubricData = await rubricRes.json();
-
-        if (!rubricRes.ok || !rubricData.success) {
-          throw new Error(
-            rubricData.error ||
-              `Could not find key points for Question ${i + 1}`
-          );
+        // Skip if already successfully prepared!
+        if (rubrics[q.id] && rubrics[q.id]?.criteria?.length) {
+          continue;
         }
 
-        rubrics[q.id] = rubricData.rubric;
+        const readyCount = Object.keys(rubrics).length;
+        setPreparingStep(
+          `Finding important points to remember for Question ${i + 1} of ${detectedQuestions.length}${
+            readyCount > 0 ? ` (${readyCount} ready)` : ""
+          }...`
+        );
+
+        const rubric = await fetchRubricWithRetry({
+          questionId: q.id,
+          question: q.question,
+          referenceAnswer: q.referenceAnswer,
+          sourceText: materialToSave.sourceText,
+          studyMaterialId: materialToSave.id,
+        });
+
+        rubrics[q.id] = rubric;
+        // Progressively persist in state so a subsequent interruption preserves completed work
+        setCompletedRubrics((prev) => ({ ...prev, [q.id]: rubric }));
       }
 
       setPreparingStep("Saving your study set...");
@@ -857,12 +951,13 @@ function NewMaterialContent() {
         questions: detectedQuestions,
         rubrics,
         createdAt: materialToSave.createdAt,
-        updatedAt: materialToSave.updatedAt,
+        updatedAt: new Date().toISOString(),
       };
 
       await saveStudySet(studySet);
       router.push(`/review/${studySet.id}`);
     } catch (err: unknown) {
+      setPreparationFailed(true);
       setError(getStudentFriendlyErrorMessage(err, "extraction"));
       setIsPreparing(false);
       setPreparingStep("");
@@ -1012,7 +1107,7 @@ function NewMaterialContent() {
       </div>
 
       {/* Error notification banner */}
-      {error && (
+      {error && (!preparationFailed || detectedQuestions.length === 0) && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 shadow-xs">
           <div className="flex items-start gap-2.5">
             <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
@@ -1826,6 +1921,43 @@ function NewMaterialContent() {
       {/* DETECTED QUESTIONS AND ANSWERS MASTER-DETAIL VIEW */}
       {detectedQuestions.length > 0 && (
         <div className="space-y-4">
+          {/* Dedicated Preparation Recovery Banner */}
+          {preparationFailed && !isPreparing && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-5 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-sm font-bold text-amber-900">
+                  !
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <h4 className="font-heading text-sm font-bold text-amber-950">
+                    We couldn&apos;t finish preparing your study set.
+                  </h4>
+                  <p className="text-xs leading-relaxed text-amber-900">
+                    Your extracted questions and answers are still available,
+                    but preparing the practice points took longer than expected.
+                    Check your connection and try again.
+                  </p>
+                  {Object.keys(completedRubrics).length > 0 && (
+                    <p className="text-[11px] font-semibold text-amber-800">
+                      {Object.keys(completedRubrics).length} of{" "}
+                      {detectedQuestions.length} questions are already prepared
+                      and saved.
+                    </p>
+                  )}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveAndPrepare}
+                      disabled={isPreparing}
+                      className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition disabled:opacity-50"
+                    >
+                      <span>Try preparing again</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2">

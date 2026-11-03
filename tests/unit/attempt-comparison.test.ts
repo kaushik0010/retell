@@ -368,4 +368,383 @@ describe("Attempt-to-Attempt Comparison Engine", () => {
       );
     });
   });
+
+  describe("Paragraph-Level Scope Comparison (10 Key Requirements)", () => {
+    // 2-paragraph reference answer scenario matching user screenshot:
+    // Paragraph 1: 1 concept ("Victim selection on page fault")
+    // Paragraph 2: 3 concepts ("FIFO, LRU, Optimal terminology", "Rule to tradeoff comparison", "Avoid FIFO-LRU-Optimal confusions")
+    const wholeQuestionCriteria: RubricCriterion[] = [
+      {
+        id: "crit_victim_selection",
+        name: "Victim selection on page fault",
+        category: "essential_concept",
+        description: "Explains page replacement purpose and common algorithms.",
+        satisfactoryDemonstration: "Explains replacing a page on fault.",
+        isMandatory: true,
+        orderIndex: 0,
+      },
+      {
+        id: "crit_algo_terms",
+        name: "FIFO, LRU, Optimal terminology",
+        category: "technical_anchor",
+        description: "Names FIFO, LRU, and Optimal algorithms with details.",
+        satisfactoryDemonstration: "Names all three algorithms accurately.",
+        isMandatory: true,
+        orderIndex: 1,
+      },
+      {
+        id: "crit_tradeoffs",
+        name: "Rule to tradeoff comparison",
+        category: "relationship_sequence",
+        description: "Compares tradeoffs between FIFO, LRU, and Optimal.",
+        satisfactoryDemonstration:
+          "Explains Belady anomaly and stack property.",
+        isMandatory: true,
+        orderIndex: 2,
+      },
+      {
+        id: "crit_mistakes",
+        name: "Avoid FIFO-LRU-Optimal confusions",
+        category: "accuracy_constraint",
+        description: "Avoids confusing LRU with FIFO.",
+        satisfactoryDemonstration:
+          "Clearly distinguishes recency from arrival order.",
+        isMandatory: true,
+        orderIndex: 3,
+      },
+    ];
+
+    const p1Attempt1: PracticeAttempt = {
+      id: "p1_att_1",
+      studySetId: "os_set",
+      questionId: "q_page_replacement",
+      transcript:
+        "page replacement algorithm decide which page to remove when a page fault occurs. Common algorithms include FIFO and LRU.",
+      wordCount: 22,
+      durationSeconds: 23,
+      status: "completed",
+      scope: "paragraph",
+      paragraphIndex: 0,
+      paragraphText:
+        "Page replacement algorithms decide which page to remove from memory when a page fault occurs. Common algorithms include FIFO, LRU, and Optimal.",
+      totalParagraphs: 2,
+      createdAt: "2026-11-03T10:30:00.000Z",
+    };
+
+    const p1Audit1: SemanticAuditResult = {
+      id: "p1_audit_1",
+      attemptId: "p1_att_1",
+      studySetId: "os_set",
+      questionId: "q_page_replacement",
+      status: "completed",
+      scope: { type: "paragraph", paragraphIndex: 0, totalParagraphs: 2 },
+      overall: {
+        summary:
+          "Good start — you clearly explained victim selection, just add Optimal.",
+        whatExplainedWell: ["Victim selection on page fault"],
+        whatNeedsAttention: ["Omitted Optimal"],
+        whatNeedsCorrection: [],
+        suggestedNextImprovement: "Name Optimal alongside FIFO and LRU.",
+        coveredCount: 0,
+        partiallyCoveredCount: 1,
+        missingCount: 0,
+        incorrectCount: 0,
+        optionalCount: 0,
+        totalCriteria: 1,
+      },
+      criteriaEvaluations: [
+        {
+          criterionId: "crit_victim_selection",
+          criterionName: "Victim selection on page fault",
+          category: "essential_concept",
+          status: "partially_covered",
+          explanation: "Accurately communicated core idea but omitted Optimal.",
+          transcriptEvidence:
+            "page replacement algorithm decide which page to remove when a page fault occurs. Common algorithms include FIFO and LRU.",
+          missingOrInaccurate:
+            "Omitted Optimal from the list of common algorithms.",
+          improvementSuggestion: "Include Optimal alongside FIFO and LRU.",
+          orderIndex: 0,
+        },
+      ],
+      createdAt: "2026-11-03T10:30:10.000Z",
+      updatedAt: "2026-11-03T10:30:10.000Z",
+      hasUncertainty: false,
+    };
+
+    const p1Attempt2: PracticeAttempt = {
+      id: "p1_att_2",
+      studySetId: "os_set",
+      questionId: "q_page_replacement",
+      transcript:
+        "page replacement algorithm decide which page to remove from memory when a page fault occurs. Common algorithms include FIFO, LRU, and optimal.",
+      wordCount: 22,
+      durationSeconds: 56,
+      status: "completed",
+      scope: "paragraph",
+      paragraphIndex: 0,
+      paragraphText:
+        "Page replacement algorithms decide which page to remove from memory when a page fault occurs. Common algorithms include FIFO, LRU, and Optimal.",
+      totalParagraphs: 2,
+      createdAt: "2026-11-03T10:35:00.000Z",
+    };
+
+    const p1Audit2: SemanticAuditResult = {
+      id: "p1_audit_2",
+      attemptId: "p1_att_2",
+      studySetId: "os_set",
+      questionId: "q_page_replacement",
+      status: "completed",
+      scope: { type: "paragraph", paragraphIndex: 0, totalParagraphs: 2 },
+      overall: {
+        summary:
+          "Great job! You clearly stated the purpose and named all three algorithms.",
+        whatExplainedWell: ["Victim selection on page fault"],
+        whatNeedsAttention: [],
+        whatNeedsCorrection: [],
+        suggestedNextImprovement: "Keep this clear intro as-is.",
+        coveredCount: 1,
+        partiallyCoveredCount: 0,
+        missingCount: 0,
+        incorrectCount: 0,
+        optionalCount: 0,
+        totalCriteria: 1,
+      },
+      criteriaEvaluations: [
+        {
+          criterionId: "crit_victim_selection",
+          criterionName: "Victim selection on page fault",
+          category: "essential_concept",
+          status: "covered",
+          explanation:
+            "Student communicated both elements required for Paragraph 1.",
+          transcriptEvidence:
+            "page replacement algorithm decide which page to remove from memory when a page fault occurs. Common algorithms include FIFO, LRU, and optimal.",
+          improvementSuggestion: "Continue with confident delivery.",
+          orderIndex: 0,
+        },
+      ],
+      createdAt: "2026-11-03T10:35:10.000Z",
+      updatedAt: "2026-11-03T10:35:10.000Z",
+      hasUncertainty: false,
+    };
+
+    // 1. Paragraph 1 vs Paragraph 1 comparison
+    it("1. compares Paragraph 1 attempt with another Paragraph 1 attempt without leaking other paragraphs", () => {
+      const comp = compareAttempts({
+        attemptA: p1Attempt1,
+        attemptB: p1Attempt2,
+        auditA: p1Audit1,
+        auditB: p1Audit2,
+        criteria: wholeQuestionCriteria, // Even if whole question rubric is passed
+      });
+
+      expect(comp.isComparable).toBe(true);
+      expect(comp.scopeDescription).toBe("Paragraph 1 of 2");
+      // CRITICAL FIX: The denominator must be 1 (the paragraph's concept), NOT 4!
+      expect(comp.summary.mandatoryTotal).toBe(1);
+      expect(comp.summary.conceptsCoveredEarlier).toBe(0);
+      expect(comp.summary.conceptsCoveredLater).toBe(1);
+      expect(comp.summary.netProgress).toBe(1);
+      expect(comp.summary.improvedConcepts).toEqual([
+        "Victim selection on page fault",
+      ]);
+      expect(comp.concepts.length).toBe(1);
+      expect(comp.concepts[0]?.criterionName).toBe(
+        "Victim selection on page fault"
+      );
+      expect(comp.concepts[0]?.transition).toBe("improved");
+      expect(comp.concepts[0]?.earlierStatus).toBe("partially_covered");
+      expect(comp.concepts[0]?.laterStatus).toBe("covered");
+    });
+
+    // 2. Paragraph 2 vs Paragraph 2 comparison
+    it("2. compares Paragraph 2 attempt with another Paragraph 2 attempt", () => {
+      const p2Attempt1: PracticeAttempt = {
+        ...p1Attempt1,
+        id: "p2_att_1",
+        paragraphIndex: 1,
+        createdAt: "2026-11-03T11:00:00.000Z",
+      };
+      const p2Attempt2: PracticeAttempt = {
+        ...p1Attempt2,
+        id: "p2_att_2",
+        paragraphIndex: 1,
+        createdAt: "2026-11-03T11:10:00.000Z",
+      };
+      const p2Audit1: SemanticAuditResult = {
+        ...p1Audit1,
+        id: "p2_audit_1",
+        attemptId: "p2_att_1",
+        criteriaEvaluations: [
+          {
+            criterionId: "crit_algo_terms",
+            criterionName: "FIFO, LRU, Optimal terminology",
+            category: "technical_anchor",
+            status: "covered",
+            explanation: "Explained FIFO and LRU.",
+            improvementSuggestion: "Add Optimal.",
+            orderIndex: 0,
+          },
+        ],
+      };
+      const p2Audit2: SemanticAuditResult = {
+        ...p1Audit2,
+        id: "p2_audit_2",
+        attemptId: "p2_att_2",
+        criteriaEvaluations: [
+          {
+            criterionId: "crit_algo_terms",
+            criterionName: "FIFO, LRU, Optimal terminology",
+            category: "technical_anchor",
+            status: "covered",
+            explanation: "Explained all 3.",
+            improvementSuggestion: "Good.",
+            orderIndex: 0,
+          },
+          {
+            criterionId: "crit_tradeoffs",
+            criterionName: "Rule to tradeoff comparison",
+            category: "relationship_sequence",
+            status: "covered",
+            explanation: "Detailed tradeoffs.",
+            improvementSuggestion: "Good.",
+            orderIndex: 1,
+          },
+        ],
+      };
+
+      const comp = compareAttempts({
+        attemptA: p2Attempt1,
+        attemptB: p2Attempt2,
+        auditA: p2Audit1,
+        auditB: p2Audit2,
+        criteria: wholeQuestionCriteria,
+      });
+
+      expect(comp.isComparable).toBe(true);
+      expect(comp.scopeDescription).toBe("Paragraph 2 of 2");
+      expect(comp.summary.conceptsCoveredEarlier).toBe(1);
+      expect(comp.summary.conceptsCoveredLater).toBe(2);
+      expect(comp.summary.netProgress).toBe(1);
+    });
+
+    // 3. Whole-answer attempt compared with another whole-answer attempt
+    it("3. compares whole-answer attempt with another whole-answer attempt", () => {
+      const comp = checkScopeCompatibility(baseAttemptA, baseAttemptB);
+      expect(comp.compatible).toBe(true);
+      if (comp.compatible) {
+        expect(comp.scopeDescription).toBe("Whole Answer");
+        expect(comp.isParagraphScope).toBe(false);
+      }
+    });
+
+    // 4. Paragraph-level attempt compared against whole-answer attempt
+    it("4. explicitly rejects paragraph attempt compared against whole-answer attempt with clear explanation", () => {
+      const wholeAnswerSameQ: PracticeAttempt = {
+        ...baseAttemptB,
+        questionId: "q_page_replacement",
+      };
+      const comp = checkScopeCompatibility(p1Attempt1, wholeAnswerSameQ);
+      expect(comp.compatible).toBe(false);
+      if (!comp.compatible) {
+        expect(comp.reason).toContain(
+          "One attempt evaluated only Paragraph 1, while the other evaluated the whole answer"
+        );
+      }
+    });
+
+    // 5. Paragraph 1 compared against Paragraph 2
+    it("5. explicitly rejects Paragraph 1 attempt compared against Paragraph 2 attempt", () => {
+      const p2Attempt: PracticeAttempt = {
+        ...p1Attempt2,
+        paragraphIndex: 1,
+      };
+      const comp = checkScopeCompatibility(p1Attempt1, p2Attempt);
+      expect(comp.compatible).toBe(false);
+      if (!comp.compatible) {
+        expect(comp.reason).toContain(
+          "Attempt 1 evaluates Paragraph 1, while Attempt 2 evaluates Paragraph 2"
+        );
+      }
+    });
+
+    // 6. Historical attempts without scope metadata
+    it("6. rejects historical attempts lacking scope metadata without fabricating historical scope", () => {
+      const legacyAttemptA: PracticeAttempt = {
+        ...baseAttemptA,
+        scope: undefined,
+      };
+      const legacyAttemptB: PracticeAttempt = {
+        ...baseAttemptB,
+        scope: undefined,
+      };
+      const comp = checkScopeCompatibility(legacyAttemptA, legacyAttemptB);
+      expect(comp.compatible).toBe(false);
+      if (!comp.compatible) {
+        expect(comp.reason).toContain("practice scope is unavailable");
+      }
+    });
+
+    // 7. Paragraph-level concept coverage calculations
+    it("7. calculates concept coverage using only paragraph's actual concepts", () => {
+      const comp = compareAttempts({
+        attemptA: p1Attempt1,
+        attemptB: p1Attempt2,
+        auditA: p1Audit1,
+        auditB: p1Audit2,
+        criteria: wholeQuestionCriteria,
+      });
+
+      // Total mandatory must be 1 (only the concept evaluated in Paragraph 1)
+      expect(comp.summary.mandatoryTotal).toBe(1);
+      expect(comp.summary.conceptsCoveredEarlier).toBe(0);
+      expect(comp.summary.conceptsCoveredLater).toBe(1);
+    });
+
+    // 8. Paragraph-level spoken evidence
+    it("8. isolates spoken evidence to the paragraph scope", () => {
+      const comp = compareAttempts({
+        attemptA: p1Attempt1,
+        attemptB: p1Attempt2,
+        auditA: p1Audit1,
+        auditB: p1Audit2,
+        criteria: wholeQuestionCriteria,
+      });
+
+      const concept = comp.concepts[0]!;
+      expect(concept.earlierEvidence).toContain("FIFO and LRU");
+      expect(concept.laterEvidence).toContain("optimal");
+    });
+
+    // 9. Progress summaries and concept counts
+    it("9. produces accurate progress headline and summary metrics for paragraph practice", () => {
+      const comp = compareAttempts({
+        attemptA: p1Attempt1,
+        attemptB: p1Attempt2,
+        auditA: p1Audit1,
+        auditB: p1Audit2,
+        criteria: wholeQuestionCriteria,
+      });
+
+      expect(comp.summary.headline).toContain(
+        "Great progress! You covered 1 more key concept"
+      );
+      expect(comp.summary.improvedConcepts).toContain(
+        "Victim selection on page fault"
+      );
+      expect(comp.summary.wordsSpokenChange).toBe(0);
+      expect(comp.summary.durationSecondsChange).toBe(33); // 56 - 23
+    });
+
+    // 10. Scope preservation in attempt records
+    it("10. preserves scope type, paragraphIndex, paragraphText, and totalParagraphs in attempt record", () => {
+      expect(p1Attempt1.scope).toBe("paragraph");
+      expect(p1Attempt1.paragraphIndex).toBe(0);
+      expect(p1Attempt1.totalParagraphs).toBe(2);
+      expect(p1Attempt1.paragraphText).toContain(
+        "Page replacement algorithms decide"
+      );
+    });
+  });
 });

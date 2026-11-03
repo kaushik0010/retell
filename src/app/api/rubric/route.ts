@@ -1,6 +1,10 @@
 import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
+
+// Allow up to 60s runtime for AI reasoning on Vercel Hobby plan
+export const maxDuration = 60;
+
 import {
   RubricRequestSchema,
   RubricLLMOutputSchema,

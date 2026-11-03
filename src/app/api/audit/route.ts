@@ -1,6 +1,9 @@
 import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
+
+// Allow up to 60s runtime for semantic evaluation on Vercel Hobby plan
+export const maxDuration = 60;
 import { SemanticAuditRequestSchema } from "@/lib/domain/semantic-audit";
 import { evaluateStudentAnswer } from "@/lib/audit/evaluator";
 import { sanitizeError } from "@/lib/providers/errors";

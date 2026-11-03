@@ -2,6 +2,8 @@
 
 > **Know it. Say it. Improve it.**
 
+**Live Application:** [https://retell-five.vercel.app/](https://retell-five.vercel.app/)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16.4.3-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.3.0-blue?logo=react)](https://react.dev/)
@@ -10,8 +12,8 @@
 
 Retell is an AI-powered exam answer practice platform that helps students practise explaining answers in their own words, identify missing concepts, and improve through repeated attempts.
 
+- **Live Application:** [https://retell-five.vercel.app/](https://retell-five.vercel.app/)
 - **Repository:** [https://github.com/kaushik0010/retell](https://github.com/kaushik0010/retell)
-- **Demo:** Deployment and public demo link pending release.
 
 ---
 
@@ -308,7 +310,7 @@ Two curated sample PDF documents are included directly in the repository under [
 
 1. **Download a sample PDF:**
    - From GitHub: Navigate to [`public/assets/qa_material/`](public/assets/qa_material) and download either [`AI_ML_Module_2_Questions_with_Answers.pdf`](public/assets/qa_material/AI_ML_Module_2_Questions_with_Answers.pdf) or [`STE_QB_UT1.pdf`](public/assets/qa_material/STE_QB_UT1.pdf).
-   - Alternatively, when running locally or on the deployed app, both files are served as static assets from `/assets/qa_material/<filename>`.
+   - Alternatively, when running locally or on the live application ([https://retell-five.vercel.app/](https://retell-five.vercel.app/)), both files are served as static assets from `/assets/qa_material/<filename>`.
 2. **Upload the file into Retell:**
    - Navigate to **Add study material** (`/materials/new`) from the top navigation.
    - Switch to the **Upload PDF Document** tab and select the downloaded PDF.
@@ -351,7 +353,7 @@ pnpm run test:providers
 
 ### What Each Check Validates
 
-- **`pnpm run test`:** Executes 276 unit and integration tests across 30 test files with zero failures, including paragraph scope isolation, rate limit sliding windows, budget reservation lifecycles, and PDF extraction.
+- **`pnpm run test`:** Executes 313 unit and integration tests across 34 test files with zero failures, including paragraph scope isolation, rate limit sliding windows, budget reservation lifecycles, and PDF extraction.
 - **`pnpm run type-check`:** Runs `tsc --noEmit` across all application routes, domain models, and test files with strict type constraints.
 - **`pnpm run lint`:** Enforces ESLint 9 rules with Next.js flat configuration.
 - **`pnpm run format:check`:** Verifies Prettier code style and Tailwind CSS class ordering.
@@ -403,7 +405,7 @@ retell/
 │       └── storage/                # Local IndexedDB persistence store (retell_db v4)
 ├── tests/                          # Automated test suites
 │   ├── fixtures/                   # Deterministic sample audio and document fixtures
-│   └── unit/                       # 30 Vitest unit and integration test files
+│   └── unit/                       # 34 Vitest unit and integration test files
 ├── .env.example                    # Template for environment configuration
 ├── LICENSE                         # MIT License
 ├── package.json                    # Dependencies, scripts, and runtime configuration
@@ -420,8 +422,8 @@ retell/
 - **Semantic Evaluation:** Verified concept auditing with paragraph-level scope isolation and misconception separation.
 - **History & Comparison:** Verified attempt tracking, IndexedDB persistence (`retell_db` v4), and side-by-side attempt comparison.
 - **Resource Protection:** Verified anonymous device identification, sliding-window rate limiting, and global budget protection.
-- **Quality Verification:** 276 unit and integration tests passing; zero TypeScript errors; production build verified across 19 routes.
-- **Deployment Status:** Production hosting deployment to Vercel and public release are pending.
+- **Quality Verification:** 313 unit and integration tests passing; zero TypeScript errors; production build verified across 19 routes.
+- **Deployment Status:** Production application deployed on Vercel at [https://retell-five.vercel.app/](https://retell-five.vercel.app/).
 
 ---
 

@@ -574,3 +574,23 @@ export function EllipsisVerticalIcon({
     </svg>
   );
 }
+
+export function LayersIcon({ className = "w-5 h-5", ...props }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.75}
+      stroke="currentColor"
+      className={className}
+      {...props}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m3.75 9 8.25 4.5 8.25-4.5-8.25-4.5-8.25 4.5ZM3.75 13.5 12 18l8.25-4.5M3.75 18 12 22.5l8.25-4.5"
+      />
+    </svg>
+  );
+}

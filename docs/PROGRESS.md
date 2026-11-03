@@ -633,6 +633,36 @@ This is the authoritative, real-time checklist tracking all tasks across the Ret
   - Preserved integer micro-USD precision, atomic Lua two-phase budget reservation/settlement/refund, and fail-closed security.
   - Updated documentation (`README.md`, `.env.example`, `IMPLEMENTATION_PLAN.md`, `ROADMAP.md`) and unit test assertions.
 
+- [x] **Dedicated 404 Not Found Page & Lost Document Illustration**
+  - **Custom SVG Paper Character (`src/components/illustrations/LostDocumentIllustration.tsx`):**
+    - Hand-authored, scalable vector illustration recreating the approved visual reference design:
+      - Tilted paper body with folded top-left corner, faint peach ruled lines, and warm chocolate brown outlines (`#7E4E2C`).
+      - Expressive face with worried arched eyebrows, blinking dark oval eyes with catchlight sparks, soft peach blush cheeks (`#FFAAA6`), and a gentle frown.
+      - Left arm akimbo on hip, right arm scratching head/temple in confusion.
+      - Short stick legs with rounded feet grounded on a soft beige shadow ellipse (`#F4E6D2`).
+      - Directional wooden signpost with two angled arrow boards pointing right/down-right, nestled in sage green bush mounds (`#98AB82`, `#A7B990`).
+      - Floating tomato red question mark (`#E6533D`) and confusion accent ticks.
+  - **Lightweight CSS Animations & Reduced-Motion Safeguard:**
+    - Gentle floating document bobbing (`translateY(-8px)` over 4s), subtle question mark scaling, rhythmic eye blink (every 4.5s), and ground shadow breathing.
+    - Zero external animation libraries required.
+    - Full `@media (prefers-reduced-motion: reduce)` support: disables all nonessential animation and resets transforms.
+  - **Next.js App Router Not Found Page (`src/app/not-found.tsx`):**
+    - Implemented Next.js App Router `not-found.tsx` convention with full-viewport immersive canvas (`fixed inset-0 z-50 overflow-y-auto bg-brand-cream`).
+    - Top-left Retell brand squircle with white capital `R` linking to `/`.
+    - Centered layout with generous whitespace, organic peach background corner blobs (`aria-hidden="true"`).
+    - Clear, friendly student-oriented copy:
+      - Headline: _"Oops! This answer isn't here."_
+      - Subtext: _"Looks like this page took a different route. Let's get you back on track."_
+    - Dual actionable navigation buttons:
+      - Primary: `Back to Home` (`/`) in solid Tomato red with `HomeIcon`.
+      - Secondary: `Visit your Library` (`/library`) in Tomato outline with new `LayersIcon`.
+      - Responsive stacking on mobile viewports (<640px) and side-by-side layout on tablet/desktop.
+  - **Quality Assurance & Verification:**
+    - 281 passing unit tests across 31 test files (`tests/unit/not-found.test.ts` added).
+    - Zero TypeScript errors (`tsc --noEmit`), 100% ESLint compliance, 100% Prettier formatting.
+    - Next.js production build verified (`next build --webpack`), registering `○ /_not-found` static prerender.
+    - Local server HTTP 404 response verified end-to-end via `curl.exe`.
+
 ### Day 6: Evaluation & Deployment
 
 - [ ] `TASK-6.1` — Production deployment to Vercel.

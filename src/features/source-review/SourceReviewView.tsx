@@ -25,6 +25,7 @@ import {
 } from "@/components/icons";
 
 import { ImportQuestionsModal } from "./ImportQuestionsModal";
+import { getStudentFriendlyErrorMessage } from "@/lib/errors";
 
 interface SourceReviewViewProps {
   initialStudySet: StudySet;
@@ -481,9 +482,7 @@ export function SourceReviewView({
       setStudySet(updatedSet);
       await handleSave(updatedSet);
     } catch (err: unknown) {
-      setRefreshError(
-        err instanceof Error ? err.message : "Failed to refresh points"
-      );
+      setRefreshError(getStudentFriendlyErrorMessage(err, "extraction"));
     } finally {
       setIsRefreshingPoints(false);
     }

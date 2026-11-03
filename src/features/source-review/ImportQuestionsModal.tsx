@@ -14,6 +14,7 @@ import {
   assessUploadPayloadBudget,
   CLIENT_UPLOAD_BUDGET_BYTES,
 } from "@/lib/files";
+import { getStudentFriendlyErrorMessage } from "@/lib/errors";
 import {
   ArrowPathIcon,
   DocumentTextIcon,
@@ -215,7 +216,7 @@ export function ImportQuestionsModal({
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to process files.");
+      setError(getStudentFriendlyErrorMessage(err, "extraction"));
     }
   };
 
@@ -322,9 +323,7 @@ export function ImportQuestionsModal({
       setCandidates(extractedItems);
       setStep("preview");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Extraction error occurred."
-      );
+      setError(getStudentFriendlyErrorMessage(err, "extraction"));
     } finally {
       setIsExtracting(false);
       setExtractionStep("");
@@ -486,9 +485,7 @@ export function ImportQuestionsModal({
       setCandidates([]);
       onClose();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to import questions."
-      );
+      setError(getStudentFriendlyErrorMessage(err, "extraction"));
     } finally {
       setIsImporting(false);
       setImportProgress("");

@@ -109,7 +109,7 @@ export class TranscribeClient {
         this.isMockRelay
           ? {
               reason:
-                "Meta WebSocket unavailable; running browser speech engine",
+                "Live speech service unavailable; running local speech engine",
             }
           : undefined
       );

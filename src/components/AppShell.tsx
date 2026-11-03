@@ -3,12 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  HomeIcon,
-  BookOpenIcon,
-  PlusCircleIcon,
-  SearchIcon,
-} from "@/components/icons";
+import { HomeIcon, BookOpenIcon, PlusCircleIcon } from "@/components/icons";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -117,27 +112,14 @@ export function AppShell({ children }: AppShellProps) {
       {/* Main Content Area */}
       <div className="flex w-full min-w-0 flex-1 flex-col pb-24 lg:pb-0">
         {/* Desktop Top Header Bar */}
-        <header className="border-brand-peach/60 sticky top-0 z-20 hidden h-16 items-center justify-between border-b bg-white/70 px-8 backdrop-blur-xs lg:flex">
-          {/* Search Bar matching reference image */}
-          <div className="border-brand-peach/70 bg-brand-cream/40 text-brand-secondary flex w-full max-w-md items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs">
-            <SearchIcon className="text-brand-secondary/70 h-4 w-4" />
-            <input
-              type="text"
-              readOnly
-              placeholder="Search your questions or subjects..."
-              className="text-brand-ink placeholder:text-brand-secondary/60 w-full bg-transparent text-xs focus:outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link
-              href="/materials/new"
-              className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-semibold text-white shadow-2xs transition"
-            >
-              <PlusCircleIcon className="h-4 w-4" />
-              <span>Add study material</span>
-            </Link>
-          </div>
+        <header className="border-brand-peach/60 sticky top-0 z-20 hidden h-16 items-center justify-end border-b bg-white/70 px-8 backdrop-blur-xs lg:flex">
+          <Link
+            href="/materials/new"
+            className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-semibold text-white shadow-2xs transition"
+          >
+            <PlusCircleIcon className="h-4 w-4" />
+            <span>Add study material</span>
+          </Link>
         </header>
 
         {/* Mobile Top Header Bar */}

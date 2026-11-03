@@ -20,7 +20,7 @@ export function LibraryView() {
   const [studySets, setStudySets] = useState<StudySet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterTab, setFilterTab] = useState<"all" | "ready" | "recent">("all");
+  const [filterTab, setFilterTab] = useState<"all" | "recent">("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [mountedTime] = useState(() => Date.now());
 
@@ -126,18 +126,6 @@ export function LibraryView() {
             }`}
           >
             All ({studySets.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterTab("ready")}
-            className={`cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              filterTab === "ready"
-                ? "bg-brand-tomato text-white shadow-2xs"
-                : "border-brand-peach/60 text-brand-secondary hover:text-brand-ink border bg-white"
-            }`}
-          >
-            Ready to practise
           </button>
 
           <button

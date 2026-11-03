@@ -22,6 +22,7 @@ import {
   CLIENT_UPLOAD_BUDGET_BYTES,
   inspectPdf,
 } from "@/lib/files";
+import { getStudentFriendlyErrorMessage } from "@/lib/errors";
 import { PdfPreview } from "./PdfPreview";
 import {
   SparklesIcon,
@@ -228,9 +229,7 @@ function NewMaterialContent() {
       setDetectedQuestions([]);
       setCurrentMaterial(null);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to read the selected PDF."
-      );
+      setError(getStudentFriendlyErrorMessage(err, "extraction"));
     }
   };
 
@@ -339,11 +338,7 @@ function NewMaterialContent() {
         }
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to read the selected files."
-      );
+      setError(getStudentFriendlyErrorMessage(err, "extraction"));
     }
   };
 
@@ -552,11 +547,7 @@ function NewMaterialContent() {
         setTitle(material.title);
       }
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred while analyzing the file.";
-      setError(msg);
+      setError(getStudentFriendlyErrorMessage(err, "extraction"));
     } finally {
       setIsExtracting(false);
       setExtractionStep("");
@@ -639,11 +630,7 @@ function NewMaterialContent() {
       setDetectedQuestions(questions);
       setSelectedQuestionIndex(0);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred while processing your material.";
-      setError(msg);
+      setError(getStudentFriendlyErrorMessage(err, "extraction"));
     } finally {
       setIsExtracting(false);
       setExtractionStep("");
@@ -876,11 +863,7 @@ function NewMaterialContent() {
       await saveStudySet(studySet);
       router.push(`/review/${studySet.id}`);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred while preparing your study set.";
-      setError(msg);
+      setError(getStudentFriendlyErrorMessage(err, "extraction"));
       setIsPreparing(false);
       setPreparingStep("");
     }
@@ -1033,12 +1016,12 @@ function NewMaterialContent() {
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 shadow-xs">
           <div className="flex items-start gap-2.5">
             <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-            <div className="flex-1">
-              <span className="font-bold">Error: </span>
+            <div className="flex-1 leading-relaxed font-medium">
               <span>{error}</span>
             </div>
             <button
               type="button"
+              aria-label="Dismiss error notice"
               onClick={() => setError(null)}
               className="cursor-pointer font-bold text-red-700 hover:text-red-900"
             >

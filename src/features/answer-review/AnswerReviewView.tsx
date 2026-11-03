@@ -21,6 +21,7 @@ import {
   extractParagraphs,
   resolvePracticeScope,
 } from "@/lib/domain/paragraph-scope";
+import { getStudentFriendlyErrorMessage } from "@/lib/errors";
 
 interface AnswerReviewViewProps {
   studySet: StudySet;
@@ -113,11 +114,7 @@ export function AnswerReviewView({
       await saveSemanticAuditResult(data.audit);
       setAudit(data.audit);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred during evaluation.";
-      setAuditError(msg);
+      setAuditError(getStudentFriendlyErrorMessage(err, "evaluation"));
     } finally {
       setIsAuditing(false);
     }

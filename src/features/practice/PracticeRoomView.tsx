@@ -23,6 +23,7 @@ import { TranscribeClient } from "@/lib/audio/transcribe-client";
 import { TranscriptAccumulator } from "@/lib/audio/transcript-accumulator";
 import { generateRecallHint } from "@/lib/domain/recall-hints";
 import { resolvePracticeScope } from "@/lib/domain/paragraph-scope";
+import { getStudentFriendlyErrorMessage } from "@/lib/errors";
 import { WaveformVisualizer } from "./WaveformVisualizer";
 import { LiveTranscript } from "./LiveTranscript";
 import { ContextualHint } from "./ContextualHint";
@@ -148,42 +149,8 @@ export function PracticeRoomView({
   };
 
   const handleAudioError = (err: unknown) => {
-    const msg =
-      err instanceof Error
-        ? err.message
-        : "Could not access your microphone or establish connection.";
     console.error("Practice room audio error:", err);
-
-    let friendlyMessage = msg;
-    if (
-      msg.includes("Permission denied") ||
-      msg.includes("NotAllowedError") ||
-      msg.includes("PermissionDismissedError")
-    ) {
-      friendlyMessage =
-        "Microphone access was denied. Please allow microphone permissions in your browser address bar to practise speaking.";
-    } else if (
-      msg.includes("NotFoundError") ||
-      msg.includes("DevicesNotFoundError")
-    ) {
-      friendlyMessage =
-        "No microphone detected on your device. Please plug in a microphone or headset and try again.";
-    } else if (msg.includes("active spoken recording in progress")) {
-      friendlyMessage =
-        "You already have an active recording in progress. Please finish or stop it first, or wait a moment.";
-    } else if (
-      msg.includes("doing that a little too quickly") ||
-      msg.includes("429")
-    ) {
-      friendlyMessage =
-        "You're starting recordings too quickly. Please wait a few moments before trying again.";
-    } else if (
-      msg.includes("temporarily unable to process new requests") ||
-      msg.includes("503")
-    ) {
-      friendlyMessage =
-        "Retell is temporarily unable to start a new recording session. Please try again in a few moments.";
-    }
+    const friendlyMessage = getStudentFriendlyErrorMessage(err, "practice");
 
     setErrorMessage(friendlyMessage);
     setSessionState("error");
@@ -569,11 +536,7 @@ export function PracticeRoomView({
         throw new Error(auditData.error || "Could not complete evaluation.");
       }
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Evaluation could not be completed.";
-      setAuditNotice(`Evaluation retry notice: ${msg}`);
+      setAuditNotice(getStudentFriendlyErrorMessage(err, "evaluation"));
     } finally {
       setIsRetryingAudit(false);
     }

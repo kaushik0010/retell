@@ -353,7 +353,7 @@ pnpm run test:providers
 
 ### What Each Check Validates
 
-- **`pnpm run test`:** Executes 313 unit and integration tests across 34 test files with zero failures, including paragraph scope isolation, rate limit sliding windows, budget reservation lifecycles, and PDF extraction.
+- **`pnpm run test`:** Executes 334 unit and integration tests across 35 test files with zero failures, including paragraph scope isolation, rate limit sliding windows, budget reservation lifecycles, and PDF extraction.
 - **`pnpm run type-check`:** Runs `tsc --noEmit` across all application routes, domain models, and test files with strict type constraints.
 - **`pnpm run lint`:** Enforces ESLint 9 rules with Next.js flat configuration.
 - **`pnpm run format:check`:** Verifies Prettier code style and Tailwind CSS class ordering.
@@ -405,7 +405,7 @@ retell/
 │       └── storage/                # Local IndexedDB persistence store (retell_db v4)
 ├── tests/                          # Automated test suites
 │   ├── fixtures/                   # Deterministic sample audio and document fixtures
-│   └── unit/                       # 34 Vitest unit and integration test files
+│   └── unit/                       # 35 Vitest unit and integration test files
 ├── .env.example                    # Template for environment configuration
 ├── LICENSE                         # MIT License
 ├── package.json                    # Dependencies, scripts, and runtime configuration
@@ -420,9 +420,9 @@ retell/
 - **Rubric Generation:** Verified source-grounded key point breakdown with required terminology and scoring criteria.
 - **Practice Room & Transcription:** Verified live spoken recording via Meta Voice Transcribe WebSocket relay with browser audio capture and fallback.
 - **Semantic Evaluation:** Verified concept auditing with paragraph-level scope isolation and misconception separation.
-- **History & Comparison:** Verified attempt tracking, IndexedDB persistence (`retell_db` v4), and side-by-side attempt comparison.
+- **History & Comparison:** Verified attempt tracking, IndexedDB persistence (`retell_db` v4), side-by-side attempt comparison, and Answer Review progress summary.
 - **Resource Protection:** Verified anonymous device identification, sliding-window rate limiting, and global budget protection.
-- **Quality Verification:** 313 unit and integration tests passing; zero TypeScript errors; production build verified across 19 routes.
+- **Quality Verification:** 334 unit and integration tests passing; zero TypeScript errors; production build verified across 19 routes.
 - **Deployment Status:** Production application deployed on Vercel at [https://retell-five.vercel.app/](https://retell-five.vercel.app/).
 
 ---

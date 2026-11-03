@@ -207,6 +207,28 @@ export interface ReasoningProviderAdapter {
 
 ---
 
+## 7.1 Learning Progress & Comparison Architecture (`src/lib/domain/attempt-comparison.ts`, `src/features/answer-review/ProgressSummaryCard.tsx`)
+
+- **Unified Single Source of Truth:**
+  - `deriveProgressSummary`, `findPrecedingComparableAttempt`, and `compareAttempts` provide canonical comparison and transition classification across both Answer Review and the dedicated Compare Progress page.
+- **Four Distinct Outcome States:**
+  - `improvement`: Net concept coverage increases, `+X concept(s)` headline, green visual treatment, primary improved concept description.
+  - `regression`: Net concept coverage decreases, `−X concept(s)` headline, supportive `Needs attention` badge, rose visual treatment, primary regressed concept description.
+  - `no_change`: Conceptual coverage and individual concept statuses remain identical, `Consistent coverage` headline, warm cream neutral treatment.
+  - `mixed_progress`: Individual concepts show both improvements and regressions, `Mixed changes` headline, amber treatment, ensuring regressions are never concealed behind an unchanged aggregate score.
+- **Strict Practice Scope Isolation:**
+  - Paragraph-level practice compares exclusively with prior attempts practicing the same paragraph (Paragraph N vs Paragraph N).
+  - Whole-answer practice compares exclusively with prior whole-answer attempts.
+  - Cross-scope comparisons (e.g. Paragraph 1 vs Paragraph 2, or Whole Answer vs Paragraph) are rejected; the Progress Summary is omitted gracefully.
+- **Historical Record Backward Compatibility:**
+  - Resolves legacy attempts lacking explicit `attempt.scope` by inspecting persisted `audit.scope`.
+  - Gracefully omits the summary when historical audits are incomplete or scope cannot be determined safely, without inventing scores or triggering billable AI calls.
+- **Component Architecture:**
+  - `ProgressSummaryCard.tsx`: Desktop side-by-side cards with visual progress meters, coverage percentages, directional indicator, and direct "View full comparison →" navigation; responsive vertical stacking on mobile viewports.
+  - Placed at Section 3 in `AnswerReviewView.tsx` directly above Overall Assessment, establishing an 8-stage canonical review order.
+
+---
+
 ## 8. Persistence: IndexedDB (`src/lib/storage`)
 
 - Schema Version 1:

@@ -88,6 +88,34 @@ export interface AttemptComparisonResult {
 }
 
 /**
+ * Outcome classification for student progress comparison summary.
+ */
+export type ComparisonOutcome =
+  "improvement" | "regression" | "no_change" | "mixed_progress";
+
+/**
+ * Structured presentation payload for the visual Progress Summary component.
+ */
+export interface ProgressSummaryData {
+  outcome: ComparisonOutcome;
+  statusLabel: string; // "Improved" | "Needs attention" | "No change" | "Mixed progress"
+  headline: string; // "+1 concept", "−1 concept", "Consistent coverage", "Mixed changes"
+  subheadline: string; // Short encouraging explanation
+  earlierAttempt: PracticeAttempt;
+  laterAttempt: PracticeAttempt;
+  earlierAudit: SemanticAuditResult;
+  laterAudit: SemanticAuditResult;
+  earlierCovered: number;
+  laterCovered: number;
+  totalCriteria: number;
+  earlierPercentage: number;
+  laterPercentage: number;
+  scopeDescription: string;
+  mostMeaningfulChange: string;
+  netProgress: number; // laterCovered - earlierCovered
+}
+
+/**
  * Check whether two attempts have compatible practice scopes for meaningful comparison.
  *
  * Rules:
@@ -252,6 +280,14 @@ export function deriveConceptTransition(
     return {
       transition: "partial_progress",
       message: `Partial progress: "${criterionName}" is now partially explained.`,
+    };
+  }
+
+  // Regressed from covered to partially covered
+  if (earlierStatus === "covered" && laterStatus === "partially_covered") {
+    return {
+      transition: "regressed",
+      message: `You previously covered "${criterionName}", but only partially explained it in this attempt.`,
     };
   }
 
@@ -587,4 +623,243 @@ export function compareAttempts({
       studentFeedback,
     },
   };
+}
+
+/**
+ * Helper to format criterion evaluation status into friendly display text.
+ */
+function formatStatus(
+  status: CriterionEvaluationStatus | "not_evaluated"
+): string {
+  switch (status) {
+    case "covered":
+      return "Covered";
+    case "partially_covered":
+      return "Partially covered";
+    case "missing":
+      return "Missing";
+    case "incorrect":
+      return "Needs correction";
+    case "optional":
+      return "Helpful extra";
+    default:
+      return "Not evaluated";
+  }
+}
+
+/**
+ * Derives a compact, student-first Progress Summary from a full attempt comparison result.
+ * Returns null if the attempts cannot be compared or lack completed evaluation audits.
+ */
+export function deriveProgressSummary(
+  comparison: AttemptComparisonResult
+): ProgressSummaryData | null {
+  if (
+    !comparison.isComparable ||
+    !comparison.earlierAudit ||
+    !comparison.laterAudit
+  ) {
+    return null;
+  }
+
+  const {
+    earlierAttempt,
+    laterAttempt,
+    earlierAudit,
+    laterAudit,
+    concepts,
+    summary,
+  } = comparison;
+
+  const mandatoryConcepts = concepts.filter((c) => c.isMandatory);
+  const targetConcepts =
+    mandatoryConcepts.length > 0 ? mandatoryConcepts : concepts;
+
+  if (targetConcepts.length === 0) {
+    return null;
+  }
+
+  const totalCriteria = targetConcepts.length;
+  const earlierCovered = summary.conceptsCoveredEarlier;
+  const laterCovered = summary.conceptsCoveredLater;
+  const netProgress = laterCovered - earlierCovered;
+
+  const earlierPercentage = Math.round((earlierCovered / totalCriteria) * 100);
+  const laterPercentage = Math.round((laterCovered / totalCriteria) * 100);
+
+  // Transition flags
+  const hasImprovements = targetConcepts.some(
+    (c) => c.transition === "improved" || c.transition === "partial_progress"
+  );
+  const hasRegressions = targetConcepts.some(
+    (c) => c.transition === "regressed" || c.transition === "new_misconception"
+  );
+
+  let outcome: ComparisonOutcome;
+  let statusLabel: string;
+  let headline: string;
+  let subheadline: string;
+
+  if (hasImprovements && hasRegressions) {
+    outcome = "mixed_progress";
+    statusLabel = "Mixed progress";
+    if (netProgress === 0) {
+      headline = "Mixed changes";
+      subheadline = "Some concepts improved while others need more detail.";
+    } else if (netProgress > 0) {
+      headline = `+${netProgress} net ${netProgress === 1 ? "concept" : "concepts"}`;
+      subheadline =
+        "You improved on some concepts, but others need more detail.";
+    } else {
+      headline = `−${Math.abs(netProgress)} net ${
+        Math.abs(netProgress) === 1 ? "concept" : "concepts"
+      }`;
+      subheadline = "Some concepts improved, but others were missed this time.";
+    }
+  } else if (hasImprovements) {
+    outcome = "improvement";
+    statusLabel = "Improved";
+    const count = netProgress > 0 ? netProgress : 1;
+    headline = `+${count} ${count === 1 ? "concept" : "concepts"}`;
+    subheadline = `You covered ${
+      count === 1
+        ? "one more important concept"
+        : `${count} more important concepts`
+    } than your previous attempt.`;
+  } else if (hasRegressions) {
+    outcome = "regression";
+    statusLabel = "Needs attention";
+    const drop = netProgress < 0 ? Math.abs(netProgress) : 1;
+    headline = `−${drop} ${drop === 1 ? "concept" : "concepts"}`;
+    subheadline = `You covered ${
+      drop === 1 ? "one fewer key concept" : `${drop} fewer key concepts`
+    } than your previous attempt.`;
+  } else {
+    outcome = "no_change";
+    statusLabel = "No change";
+    headline = "Consistent coverage";
+    subheadline = "Your conceptual coverage matched your previous attempt.";
+  }
+
+  // Derive the single most meaningful change description
+  let mostMeaningfulChange = "";
+
+  if (hasImprovements && hasRegressions) {
+    const improvedConcept =
+      targetConcepts.find((c) => c.transition === "improved") ||
+      targetConcepts.find((c) => c.transition === "partial_progress");
+    const regressedConcept =
+      targetConcepts.find((c) => c.transition === "regressed") ||
+      targetConcepts.find((c) => c.transition === "new_misconception");
+
+    if (improvedConcept && regressedConcept) {
+      mostMeaningfulChange = `${improvedConcept.criterionName}: ${formatStatus(
+        improvedConcept.earlierStatus
+      )} → ${formatStatus(improvedConcept.laterStatus)}`;
+    }
+  }
+
+  if (!mostMeaningfulChange && hasImprovements) {
+    const improvedConcept =
+      targetConcepts.find((c) => c.transition === "improved") ||
+      targetConcepts.find((c) => c.transition === "partial_progress");
+    if (improvedConcept) {
+      mostMeaningfulChange = `${improvedConcept.criterionName}: ${formatStatus(
+        improvedConcept.earlierStatus
+      )} → ${formatStatus(improvedConcept.laterStatus)}`;
+    }
+  }
+
+  if (!mostMeaningfulChange && hasRegressions) {
+    const regressedConcept =
+      targetConcepts.find((c) => c.transition === "regressed") ||
+      targetConcepts.find((c) => c.transition === "new_misconception");
+    if (regressedConcept) {
+      mostMeaningfulChange = `${regressedConcept.criterionName}: ${formatStatus(
+        regressedConcept.earlierStatus
+      )} → ${formatStatus(regressedConcept.laterStatus)}`;
+    }
+  }
+
+  if (!mostMeaningfulChange) {
+    if (laterCovered === totalCriteria) {
+      mostMeaningfulChange =
+        "All key concepts were consistently covered in both attempts.";
+    } else {
+      mostMeaningfulChange =
+        "Coverage maintained across all evaluated concepts.";
+    }
+  }
+
+  return {
+    outcome,
+    statusLabel,
+    headline,
+    subheadline,
+    earlierAttempt,
+    laterAttempt,
+    earlierAudit,
+    laterAudit,
+    earlierCovered,
+    laterCovered,
+    totalCriteria,
+    earlierPercentage,
+    laterPercentage,
+    scopeDescription: comparison.scopeDescription,
+    mostMeaningfulChange,
+    netProgress,
+  };
+}
+
+/**
+ * Finds the immediately preceding comparable attempt for a given attempt.
+ * Evaluates candidates chronologically in reverse (most recent prior attempt first)
+ * and verifies scope compatibility.
+ */
+export function findPrecedingComparableAttempt(
+  currentAttempt: PracticeAttempt,
+  allAttempts: PracticeAttempt[],
+  currentAudit?: SemanticAuditResult | null,
+  auditsByAttemptId?:
+    | Record<string, SemanticAuditResult | undefined>
+    | Map<string, SemanticAuditResult | undefined>
+): PracticeAttempt | null {
+  const currentCreated = new Date(currentAttempt.createdAt).getTime();
+
+  // Filter to earlier attempts for the same question
+  const earlierAttempts = allAttempts
+    .filter(
+      (a) =>
+        a.questionId === currentAttempt.questionId &&
+        a.id !== currentAttempt.id &&
+        new Date(a.createdAt).getTime() < currentCreated
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+  const getAudit = (id: string): SemanticAuditResult | null => {
+    if (!auditsByAttemptId) return null;
+    if (auditsByAttemptId instanceof Map) {
+      return auditsByAttemptId.get(id) ?? null;
+    }
+    return auditsByAttemptId[id] ?? null;
+  };
+
+  for (const earlier of earlierAttempts) {
+    const earlierAudit = getAudit(earlier.id);
+    const compatibility = checkScopeCompatibility(
+      earlier,
+      currentAttempt,
+      earlierAudit,
+      currentAudit
+    );
+
+    if (compatibility.compatible) {
+      return earlier;
+    }
+  }
+
+  return null;
 }

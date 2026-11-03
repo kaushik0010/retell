@@ -224,8 +224,24 @@ Wire up the complete end-to-end user journey, finalize local IndexedDB persisten
 | `TASK-5.10` | Phase 3: Persistent Rate Limiting, AI Usage Accounting & Global Spending Protection        | **Completed** | [Section 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
 | `TASK-5.11` | Practice Room Transcription Startup 429 & Session Lifecycle Fix                            | **Completed** | [Section 11](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                 |
 | `TASK-5.12` | Project README, MIT License, and Branded SVG Favicon                                       | **Completed** | [Section 10](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                 |
+| `TASK-5.13` | Reliability Fixes, Paragraph-Level Comparison & Judge Testing Materials                    | **Completed** | [Section 7, 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-5.14` | Production Reliability Fixes, Error Audit & Sample QA PDFs                                 | **Completed** | [Section 7, 8](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                               |
+| `TASK-5.15` | Visual Progress Summary on Answer Review                                                   | **Completed** | [Section 7](file:///D:/Javascript/Hackathons/retell/docs/IMPLEMENTATION_PLAN.md)                                  |
 
 ### Key Milestones Completed
+
+- [x] Visual Progress Summary on Answer Review (`TASK-5.15`):
+  - Added compact, visually prominent Progress Summary component above Overall Assessment on Answer Review.
+  - Implemented single-source-of-truth progress calculations sharing identical domain logic with the full comparison view.
+  - Supported four distinct outcome states: Improvement (green, `+X concept(s)`), Regression (light red, `Needs attention`, `−X concept(s)`), No change (cream/stone, `Consistent coverage`), and Mixed progress (amber, `Mixed changes`).
+  - Strict scope matching preventing cross-paragraph comparisons while supporting both whole-answer and paragraph-level practice.
+  - Fully backward-compatible with legacy historical attempts in IndexedDB without bulk migrations or artificial scoring.
+  - Covered by 21 unit tests across transitions, outcomes, scope compatibility, legacy fallbacks, and component rendering.
+
+- [x] Reliability Fixes, Paragraph-Level Comparison & Judge Testing Materials (`TASK-5.13`):
+  - Solved rubric preparation timeouts on long question sets by adding Vercel `maxDuration = 60`, local question cache deduplication, and client recovery banner.
+  - Fixed paragraph-level attempt comparison to isolate paragraph criteria and support legacy attempt records without scope corruption.
+  - Added curated testing sample PDFs (`AI_ML_Module_2_Questions_with_Answers.pdf` and `STE_QB_UT1.pdf`) to `public/assets/qa_material/`.
 
 - [x] Project README, MIT License, and Branded SVG Favicon:
   - Authored comprehensive, fact-grounded root-level `README.md` documenting the 5-step student workflow, problem statement, features, architecture, privacy boundaries, environment variables, technology stack, setup commands, and project status.

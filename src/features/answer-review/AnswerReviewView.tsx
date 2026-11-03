@@ -14,14 +14,19 @@ import {
 } from "@/lib/domain/semantic-audit";
 import {
   saveSemanticAuditResult,
-  getPreviousPracticeAttempt,
+  getPrecedingComparableAttemptWithAudit,
 } from "@/lib/storage/study-store";
-import { checkScopeCompatibility } from "@/lib/domain/attempt-comparison";
+import {
+  compareAttempts,
+  deriveProgressSummary,
+  ProgressSummaryData,
+} from "@/lib/domain/attempt-comparison";
 import {
   extractParagraphs,
   resolvePracticeScope,
 } from "@/lib/domain/paragraph-scope";
 import { getStudentFriendlyErrorMessage } from "@/lib/errors";
+import { ProgressSummaryCard } from "./ProgressSummaryCard";
 
 interface AnswerReviewViewProps {
   studySet: StudySet;
@@ -38,26 +43,10 @@ export function AnswerReviewView({
   const [isAuditing, setIsAuditing] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
-  const [previousAttempt, setPreviousAttempt] =
-    useState<PracticeAttempt | null>(null);
+  const [progressSummary, setProgressSummary] =
+    useState<ProgressSummaryData | null>(null);
 
-  // Check for previous attempt to enable progress comparison
-  React.useEffect(() => {
-    let mounted = true;
-    getPreviousPracticeAttempt(attempt.id)
-      .then((prev) => {
-        if (mounted) setPreviousAttempt(prev);
-      })
-      .catch((err) => {
-        console.warn("Failed to check for previous attempt:", err);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [attempt.id]);
-
-  // Identify active question
+  // Identify active question and rubric
   const questionIndex = studySet.questions.findIndex(
     (q) => q.id === attempt.questionId
   );
@@ -66,6 +55,92 @@ export function AnswerReviewView({
   const activeRubric = activeQuestion
     ? studySet.rubrics[activeQuestion.id]
     : undefined;
+
+  // Retrieve preceding comparable attempt and derive progress summary
+  React.useEffect(() => {
+    let mounted = true;
+
+    async function loadComparison() {
+      if (!audit) {
+        setProgressSummary(null);
+        return;
+      }
+
+      try {
+        const result = await getPrecedingComparableAttemptWithAudit(
+          attempt,
+          audit
+        );
+
+        if (!mounted) return;
+
+        if (!result) {
+          setProgressSummary(null);
+          return;
+        }
+
+        const { attempt: earlierAttempt, audit: earlierAudit } = result;
+
+        let criteria = activeRubric?.criteria || [];
+
+        const isParagraphPractice =
+          attempt.scope === "paragraph" ||
+          earlierAttempt.scope === "paragraph" ||
+          audit.scope?.type === "paragraph" ||
+          earlierAudit.scope?.type === "paragraph";
+
+        if (isParagraphPractice && activeQuestion?.referenceAnswer) {
+          const pIdx =
+            attempt.paragraphIndex ??
+            earlierAttempt.paragraphIndex ??
+            audit.scope?.paragraphIndex ??
+            earlierAudit.scope?.paragraphIndex ??
+            0;
+          try {
+            const resolved = resolvePracticeScope({
+              referenceAnswer: activeQuestion.referenceAnswer,
+              criteria,
+              scope: {
+                type: "paragraph",
+                paragraphIndex: pIdx,
+                totalParagraphs:
+                  attempt.totalParagraphs || earlierAttempt.totalParagraphs,
+                targetText:
+                  attempt.paragraphText || earlierAttempt.paragraphText,
+              },
+            });
+            criteria = resolved.criteria;
+          } catch {
+            // fallback if resolvePracticeScope cannot extract
+          }
+        }
+
+        const comp = compareAttempts({
+          attemptA: earlierAttempt,
+          attemptB: attempt,
+          auditA: earlierAudit,
+          auditB: audit,
+          criteria,
+        });
+
+        const summaryData = deriveProgressSummary(comp);
+        if (mounted) {
+          setProgressSummary(summaryData);
+        }
+      } catch (err) {
+        console.warn("Failed to derive progress summary:", err);
+        if (mounted) {
+          setProgressSummary(null);
+        }
+      }
+    }
+
+    loadComparison();
+
+    return () => {
+      mounted = false;
+    };
+  }, [attempt, audit, activeQuestion, activeRubric]);
 
   // Handle on-demand retry or initial audit if not yet computed
   const handleRunAudit = async () => {
@@ -282,6 +357,14 @@ export function AnswerReviewView({
       {/* Complete Audit Results */}
       {audit && !isAuditing && (
         <div className="space-y-6">
+          {/* Section 3: Progress Summary (only when a comparable previous attempt exists) */}
+          {progressSummary && (
+            <ProgressSummaryCard
+              data={progressSummary}
+              studySetId={studySet.id}
+            />
+          )}
+
           {/* Section A: Overall Assessment Card */}
           <div className="border-brand-peach/80 bg-brand-cream/50 rounded-2xl border p-6 shadow-xs">
             <span className="text-brand-tomato text-[10px] font-bold tracking-wider uppercase">
@@ -608,37 +691,6 @@ export function AnswerReviewView({
               </div>
             )}
           </div>
-
-          {/* Comparison with Previous Attempt Card */}
-          {previousAttempt &&
-            checkScopeCompatibility(previousAttempt, attempt).compatible && (
-              <div className="border-brand-peach/80 bg-brand-cream/50 flex flex-col gap-3 rounded-2xl border p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="bg-brand-tomato rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider text-white uppercase">
-                      Learning Progress
-                    </span>
-                    <span className="text-brand-secondary text-xs">
-                      Earlier attempt found
-                    </span>
-                  </div>
-                  <h4 className="font-heading text-brand-ink mt-1 text-sm font-bold">
-                    Compare this attempt with your previous response
-                  </h4>
-                  <p className="text-brand-secondary mt-0.5 text-xs">
-                    See which concepts you maintained, improved, or still need
-                    to review.
-                  </p>
-                </div>
-
-                <Link
-                  href={`/study/${studySet.id}/compare?a=${previousAttempt.id}&b=${attempt.id}`}
-                  className="bg-brand-tomato hover:bg-brand-tomato-hover inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-xs transition"
-                >
-                  <span>Compare progress &rarr;</span>
-                </Link>
-              </div>
-            )}
 
           {/* Section F: Suggested Next Improvement */}
           {audit.overall.suggestedNextImprovement && (

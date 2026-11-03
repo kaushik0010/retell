@@ -532,6 +532,29 @@ export function ArrowTrendingUpIcon({
   );
 }
 
+export function ArrowTrendingDownIcon({
+  className = "w-5 h-5",
+  ...props
+}: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.75}
+      stroke="currentColor"
+      className={className}
+      {...props}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 6 9 12.75l4.286-4.286a11.948 11.948 0 0 1 5.834 5.511l2.74 1.22m0 0-5.94 2.28m5.94-2.28-2.28-5.941"
+      />
+    </svg>
+  );
+}
+
 export function ScaleIcon({ className = "w-5 h-5", ...props }: IconProps) {
   return (
     <svg

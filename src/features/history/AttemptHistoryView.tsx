@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { StudySet, ExtractedQuestion } from "@/lib/domain/study-set";
 import { PracticeAttempt } from "@/lib/domain/practice-session";
 import { SemanticAuditResult } from "@/lib/domain/semantic-audit";
-import { checkScopeCompatibility } from "@/lib/domain/attempt-comparison";
+import {
+  checkScopeCompatibility,
+  findPrecedingComparableAttempt,
+} from "@/lib/domain/attempt-comparison";
 import { extractParagraphs } from "@/lib/domain/paragraph-scope";
 import { deletePracticeAttempt } from "@/lib/storage/study-store";
 import {
@@ -165,19 +168,12 @@ export function AttemptHistoryView({
 
   // Find previous compatible attempt for each attempt to enable "Compare with previous"
   const getPrecedingCompatibleAttempt = (currentAttempt: PracticeAttempt) => {
-    const currentCreated = new Date(currentAttempt.createdAt).getTime();
-    // Look through chronological attempts before this one in reverse order
-    const earlierAttempts = chronologicalQuestionAttempts
-      .filter((a) => new Date(a.createdAt).getTime() < currentCreated)
-      .reverse();
-
-    for (const earlier of earlierAttempts) {
-      const compatibility = checkScopeCompatibility(earlier, currentAttempt);
-      if (compatibility.compatible) {
-        return earlier;
-      }
-    }
-    return null;
+    return findPrecedingComparableAttempt(
+      currentAttempt,
+      chronologicalQuestionAttempts,
+      audits[currentAttempt.id],
+      audits
+    );
   };
 
   // Selection toggle for custom 2-attempt comparison

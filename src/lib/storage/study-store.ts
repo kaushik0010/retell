@@ -7,6 +7,7 @@ import {
   SemanticAuditResult,
   SemanticAuditResultSchema,
 } from "../domain/semantic-audit";
+import { checkScopeCompatibility } from "../domain/attempt-comparison";
 
 const DB_NAME = "retell_db";
 const DB_VERSION = 4;
@@ -766,6 +767,62 @@ export async function getPreviousPracticeAttempt(
 
   // The attempt created immediately before current is at currentIndex + 1
   return allAttempts[currentIndex + 1] ?? null;
+}
+
+/**
+ * Finds the immediately preceding comparable attempt that has completed semantic evaluation.
+ * Evaluates earlier attempts chronologically (most recent first) and ensures scope compatibility.
+ */
+export async function getPrecedingComparableAttemptWithAudit(
+  currentAttempt: PracticeAttempt,
+  currentAudit?: SemanticAuditResult | null
+): Promise<{ attempt: PracticeAttempt; audit: SemanticAuditResult } | null> {
+  const allAttempts = await getPracticeAttemptsByQuestion(
+    currentAttempt.studySetId,
+    currentAttempt.questionId
+  );
+
+  const currentCreated = new Date(currentAttempt.createdAt).getTime();
+  const earlierCandidates = allAttempts
+    .filter(
+      (a) =>
+        a.id !== currentAttempt.id &&
+        new Date(a.createdAt).getTime() < currentCreated
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+  for (const candidate of earlierCandidates) {
+    let candidateAudit: SemanticAuditResult | null = null;
+    if (candidate.auditId) {
+      candidateAudit = await getSemanticAuditResult(candidate.auditId);
+    }
+    if (!candidateAudit) {
+      candidateAudit = await getSemanticAuditByAttempt(candidate.id);
+    }
+
+    const compatibility = checkScopeCompatibility(
+      candidate,
+      currentAttempt,
+      candidateAudit,
+      currentAudit
+    );
+
+    if (
+      compatibility.compatible &&
+      candidateAudit &&
+      candidateAudit.status === "completed"
+    ) {
+      return {
+        attempt: candidate,
+        audit: candidateAudit,
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
